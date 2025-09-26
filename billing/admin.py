@@ -22,14 +22,14 @@ class PaymentMethodAdmin(admin.ModelAdmin):
 
 @admin.register(Expense)
 class ExpenseAdmin(admin.ModelAdmin):
-    list_display = ("category", "amount", "date", "branch", "employee", "doctor")
-    search_fields = ("category__name", "employee__name", "doctor__name")
+    list_display = ("category", "amount", "date", "branch", "employee")
+    search_fields = ("category__name", "employee__name")
     list_filter = ("category", "date", "branch")
     date_hierarchy = "date"
     ordering = ("-date",)
     fieldsets = (
         (None, {"fields": ("category", "branch", "amount")}),
-        ("Related", {"fields": ("employee", "doctor")}),
+        ("Related", {"fields": ("employee",)}), 
         ("Details", {"fields": ("date", "notes", "created_by")}),
     )
 
