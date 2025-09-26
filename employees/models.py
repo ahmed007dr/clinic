@@ -1,16 +1,25 @@
 # employees/models.py
 from django.db import models
 from branches.models import Branch
+
+
 class Specialization(models.Model):
     name = models.CharField(max_length=100, unique=True)  # Dermatology, Cardiology, etc
     description = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return self.name
-# employees/models.py
+
+
 class EmployeeType(models.Model):
     name = models.CharField(max_length=50, unique=True)  # Doctor, Nurse, Accountant...
     description = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
+class SalaryType(models.Model):
+    name = models.CharField(max_length=100, unique=True)
 
     def __str__(self):
         return self.name

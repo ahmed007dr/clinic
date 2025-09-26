@@ -4,7 +4,8 @@ from patients.models import Patient
 from appointments.models import Appointment
 from branches.models import Branch
 from employees.models import Employee  
-from doctors.models import Doctor      
+from django.conf import settings
+
 
 
 class PaymentMethod(models.Model):
@@ -42,7 +43,6 @@ class Expense(models.Model):
     category = models.ForeignKey(ExpenseCategory, on_delete=models.SET_NULL, null=True, blank=True)
 
     employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name="expenses")
-    doctor = models.ForeignKey(Doctor, on_delete=models.SET_NULL, null=True, blank=True, related_name="expenses")
 
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateField()
@@ -52,5 +52,5 @@ class Expense(models.Model):
     notes = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        target = self.employee if self.employee else self.doctor
+        target = self.employee 
         return f"{self.category} - {self.amount} ({self.date}) → {target}"
