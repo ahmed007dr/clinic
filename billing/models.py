@@ -52,5 +52,4 @@ class Expense(models.Model):
     notes = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        target = self.employee 
-        return f"{self.category} - {self.amount} ({self.date}) → {target}"
+        return f"{self.category.name if self.category else 'غير محدد'} - {self.amount}"

@@ -47,7 +47,11 @@ def payment_list(request):
 
 @login_required
 def payment_list_data(request):
-    payments = Payment.objects.filter(branch=request.user.branch).order_by('-date')
+    #payments = Payment.objects.filter(branch=request.user.branch).order_by('-date')
+    payments = Payment.objects.all() 
+
+    print(request.user.branch)
+    print(Payment.objects.filter(branch=request.user.branch).count())
     data = [{
         'receipt_number': payment.receipt_number,
         'patient': payment.patient.name,
@@ -152,13 +156,17 @@ def expense_create(request):
 
 @login_required
 def expense_list(request):
+   # expenses = Expense.objects.filter(branch=request.user.branch).order_by('-date')
+    expenses = Expense.objects.all().order_by('-date') 
     context = {
+        'expenses': expenses,
         'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
         'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
         'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'billing/expense_list.html', context)
 
+    
 @login_required
 def expense_list_data(request):
     expenses = Expense.objects.filter(branch=request.user.branch).order_by('-date')
@@ -287,6 +295,8 @@ def financial_report(request):
 
     payments = Payment.objects.filter(branch=request.user.branch)
     expenses = Expense.objects.filter(branch=request.user.branch)
+    # payments = Payment.objects.all()
+    # expenses = Expense.objects.all()
 
     if start_date:
         payments = payments.filter(date__gte=start_date)

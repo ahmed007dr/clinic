@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>تقرير شهري - {{ clinic_name }}</title>
+</head>
+<body style="font-family: Arial, sans-serif; direction: rtl; text-align: right;">
+    <h2>تقرير شهري لعيادة {{ clinic_name }} - {{ date }}</h2>
+    <p><strong>الفترة:</strong> من {{ date }} إلى {{ date|date:"Y-m-t" }}</p>
+    <h3>إجمالي الشهر</h3>
+    <p>إجمالي المصروفات: {{ total_expenses }} جنيه</p>
+    <p>إجمالي الإيرادات: {{ total_incomes }} جنيه</p>
+    <p>صافي الربح: {{ net_profit }} جنيه</p>
+    <h3>إحصائيات طرق الدفع</h3>
+    <ul>
+        {% for pm in payment_methods %}
+            <li>{{ pm.name }}: {{ pm.total_amount }} جنيه ({{ pm.count }} معاملة)</li>
+        {% empty %}
+            <li>لا توجد معاملات إيرادات هذا الشهر</li>
+        {% endfor %}
+    </ul>
+    <h3>إحصائيات الأطباء</h3>
+    <ul>
+        {% for doctor in doctor_details %}
+            <li>{{ doctor.name }}: {{ doctor.total_revenue }} جنيه ({{ doctor.count }} موعد)</li>
+        {% empty %}
+            <li>لا توجد إيرادات مرتبطة بأطباء هذا الشهر</li>
+        {% endfor %}
+    </ul>
+    <h3>إيرادات بدون طبيب</h3>
+    <p>{{ no_doctor_revenue }} جنيه</p>
+    <h3>إحصائيات الخدمات</h3>
+    <ul>
+        {% for service in service_details %}
+            <li>{{ service.name }}: {{ service.total_revenue }} جنيه ({{ service.count }} موعد)</li>
+        {% empty %}
+            <li>لا توجد إيرادات مرتبطة بخدمات هذا الشهر</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

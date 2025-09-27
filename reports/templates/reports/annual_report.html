@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>تقرير سنوي - {{ clinic_name }}</title>
+</head>
+<body style="font-family: Arial, sans-serif; direction: rtl; text-align: right;">
+    <h2>تقرير سنوي لعيادة {{ clinic_name }} - {{ year }}</h2>
+    <p><strong>الفترة:</strong> من {{ year }}-01-01 إلى {{ year }}-12-31</p>
+    <h3>تفاصيل الأشهر</h3>
+    {% for data in branch_data %}
+        <h4>{{ data.month }}</h4>
+        <p>إجمالي المصروفات: {{ data.total_expenses }} جنيه</p>
+        <p>إجمالي الإيرادات: {{ data.total_incomes }} جنيه</p>
+        <p>صافي الربح: {{ data.net_profit }} جنيه</p>
+    {% empty %}
+        <p>لا توجد بيانات لهذا العام</p>
+    {% endfor %}
+</body>
+</html>

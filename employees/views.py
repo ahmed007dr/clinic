@@ -32,7 +32,9 @@ def employee_create(request):
 
 @login_required
 def employee_list(request):
+    employees = Employee.objects.filter(branch=request.user.branch) if request.user.branch else Employee.objects.all()
     context = {
+        'employees': employees,
         'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
         'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
         'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')

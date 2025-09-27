@@ -17,6 +17,7 @@
       <table id="employeesTable" class="table table-striped">
         <thead>
           <tr>
+            <th>#</th>
             <th>الاسم</th>
             <th>نوع الموظف</th>
             <th>التخصصات</th>
@@ -25,24 +26,35 @@
             <th>إجراءات</th>
           </tr>
         </thead>
-        <tbody>
-          {% for employee in employees %}
-          <tr>
-            <td>{{ employee.name }}</td>
-            <td>{{ employee.employee_type.name|default:'غير محدد' }}</td>
-            <td>{{ employee.specializations.all|join:", "|default:'غير محدد' }}</td>
-            <td>{{ employee.branch.name|default:'غير محدد' }}</td>
-            <td>{{ employee.phone1|default:'غير محدد' }}</td>
-            <td>
-              <a href="{% url 'employees:employee_update' employee.pk %}" class="btn btn-sm btn-primary">تعديل</a>
-              <a href="{% url 'employees:employee_delete' employee.pk %}" class="btn btn-sm btn-danger">حذف</a>
-            </td>
-          </tr>
-          {% empty %}
-          <tr><td colspan="6">لا توجد موظفين</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
+          <tbody>
+            {% for employee in employees %}
+            <tr>
+              <td>{{ forloop.counter }}</td>
+              <td>{{ employee.name }}</td>
+              <td>{{ employee.employee_type.name|default:"غير محدد" }}</td>
+              <td>
+                {% if employee.specializations.all %}
+                  {{ employee.specializations.all|join:", " }}
+                {% else %}
+                  غير محدد
+                {% endif %}
+              </td>
+              <td>{{ employee.branch.name|default:"غير محدد" }}</td>
+              <td>{{ employee.phone1|default:"غير مسجل" }}</td>
+              <td>
+                <a href="{% url 'employees:employee_update' employee.pk %}" class="btn btn-sm btn-primary">تعديل</a>
+                <a href="{% url 'employees:employee_delete' employee.pk %}" class="btn btn-sm btn-danger">حذف</a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="7" class="text-center">لا توجد بيانات موظفين</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      
+
       <a href="{% url 'employees:employee_create' %}" class="btn btn-primary mt-3">إنشاء موظف جديد</a>
     </div>
   </div>

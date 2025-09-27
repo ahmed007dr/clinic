@@ -5,9 +5,11 @@ from django.contrib import messages
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 
+
 @login_required
 def notification_list(request):
     notifications = Notification.objects.filter(user=request.user).order_by('-created_at')
+    print("Notifications:", notifications.count())  # للتحقق من عدد الإشعارات
     context = {
         'notifications': notifications,
         'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
@@ -23,7 +25,7 @@ def notification_mark_read(request, pk):
         notification.is_read = True
         notification.save()
         messages.success(request, 'تم تحديد الإشعار كمقروء')
-        return redirect('notification_list')
+        return redirect('notifications:notification_list')
     context = {
         'notification': notification,
         'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),

@@ -23,7 +23,9 @@ def user_login(request):
             user = authenticate(request, username=username, password=password)
             if user is not None:
                 login(request, user)
-                next_url = request.GET.get('next', 'dashboard')
+                #next_url = request.GET.get('next', 'dashboard')
+                next_url = request.GET.get('next', reverse("dashboard:dashboard"))
+
                 return redirect(next_url)
             else:
                 messages.error(request, 'اسم المستخدم أو كلمة المرور غير صحيحة')

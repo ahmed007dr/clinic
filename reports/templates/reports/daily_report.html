@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>تقرير يومي - {{ clinic_name }}</title>
+</head>
+<body style="font-family: Arial, sans-serif; direction: rtl; text-align: right;">
+    <h2>تقرير يومي لعيادة {{ clinic_name }} - {{ date }}</h2>
+    <p><strong>الفترة:</strong> {{ date }}</p>
+    <h3>إجمالي الشهر</h3>
+    <p>إجمالي المصروفات: {{ month_total_expenses }} جنيه</p>
+    <p>إجمالي الإيرادات: {{ month_total_incomes }} جنيه</p>
+    <p>صافي الربح: {{ month_net_profit }} جنيه</p>
+    <h3>إجمالي اليوم</h3>
+    <p>إجمالي المصروفات: {{ day_total_expenses }} جنيه</p>
+    <p>إجمالي الإيرادات: {{ day_total_incomes }} جنيه</p>
+    <p>صافي الربح: {{ day_net_profit }} جنيه</p>
+    <h3>إحصائيات طرق الدفع (اليوم)</h3>
+    <ul>
+        {% for pm in day_payment_methods %}
+            <li>{{ pm.name }}: {{ pm.total_amount }} جنيه ({{ pm.count }} معاملة)</li>
+        {% empty %}
+            <li>لا توجد معاملات إيرادات اليوم</li>
+        {% endfor %}
+    </ul>
+    <h3>إحصائيات الأطباء (اليوم)</h3>
+    <ul>
+        {% for doctor in doctor_details %}
+            <li>{{ doctor.name }}: {{ doctor.total_revenue }} جنيه ({{ doctor.count }} موعد)</li>
+        {% empty %}
+            <li>لا توجد إيرادات مرتبطة بأطباء اليوم</li>
+        {% endfor %}
+    </ul>
+    <h3>إيرادات بدون طبيب (اليوم)</h3>
+    <p>{{ no_doctor_revenue }} جنيه</p>
+</body>
+</html>
