@@ -5,6 +5,9 @@ from django.conf import settings
 from django.contrib import messages
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from utils import export_pdf, export_excel
+from datetime import datetime
 
 @login_required
 def employee_create(request):
@@ -21,22 +24,32 @@ def employee_create(request):
 
     context = {
         'form': form,
-        'clinic_name': getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
+        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
+        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
+        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'employees/create.html', context)
 
 @login_required
 def employee_list(request):
-    employees = Employee.objects.all()
     context = {
-        'employees': employees,
-        'clinic_name': getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
+        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
+        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
+        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'employees/list.html', context)
+
+@login_required
+def employee_list_data(request):
+    employees = Employee.objects.filter(branch=request.user.branch)
+    data = [{
+        'name': employee.name,
+        'employee_type': employee.employee_type.name if employee.employee_type else 'غير محدد',
+        'phone1': employee.phone1 or 'غير محدد',
+        'email': employee.email or 'غير محدد',
+        'actions': f'<a href="{reverse("employee_update", args=[employee.pk])}" class="btn btn-sm btn-primary">تعديل</a> <a href="{reverse("employee_delete", args=[employee.pk])}" class="btn btn-sm btn-danger">حذف</a>'
+    } for employee in employees]
+    return JsonResponse({'data': data})
 
 @login_required
 def employee_update(request, pk):
@@ -54,9 +67,9 @@ def employee_update(request, pk):
 
     context = {
         'form': form,
-        'clinic_name': getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
+        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
+        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
+        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'employees/update.html', context)
 
@@ -69,9 +82,9 @@ def employee_delete(request, pk):
         return redirect('employee_list')
     context = {
         'employee': employee,
-        'clinic_name': getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
+        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
+        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
+        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'employees/delete.html', context)
 
@@ -90,9 +103,9 @@ def employee_type_create(request):
 
     context = {
         'form': form,
-        'clinic_name': getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
+        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
+        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
+        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'employees/employee_type_create.html', context)
 
@@ -101,9 +114,9 @@ def employee_type_list(request):
     employee_types = EmployeeType.objects.all().order_by('name')
     context = {
         'employee_types': employee_types,
-        'clinic_name': getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
+        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
+        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
+        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'employees/employee_type_list.html', context)
 
@@ -123,9 +136,9 @@ def employee_type_update(request, pk):
 
     context = {
         'form': form,
-        'clinic_name': getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
+        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
+        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
+        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'employees/employee_type_update.html', context)
 
@@ -138,9 +151,9 @@ def employee_type_delete(request, pk):
         return redirect('employee_type_list')
     context = {
         'employee_type': employee_type,
-        'clinic_name': getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
+        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
+        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
+        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'employees/employee_type_delete.html', context)
 
@@ -159,9 +172,9 @@ def specialization_create(request):
 
     context = {
         'form': form,
-        'clinic_name': getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
+        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
+        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
+        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'employees/specialization_create.html', context)
 
@@ -170,9 +183,9 @@ def specialization_list(request):
     specializations = Specialization.objects.all().order_by('name')
     context = {
         'specializations': specializations,
-        'clinic_name': getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
+        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
+        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
+        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'employees/specialization_list.html', context)
 
@@ -192,9 +205,9 @@ def specialization_update(request, pk):
 
     context = {
         'form': form,
-        'clinic_name': getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
+        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
+        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
+        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'employees/specialization_update.html', context)
 
@@ -204,11 +217,3 @@ def specialization_delete(request, pk):
     if request.method == 'POST':
         specialization.delete()
         messages.success(request, 'تم حذف التخصص بنجاح')
-        return redirect('specialization_list')
-    context = {
-        'specialization': specialization,
-        'clinic_name': getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
-    }
-    return render(request, 'employees/specialization_delete.html', context)

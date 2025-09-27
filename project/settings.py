@@ -48,7 +48,7 @@ INSTALLED_APPS = [
     "branches",
     "audit",
     "notifications",
-
+    'dashboard',
 
 ]
 

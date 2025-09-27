@@ -2,14 +2,20 @@ from django.shortcuts import render, redirect, get_object_or_404
 from .forms import AppointmentForm
 from .models import Appointment
 from branches.models import Branch
+from employees.models import Employee
 from django.conf import settings
 from django.contrib import messages
 from django.urls import reverse
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import JsonResponse
 from django.utils import timezone
 
+# دالة للتحقق من دور موظف الاستقبال أو الأدمن
+def is_reception_or_admin(user):
+    return user.role.name in ['Reception', 'Admin'] if user.role else False
+
 @login_required
+@user_passes_test(is_reception_or_admin)
 def appointment_create(request):
     if request.method == 'POST':
         form = AppointmentForm(request.POST)
@@ -24,40 +30,42 @@ def appointment_create(request):
     else:
         form = AppointmentForm()
 
-    branch = Branch.objects.first()
     context = {
         'form': form,
-        'clinic_name': branch.name if branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': branch.logo.url if branch and branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': branch.footer_text if branch and branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
+        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
+        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
+        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'appointments/create.html', context)
 
 @login_required
+@user_passes_test(is_reception_or_admin)
 def appointment_list(request):
     appointments = Appointment.objects.all().order_by('scheduled_date')
-    branch = Branch.objects.first()
+    doctors = Employee.objects.filter(employee_type__name='Doctor')
     context = {
         'appointments': appointments,
-        'clinic_name': branch.name if branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': branch.logo.url if branch and branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': branch.footer_text if branch and branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
+        'doctors': doctors,
+        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
+        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
+        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'appointments/list.html', context)
 
 @login_required
+@user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
 def appointment_detail(request, pk):
     appointment = get_object_or_404(Appointment, pk=pk)
-    branch = Branch.objects.first()
     context = {
         'appointment': appointment,
-        'clinic_name': branch.name if branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': branch.logo.url if branch and branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': branch.footer_text if branch and branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
+        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
+        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
+        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'appointments/detail.html', context)
 
 @login_required
+@user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
 def appointment_update(request, pk):
     appointment = get_object_or_404(Appointment, pk=pk)
     if request.method == 'POST':
@@ -71,46 +79,47 @@ def appointment_update(request, pk):
     else:
         form = AppointmentForm(instance=appointment)
 
-    branch = Branch.objects.first()
     context = {
         'form': form,
-        'clinic_name': branch.name if branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': branch.logo.url if branch and branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': branch.footer_text if branch and branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
+        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
+        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
+        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'appointments/update.html', context)
 
 @login_required
+@user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
 def appointment_delete(request, pk):
     appointment = get_object_or_404(Appointment, pk=pk)
     if request.method == 'POST':
         appointment.delete()
         messages.success(request, 'تم حذف الموعد بنجاح')
         return redirect('appointment_list')
-    branch = Branch.objects.first()
     context = {
         'appointment': appointment,
-        'clinic_name': branch.name if branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': branch.logo.url if branch and branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': branch.footer_text if branch and branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
+        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
+        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
+        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'appointments/delete.html', context)
 
 @login_required
+@user_passes_test(is_reception_or_admin)
 def waiting_list(request):
-    branch = Branch.objects.first()
     context = {
-        'clinic_name': branch.name if branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': branch.logo.url if branch and branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': branch.footer_text if branch and branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
+        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
+        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
+        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'appointments/waiting_list.html', context)
 
 @login_required
+@user_passes_test(is_reception_or_admin)
 def waiting_list_data(request):
     appointments = Appointment.objects.filter(
         status__name='Scheduled',
-        scheduled_date__date=timezone.now().date()
+        scheduled_date__date=timezone.now().date(),
+        branch=request.user.branch  # تقييد حسب فرع المستخدم
     ).order_by('scheduled_date')
     data = [{
         'id': appointment.id,

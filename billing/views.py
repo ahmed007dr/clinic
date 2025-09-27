@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
 from datetime import datetime
+from utils import export_pdf, export_excel
 
 @login_required
 def payment_create(request):
@@ -32,7 +33,7 @@ def payment_create(request):
 
 @login_required
 def payment_list(request):
-    payments = Payment.objects.all().order_by('-date')
+    payments = Payment.objects.filter(branch=request.user.branch).order_by('-date')
     context = {
         'payments': payments,
         'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
@@ -77,7 +78,7 @@ def expense_create(request):
 
 @login_required
 def expense_list(request):
-    expenses = Expense.objects.all().order_by('-date')
+    expenses = Expense.objects.filter(branch=request.user.branch).order_by('-date')
     context = {
         'expenses': expenses,
         'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
@@ -197,9 +198,10 @@ def financial_report(request):
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
     branch_id = request.GET.get('branch_id')
+    export_format = request.GET.get('export')
 
-    payments = Payment.objects.all()
-    expenses = Expense.objects.all()
+    payments = Payment.objects.filter(branch=request.user.branch)
+    expenses = Expense.objects.filter(branch=request.user.branch)
 
     if start_date:
         payments = payments.filter(date__gte=start_date)
@@ -214,6 +216,28 @@ def financial_report(request):
     total_revenue = payments.aggregate(Sum('amount'))['amount__sum'] or 0
     total_expenses = expenses.aggregate(Sum('amount'))['amount__sum'] or 0
     net_profit = total_revenue - total_expenses
+
+    # تصدير البيانات
+    if export_format:
+        data = [
+            ['رقم الإيصال', 'المريض', 'المبلغ', 'التاريخ'],
+            *[(p.receipt_number, p.patient.name, str(p.amount), p.date.strftime('%Y-%m-%d')) for p in payments],
+            [],
+            ['فئة المصروف', 'الموظف', 'المبلغ', 'التاريخ'],
+            *[(e.category.name, e.employee.name if e.employee else 'غير محدد', str(e.amount), e.date.strftime('%Y-%m-%d')) for e in expenses],
+            [],
+            ['إجمالي الإيرادات', str(total_revenue)],
+            ['إجمالي المصروفات', str(total_expenses)],
+            ['صافي الربح', str(net_profit)],
+        ]
+        headers = ['المعاملة', 'الوصف', 'المبلغ', 'التاريخ']
+        title = f'التقرير المالي لفرع {request.user.branch.name if request.user.branch else "الكل"}'
+        filename = f'financial_report_{datetime.now().strftime("%Y%m%d")}'
+
+        if export_format == 'pdf':
+            return export_pdf(data, headers, title, filename)
+        elif export_format == 'excel':
+            return export_excel(data, headers, title, filename)
 
     branches = Branch.objects.all()
     context = {

@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -10,11 +10,26 @@
   <link rel="stylesheet" href="{% static 'vendors/select2/select2.min.css' %}">
   <link rel="stylesheet" href="{% static 'vendors/select2-bootstrap-theme/select2-bootstrap.min.css' %}">
   <link rel="stylesheet" href="{% static 'vendors/datatables.net-bs4/dataTables.bootstrap4.css' %}">
+  <link rel="stylesheet" href="{% static 'vendors/chart.js/Chart.min.css' %}">
   <link rel="stylesheet" href="{% static 'css/style.css' %}">
   <link rel="shortcut icon" href="{% static 'images/favicon.png' %}" />
 </head>
 <body>
   <div class="container-scroller">
+    <div class="row p-0 m-0 proBanner" id="proBanner">
+      <div class="col-md-12 p-0 m-0">
+        <div class="card-body card-body-padding d-flex align-items-center justify-content-between">
+          <div class="ps-lg-1">
+            <p class="mb-0 font-weight-medium me-3 buy-now-text">دعم عملاء مجاني على مدار الساعة وتحديثات مستمرة!</p>
+          </div>
+          <div class="d-flex align-items-center justify-content-between">
+            <button id="bannerClose" class="btn border-0 p-0">
+              <i class="mdi mdi-close text-white me-0"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="horizontal-menu">
       <nav class="navbar top-navbar col-lg-12 col-12 p-0">
         <div class="container-fluid">
@@ -24,85 +39,28 @@
                 <a href="#" class="nav-link horizontal-nav-left-menu"><i class="mdi mdi-format-list-bulleted"></i></a>
               </li>
               <li class="nav-item dropdown">
-                <a class="nav-link count-indicator dropdown-toggle d-flex align-items-center justify-content-center" id="notificationDropdown" href="#" data-bs-toggle="dropdown">
+                <a class="nav-link count-indicator dropdown-toggle d-flex align-items-center justify-content-center" id="notificationDropdown" href="{% url 'notification_list' %}" data-bs-toggle="dropdown">
                   <i class="mdi mdi-bell mx-0"></i>
-                  <span class="count bg-success">2</span>
+                  <span class="count bg-success">{{ request.user.notifications.filter(is_read=False).count }}</span>
                 </a>
                 <div class="dropdown-menu dropdown-menu-right navbar-dropdown preview-list" aria-labelledby="notificationDropdown">
-                  <p class="mb-0 font-weight-normal float-left dropdown-header">Notifications</p>
-                  <a class="dropdown-item preview-item">
+                  <p class="mb-0 font-weight-normal float-left dropdown-header">إشعارات</p>
+                  {% for notification in request.user.notifications.filter(is_read=False)|slice:":3" %}
+                  <a class="dropdown-item preview-item" href="{% url 'notification_mark_read' notification.pk %}">
                     <div class="preview-thumbnail">
-                      <div class="preview-icon bg-success">
-                        <i class="mdi mdi-information mx-0"></i>
+                      <div class="preview-icon bg-{% if notification.type == 'appointment' %}success{% else %}info{% endif %}">
+                        <i class="mdi {% if notification.type == 'appointment' %}mdi-calendar{% else %}mdi-cash{% endif %} mx-0"></i>
                       </div>
                     </div>
                     <div class="preview-item-content">
-                      <h6 class="preview-subject font-weight-normal">Application Error</h6>
-                      <p class="font-weight-light small-text mb-0 text-muted">Just now</p>
+                      <h6 class="preview-subject font-weight-normal">{{ notification.title }}</h6>
+                      <p class="font-weight-light small-text mb-0 text-muted">{{ notification.created_at }}</p>
                     </div>
                   </a>
-                  <a class="dropdown-item preview-item">
-                    <div class="preview-thumbnail">
-                      <div class="preview-icon bg-warning">
-                        <i class="mdi mdi-settings mx-0"></i>
-                      </div>
-                    </div>
-                    <div class="preview-item-content">
-                      <h6 class="preview-subject font-weight-normal">Settings</h6>
-                      <p class="font-weight-light small-text mb-0 text-muted">Private message</p>
-                    </div>
-                  </a>
-                  <a class="dropdown-item preview-item">
-                    <div class="preview-thumbnail">
-                      <div class="preview-icon bg-info">
-                        <i class="mdi mdi-account-box mx-0"></i>
-                      </div>
-                    </div>
-                    <div class="preview-item-content">
-                      <h6 class="preview-subject font-weight-normal">New user registration</h6>
-                      <p class="font-weight-light small-text mb-0 text-muted">2 days ago</p>
-                    </div>
-                  </a>
+                  {% empty %}
+                  <a class="dropdown-item preview-item">لا توجد إشعارات جديدة</a>
+                  {% endfor %}
                 </div>
-              </li>
-              <li class="nav-item dropdown">
-                <a class="nav-link count-indicator dropdown-toggle d-flex justify-content-center align-items-center" id="messageDropdown" href="#" data-bs-toggle="dropdown">
-                  <i class="mdi mdi-email mx-0"></i>
-                  <span class="count bg-primary">4</span>
-                </a>
-                <div class="dropdown-menu dropdown-menu-right navbar-dropdown preview-list" aria-labelledby="messageDropdown">
-                  <p class="mb-0 font-weight-normal float-left dropdown-header">Messages</p>
-                  <a class="dropdown-item preview-item">
-                    <div class="preview-thumbnail">
-                      <img src="{% static 'images/faces/face4.jpg' %}" alt="image" class="profile-pic">
-                    </div>
-                    <div class="preview-item-content flex-grow">
-                      <h6 class="preview-subject ellipsis font-weight-normal">David Grey</h6>
-                      <p class="font-weight-light small-text text-muted mb-0">The meeting is cancelled</p>
-                    </div>
-                  </a>
-                  <a class="dropdown-item preview-item">
-                    <div class="preview-thumbnail">
-                      <img src="{% static 'images/faces/face2.jpg' %}" alt="image" class="profile-pic">
-                    </div>
-                    <div class="preview-item-content flex-grow">
-                      <h6 class="preview-subject ellipsis font-weight-normal">Tim Cook</h6>
-                      <p class="font-weight-light small-text text-muted mb-0">New product launch</p>
-                    </div>
-                  </a>
-                  <a class="dropdown-item preview-item">
-                    <div class="preview-thumbnail">
-                      <img src="{% static 'images/faces/face3.jpg' %}" alt="image" class="profile-pic">
-                    </div>
-                    <div class="preview-item-content flex-grow">
-                      <h6 class="preview-subject ellipsis font-weight-normal">Johnson</h6>
-                      <p class="font-weight-light small-text text-muted mb-0">Upcoming board meeting</p>
-                    </div>
-                  </a>
-                </div>
-              </li>
-              <li class="nav-item dropdown">
-                <a href="#" class="nav-link count-indicator"><i class="mdi mdi-message-reply-text"></i></a>
               </li>
               <li class="nav-item nav-search d-none d-lg-block ms-3">
                 <div class="input-group">
@@ -111,35 +69,28 @@
                       <i class="mdi mdi-magnify"></i>
                     </span>
                   </div>
-                  <input type="text" class="form-control" placeholder="search" aria-label="search" aria-describedby="search">
+                  <input type="text" class="form-control" placeholder="بحث" aria-label="search" aria-describedby="search">
                 </div>
               </li>
             </ul>
             <div class="text-center navbar-brand-wrapper d-flex align-items-center justify-content-center">
-              <a class="navbar-brand brand-logo" href="{% url 'appointment_list' %}"><img src="{% static clinic_logo|default:'images/logo.svg' %}" alt="logo"/></a>
-              <a class="navbar-brand brand-logo-mini" href="{% url 'appointment_list' %}"><img src="{% static 'images/logo-mini.svg' %}" alt="logo"/></a>
+              <a class="navbar-brand brand-logo" href="{% url 'dashboard' %}"><img src="{% static clinic_logo|default:'images/logo.svg' %}" alt="logo"/></a>
+              <a class="navbar-brand brand-logo-mini" href="{% url 'dashboard' %}"><img src="{% static 'images/logo-mini.svg' %}" alt="logo"/></a>
             </div>
             <ul class="navbar-nav navbar-nav-right">
-              <li class="nav-item dropdown d-lg-flex d-none">
-                <button type="button" class="btn btn-inverse-primary btn-sm">Product</button>
-              </li>
+              {% if request.user.role.name == 'Admin' %}
               <li class="nav-item dropdown d-lg-flex d-none">
                 <a class="dropdown-toggle show-dropdown-arrow btn btn-inverse-primary btn-sm" id="nreportDropdown" href="#" data-bs-toggle="dropdown">
-                  Reports
+                  تقارير
                 </a>
                 <div class="dropdown-menu dropdown-menu-right navbar-dropdown preview-list" aria-labelledby="nreportDropdown">
-                  <p class="mb-0 font-weight-medium float-left dropdown-header">Reports</p>
-                  <a class="dropdown-item">
-                    <i class="mdi mdi-file-pdf text-primary"></i> Pdf
-                  </a>
-                  <a class="dropdown-item">
-                    <i class="mdi mdi-file-excel text-primary"></i> Excel
+                  <p class="mb-0 font-weight-medium float-left dropdown-header">تقارير</p>
+                  <a class="dropdown-item" href="{% url 'financial_report' %}">
+                    <i class="mdi mdi-file-chart text-primary"></i> تقرير مالي
                   </a>
                 </div>
               </li>
-              <li class="nav-item dropdown d-lg-flex d-none">
-                <button type="button" class="btn btn-inverse-primary btn-sm">Settings</button>
-              </li>
+              {% endif %}
               <li class="nav-item nav-profile dropdown">
                 <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" id="profileDropdown">
                   <span class="nav-profile-name">{{ request.user.username }}</span>
@@ -148,10 +99,10 @@
                 </a>
                 <div class="dropdown-menu dropdown-menu-right navbar-dropdown" aria-labelledby="profileDropdown">
                   <a class="dropdown-item" href="#">
-                    <i class="mdi mdi-settings text-primary"></i> Settings
+                    <i class="mdi mdi-settings text-primary"></i> إعدادات
                   </a>
                   <a class="dropdown-item" href="{% url 'logout' %}">
-                    <i class="mdi mdi-logout text-primary"></i> Logout
+                    <i class="mdi mdi-logout text-primary"></i> تسجيل الخروج
                   </a>
                 </div>
               </li>
@@ -166,9 +117,9 @@
         <div class="container">
           <ul class="nav page-navigation">
             <li class="nav-item">
-              <a class="nav-link" href="{% url 'appointment_list' %}">
+              <a class="nav-link" href="{% url 'dashboard' %}">
                 <i class="mdi mdi-file-document-box menu-icon"></i>
-                <span class="menu-title">Dashboard</span>
+                <span class="menu-title">لوحة التحكم</span>
               </a>
             </li>
             <li class="nav-item">
@@ -189,6 +140,62 @@
                 <span class="menu-title">قائمة المواعيد</span>
               </a>
             </li>
+            <li class="nav-item">
+              <a href="{% url 'waiting_list' %}" class="nav-link">
+                <i class="mdi mdi-clock menu-icon"></i>
+                <span class="menu-title">قائمة الانتظار</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="{% url 'notification_list' %}" class="nav-link">
+                <i class="mdi mdi-bell menu-icon"></i>
+                <span class="menu-title">الإشعارات</span>
+              </a>
+            </li>
+            {% if request.user.role.name == 'Admin' %}
+            <li class="nav-item">
+              <a href="{% url 'user_list' %}" class="nav-link">
+                <i class="mdi mdi-account menu-icon"></i>
+                <span class="menu-title">إدارة المستخدمين</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="{% url 'financial_report' %}" class="nav-link">
+                <i class="mdi mdi-file-chart menu-icon"></i>
+                <span class="menu-title">التقرير المالي</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="{% url 'expense_create' %}" class="nav-link">
+                <i class="mdi mdi-cash menu-icon"></i>
+                <span class="menu-title">تسجيل مصروف</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="{% url 'patient_list' %}" class="nav-link">
+                <i class="mdi mdi-account-multiple menu-icon"></i>
+                <span class="menu-title">قائمة المرضى</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="{% url 'employee_list' %}" class="nav-link">
+                <i class="mdi mdi-account-star menu-icon"></i>
+                <span class="menu-title">إدارة الموظفين</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="{% url 'branch_list' %}" class="nav-link">
+                <i class="mdi mdi-hospital-building menu-icon"></i>
+                <span class="menu-title">إدارة الفروع</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="{% url 'service_list' %}" class="nav-link">
+                <i class="mdi mdi-medical-bag menu-icon"></i>
+                <span class="menu-title">إدارة الخدمات</span>
+              </a>
+            </li>
+            {% endif %}
           </ul>
         </div>
       </nav>
@@ -212,12 +219,10 @@
   </div>
   <script src="{% static 'vendors/base/vendor.bundle.base.js' %}"></script>
   <script src="{% static 'js/template.js' %}"></script>
-  <script src="{% static 'vendors/typeahead.js/typeahead.bundle.min.js' %}"></script>
   <script src="{% static 'vendors/select2/select2.min.js' %}"></script>
+  <script src="{% static 'js/select2.js' %}"></script>
   <script src="{% static 'vendors/datatables.net/jquery.dataTables.js' %}"></script>
   <script src="{% static 'vendors/datatables.net-bs4/dataTables.bootstrap4.js' %}"></script>
-  <script src="{% static 'js/file-upload.js' %}"></script>
-  <script src="{% static 'js/typeahead.js' %}"></script>
-  <script src="{% static 'js/select2.js' %}"></script>
+  <script src="{% static 'vendors/chart.js/Chart.min.js' %}"></script>
 </body>
 </html>

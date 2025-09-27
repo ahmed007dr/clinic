@@ -14,6 +14,11 @@
   <div class="card">
     <div class="card-body">
       <h4 class="card-title">سجل الخدمات</h4>
+      <div class="mb-3">
+        <a href="{% url 'service_create' %}" class="btn btn-primary">إنشاء خدمة جديدة</a>
+        <a href="{% url 'service_list_export' %}?export=pdf" class="btn btn-success">تصدير PDF</a>
+        <a href="{% url 'service_list_export' %}?export=excel" class="btn btn-success">تصدير Excel</a>
+      </div>
       <table id="servicesTable" class="table table-striped">
         <thead>
           <tr>
@@ -24,24 +29,8 @@
             <th>إجراءات</th>
           </tr>
         </thead>
-        <tbody>
-          {% for service in services %}
-          <tr>
-            <td>{{ service.name }}</td>
-            <td>{{ service.specialization.name|default:'غير محدد' }}</td>
-            <td>{{ service.base_price }} جنيه</td>
-            <td>{{ service.description|default:'غير محدد' }}</td>
-            <td>
-              <a href="{% url 'service_update' service.pk %}" class="btn btn-sm btn-primary">تعديل</a>
-              <a href="{% url 'service_delete' service.pk %}" class="btn btn-sm btn-danger">حذف</a>
-            </td>
-          </tr>
-          {% empty %}
-          <tr><td colspan="5">لا توجد خدمات</td></tr>
-          {% endfor %}
-        </tbody>
+        <tbody></tbody>
       </table>
-      <a href="{% url 'service_create' %}" class="btn btn-primary mt-3">إنشاء خدمة جديدة</a>
     </div>
   </div>
 </div>
@@ -52,8 +41,22 @@
     $('#servicesTable').DataTable({
       "language": {
         "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Arabic.json"
-      }
+      },
+      "ajax": "{% url 'service_list_data' %}",
+      "columns": [
+        { "data": "name" },
+        { "data": "specialization" },
+        { "data": "base_price" },
+        { "data": "description" },
+        { "data": "actions" }
+      ],
+      "ordering": true,
+      "pageLength": 10
     });
+    // تحديث تلقائي كل 30 ثانية
+    setInterval(function() {
+      $('#servicesTable').DataTable().ajax.reload();
+    }, 30000);
   });
 </script>
 {% endblock %}
