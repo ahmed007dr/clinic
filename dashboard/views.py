@@ -14,10 +14,10 @@ def dashboard(request):
     week_ago = today - timedelta(days=7)
 
     # إحصائيات عامة
-    total_appointments_today = Appointment.objects.filter(scheduled_date__date=today).count()
+    total_appointments_today = Appointment.objects.filter(scheduled_date=today).count()
     total_patients = Patient.objects.count()
     total_payments_today = Payment.objects.filter(date__date=today).aggregate(Sum('amount'))['amount__sum'] or 0
-    total_expenses_today = Expense.objects.filter(date__date=today).aggregate(Sum('amount'))['amount__sum'] or 0
+    total_expenses_today = Expense.objects.filter(date=today).aggregate(Sum('amount'))['amount__sum'] or 0
 
     # إحصائيات للرسوم البيانية (للأدمن فقط)
     appointments_by_day = []
@@ -26,9 +26,9 @@ def dashboard(request):
     if request.user.role.name == 'Admin' if request.user.role else False:
         for i in range(7):
             day = today - timedelta(days=i)
-            appointments_count = Appointment.objects.filter(scheduled_date__date=day).count()
+            appointments_count = Appointment.objects.filter(scheduled_date=day).count()
             revenue = Payment.objects.filter(date__date=day).aggregate(Sum('amount'))['amount__sum'] or 0
-            expenses = Expense.objects.filter(date__date=day).aggregate(Sum('amount'))['amount__sum'] or 0
+            expenses = Expense.objects.filter(date=day).aggregate(Sum('amount'))['amount__sum'] or 0
             appointments_by_day.append(appointments_count)
             revenue_by_day.append(float(revenue))
             expenses_by_day.append(float(expenses))
@@ -38,7 +38,7 @@ def dashboard(request):
         'total_patients': total_patients,
         'total_payments_today': total_payments_today,
         'total_expenses_today': total_expenses_today,
-        'appointments_by_day': appointments_by_day[::-1],  # عكس الترتيب للرسم البياني
+        'appointments_by_day': appointments_by_day[::-1],
         'revenue_by_day': revenue_by_day[::-1],
         'expenses_by_day': expenses_by_day[::-1],
         'is_reception': request.user.role.name == 'Reception' if request.user.role else False,

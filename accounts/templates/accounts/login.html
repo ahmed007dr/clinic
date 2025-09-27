@@ -18,7 +18,9 @@
           <div class="col-lg-6 d-flex align-items-center justify-content-center">
             <div class="auth-form-transparent text-left p-3">
               <div class="brand-logo">
-                <img src="{% static clinic_logo|default:'images/logo.svg' %}" alt="logo">
+                {% with logo=clinic_logo|default:"images/logo.svg" %}
+                  <img src="{% static logo %}" alt="logo">
+                {% endwith %}
               </div>
               <h4>{% block welcome_message %}مرحبًا بك مجددًا!{% endblock %}</h4>
               <h6 class="font-weight-light">{% block subtitle %}يسعدنا رؤيتك مجددًا{% endblock %}</h6>
@@ -52,7 +54,9 @@
                   </div>
                 {% endif %}
                 <div class="my-3">
-                  <button type="submit" class="btn btn-block btn-primary btn-lg font-weight-medium auth-form-btn">تسجيل الدخول</button>
+                  <button type="submit" class="btn btn-block btn-primary btn-lg font-weight-medium auth-form-btn">
+                    تسجيل الدخول
+                  </button>
                 </div>
               </form>
             </div>

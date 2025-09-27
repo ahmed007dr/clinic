@@ -1,11 +1,14 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm
-from .models import User, ClinicRole
-from branches.models import Branch
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
 
 class LoginForm(AuthenticationForm):
     username = forms.CharField(widget=forms.TextInput(attrs={'class': 'form-control form-control-lg border-left-0', 'placeholder': 'اسم المستخدم'}))
     password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control form-control-lg border-left-0', 'placeholder': 'كلمة المرور'}))
+
 
 class UserForm(forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}))
@@ -29,6 +32,16 @@ class UserForm(forms.ModelForm):
         if password and confirm_password and password != confirm_password:
             raise forms.ValidationError('كلمات المرور غير متطابقة')
         return cleaned_data
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        password = self.cleaned_data.get('password')
+        if password:
+            user.set_password(password)
+        if commit:
+            user.save()
+        return user
+
 
 class UserSettingsForm(forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}), required=False)

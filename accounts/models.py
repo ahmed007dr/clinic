@@ -15,3 +15,10 @@ class User(AbstractUser):
     branch = models.ForeignKey(Branch, on_delete=models.SET_NULL, null=True, blank=True)  # حقل جديد
     def __str__(self):
         return f"{self.username} ({self.role})"
+
+    @property
+    def unread_notifications(self):
+        try:
+            return self.notifications.filter(is_read=False)
+        except Exception:
+            return []
