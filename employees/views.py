@@ -16,7 +16,7 @@ def employee_create(request):
         if form.is_valid():
             employee = form.save()
             messages.success(request, f'تم إنشاء الموظف {employee.name} بنجاح')
-            return redirect('employee_list')
+            return redirect('employees:employee_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:
@@ -59,7 +59,7 @@ def employee_update(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, f'تم تعديل الموظف {employee.name} بنجاح')
-            return redirect('employee_list')
+            return redirect('employees:employee_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:
@@ -79,7 +79,7 @@ def employee_delete(request, pk):
     if request.method == 'POST':
         employee.delete()
         messages.success(request, 'تم حذف الموظف بنجاح')
-        return redirect('employee_list')
+        return redirect('employees:employee_list')
     context = {
         'employee': employee,
         'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
@@ -95,7 +95,7 @@ def employee_type_create(request):
         if form.is_valid():
             employee_type = form.save()
             messages.success(request, f'تم إنشاء نوع الموظف {employee_type.name} بنجاح')
-            return redirect('employee_type_list')
+            return redirect('employees:employee_type_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:
@@ -128,7 +128,7 @@ def employee_type_update(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, f'تم تعديل نوع الموظف {employee_type.name} بنجاح')
-            return redirect('employee_type_list')
+            return redirect('employees:employee_type_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:
@@ -148,7 +148,7 @@ def employee_type_delete(request, pk):
     if request.method == 'POST':
         employee_type.delete()
         messages.success(request, 'تم حذف نوع الموظف بنجاح')
-        return redirect('employee_type_list')
+        return redirect('employees:employee_type_list')
     context = {
         'employee_type': employee_type,
         'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
@@ -164,7 +164,7 @@ def specialization_create(request):
         if form.is_valid():
             specialization = form.save()
             messages.success(request, f'تم إنشاء التخصص {specialization.name} بنجاح')
-            return redirect('specialization_list')
+            return redirect('employees:specialization_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:
@@ -197,7 +197,7 @@ def specialization_update(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, f'تم تعديل التخصص {specialization.name} بنجاح')
-            return redirect('specialization_list')
+            return redirect('employees:specialization_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:

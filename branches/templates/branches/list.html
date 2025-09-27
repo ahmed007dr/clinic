@@ -34,8 +34,8 @@
             <td>{{ branch.phone|default:'غير محدد' }}</td>
             <td>{{ branch.email|default:'غير محدد' }}</td>
             <td>
-              <a href="{% url 'branch_update' branch.pk %}" class="btn btn-sm btn-primary">تعديل</a>
-              <a href="{% url 'branch_delete' branch.pk %}" class="btn btn-sm btn-danger">حذف</a>
+              <a href="{% url 'branches:branch_update' branch.pk %}" class="btn btn-sm btn-primary">تعديل</a>
+              <a href="{% url 'branches:branch_delete' branch.pk %}" class="btn btn-sm btn-danger">حذف</a>
             </td>
           </tr>
           {% empty %}
@@ -43,7 +43,7 @@
           {% endfor %}
         </tbody>
       </table>
-      <a href="{% url 'branch_create' %}" class="btn btn-primary mt-3">إنشاء فرع جديد</a>
+      <a href="{% url 'branches:branch_create' %}" class="btn btn-primary mt-3">إنشاء فرع جديد</a>
     </div>
   </div>
 </div>

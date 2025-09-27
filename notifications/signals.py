@@ -3,7 +3,8 @@ from django.dispatch import receiver
 from appointments.models import Appointment
 from billing.models import Payment
 from .models import Notification
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
+User = get_user_model()
 
 @receiver(post_save, sender=Appointment)
 def create_appointment_notification(sender, instance, created, **kwargs):

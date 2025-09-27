@@ -5,6 +5,9 @@ from .views import (
     specialization_create, specialization_list, specialization_update, specialization_delete
 )
 
+
+app_name = "employees"
+
 urlpatterns = [
     path('create/', employee_create, name='employee_create'),
     path('', employee_list, name='employee_list'),

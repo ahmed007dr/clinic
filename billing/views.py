@@ -22,7 +22,7 @@ def payment_create(request):
         if form.is_valid():
             payment = form.save()
             messages.success(request, f'تم تسجيل الدفعة {payment.receipt_number} بنجاح')
-            return redirect('appointment_list')
+            return redirect('appointments:appointment_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:
@@ -67,7 +67,7 @@ def payment_update(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, f'تم تعديل الدفعة {payment.receipt_number} بنجاح')
-            return redirect('payment_list')
+            return redirect('billing:payment_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:
@@ -89,7 +89,7 @@ def payment_delete(request, pk):
     if request.method == 'POST':
         payment.delete()
         messages.success(request, 'تم حذف الدفعة بنجاح')
-        return redirect('payment_list')
+        return redirect('billing:payment_list')
     context = {
         'payment': payment,
         'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
@@ -125,7 +125,7 @@ def payment_list_export(request):
         return export_pdf(data, headers, title, filename)
     elif export_format == 'excel':
         return export_excel(data, headers, title, filename)
-    return redirect('payment_list')
+    return redirect('billing:payment_list')
 
 @login_required
 def expense_create(request):
@@ -136,7 +136,7 @@ def expense_create(request):
             expense.created_by = request.user
             expense.save()
             messages.success(request, f'تم تسجيل المصروف بنجاح')
-            return redirect('expense_list')
+            return redirect('billing:expense_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:
@@ -180,7 +180,7 @@ def expense_update(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, f'تم تعديل المصروف بنجاح')
-            return redirect('expense_list')
+            return redirect('billing:expense_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:
@@ -200,7 +200,7 @@ def expense_delete(request, pk):
     if request.method == 'POST':
         expense.delete()
         messages.success(request, 'تم حذف المصروف بنجاح')
-        return redirect('expense_list')
+        return redirect('billing:expense_list')
     context = {
         'expense': expense,
         'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
@@ -216,7 +216,7 @@ def expense_category_create(request):
         if form.is_valid():
             category = form.save()
             messages.success(request, f'تم إنشاء فئة المصروف {category.name} بنجاح')
-            return redirect('expense_category_list')
+            return redirect('billing:expense_category_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:
@@ -249,7 +249,7 @@ def expense_category_update(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, f'تم تعديل فئة المصروف {category.name} بنجاح')
-            return redirect('expense_category_list')
+            return redirect('billing:expense_category_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:
@@ -269,7 +269,7 @@ def expense_category_delete(request, pk):
     if request.method == 'POST':
         category.delete()
         messages.success(request, 'تم حذف فئة المصروف بنجاح')
-        return redirect('expense_category_list')
+        return redirect('billing:expense_category_list')
     context = {
         'category': category,
         'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),

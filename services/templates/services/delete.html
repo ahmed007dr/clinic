@@ -10,7 +10,7 @@
       <form method="post">
         {% csrf_token %}
         <button type="submit" class="btn btn-danger">حذف</button>
-        <a href="{% url 'service_list' %}" class="btn btn-secondary">إلغاء</a>
+        <a href="{% url 'services:service_list' %}" class="btn btn-secondary">إلغاء</a>
       </form>
     </div>
   </div>

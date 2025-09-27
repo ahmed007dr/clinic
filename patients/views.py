@@ -20,7 +20,7 @@ def patient_create(request):
         if form.is_valid():
             patient = form.save()
             messages.success(request, f'تم تسجيل المريض {patient.name} بنجاح')
-            return redirect('appointment_create')
+            return redirect('patient_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:

@@ -21,7 +21,7 @@
           <p><strong>ملاحظات:</strong> {{ payment.notes|default:'لا توجد ملاحظات' }}</p>
         </div>
       </div>
-      <a href="{% url 'payment_list' %}" class="btn btn-primary mt-3">رجوع إلى قائمة الدفعات</a>
+      <a href="{% url 'billing:payment_list' %}" class="btn btn-primary mt-3">رجوع إلى قائمة الدفعات</a>
     </div>
   </div>
 </div>

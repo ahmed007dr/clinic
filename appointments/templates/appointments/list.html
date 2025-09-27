@@ -53,9 +53,9 @@
             <td>{{ appointment.status.name|default:'غير محدد' }}</td>
             <td>{{ appointment.price }}</td>
             <td>
-              <a href="{% url 'appointment_detail' appointment.pk %}" class="btn btn-sm btn-info">تفاصيل</a>
-              <a href="{% url 'appointment_update' appointment.pk %}" class="btn btn-sm btn-primary">تعديل</a>
-              <a href="{% url 'appointment_delete' appointment.pk %}" class="btn btn-sm btn-danger">حذف</a>
+              <a href="{% url 'appointments:appointment_detail' appointment.pk %}" class="btn btn-sm btn-info">تفاصيل</a>
+              <a href="{% url 'appointments:appointment_update' appointment.pk %}" class="btn btn-sm btn-primary">تعديل</a>
+              <a href="{% url 'appointments:appointment_delete' appointment.pk %}" class="btn btn-sm btn-danger">حذف</a>
             </td>
           </tr>
           {% empty %}
@@ -63,7 +63,7 @@
           {% endfor %}
         </tbody>
       </table>
-      <a href="{% url 'appointment_create' %}" class="btn btn-primary mt-3">حجز موعد جديد</a>
+      <a href="{% url 'appointments:appointment_create' %}" class="btn btn-primary mt-3">حجز موعد جديد</a>
     </div>
   </div>
 </div>

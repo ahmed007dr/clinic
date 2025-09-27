@@ -15,10 +15,10 @@
     <div class="card-body">
       <h4 class="card-title">سجل المرضى</h4>
       <div class="mb-3">
-        <a href="{% url 'patient_create' %}" class="btn btn-primary">إنشاء مريض جديد</a>
+        <a href="{% url 'patients:patient_create' %}" class="btn btn-primary">إنشاء مريض جديد</a>
         {% if request.user.role.name == 'Admin' %}
-        <a href="{% url 'patient_list_export' %}?export=pdf" class="btn btn-success">تصدير PDF</a>
-        <a href="{% url 'patient_list_export' %}?export=excel" class="btn btn-success">تصدير Excel</a>
+        <a href="{% url 'patients:patient_list_export' %}?export=pdf" class="btn btn-success">تصدير PDF</a>
+        <a href="{% url 'patients:patient_list_export' %}?export=excel" class="btn btn-success">تصدير Excel</a>
         {% endif %}
       </div>
       <table id="patientsTable" class="table table-striped">
@@ -47,7 +47,7 @@
       "language": {
         "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Arabic.json"
       },
-      "ajax": "{% url 'patient_list_data' %}",
+      "ajax": "{% url 'patients:patient_list_data' %}",
       "columns": [
         { "data": "name" },
         { "data": "phone1" },

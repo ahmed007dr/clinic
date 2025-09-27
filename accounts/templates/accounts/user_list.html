@@ -34,8 +34,8 @@
             <td>{{ user.role.name|default:'غير محدد' }}</td>
             <td>{{ user.branch.name|default:'غير محدد' }}</td>
             <td>
-              <a href="{% url 'user_update' user.pk %}" class="btn btn-sm btn-primary">تعديل</a>
-              <a href="{% url 'user_delete' user.pk %}" class="btn btn-sm btn-danger">حذف</a>
+              <a href="{% url 'accounts:user_update' user.pk %}" class="btn btn-sm btn-primary">تعديل</a>
+              <a href="{% url 'accounts:user_delete' user.pk %}" class="btn btn-sm btn-danger">حذف</a>
             </td>
           </tr>
           {% empty %}
@@ -43,7 +43,7 @@
           {% endfor %}
         </tbody>
       </table>
-      <a href="{% url 'user_create' %}" class="btn btn-primary mt-3">إنشاء مستخدم جديد</a>
+      <a href="{% url 'accounts:user_create' %}" class="btn btn-primary mt-3">إنشاء مستخدم جديد</a>
     </div>
   </div>
 </div>

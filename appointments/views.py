@@ -24,7 +24,7 @@ def appointment_create(request):
             appointment.created_by = request.user
             appointment.save()
             messages.success(request, f'تم حجز الموعد بنجاح (رقم التذكرة: {appointment.id})')
-            return redirect('appointment_list')
+            return redirect('appointments:appointment_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:
@@ -73,7 +73,7 @@ def appointment_update(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, f'تم تعديل الموعد بنجاح (رقم التذكرة: {appointment.id})')
-            return redirect('appointment_list')
+            return redirect('appointments:appointment_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:
@@ -94,7 +94,7 @@ def appointment_delete(request, pk):
     if request.method == 'POST':
         appointment.delete()
         messages.success(request, 'تم حذف الموعد بنجاح')
-        return redirect('appointment_list')
+        return redirect('appointments:appointment_list')
     context = {
         'appointment': appointment,
         'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),

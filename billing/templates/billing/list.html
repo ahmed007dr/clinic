@@ -15,9 +15,9 @@
     <div class="card-body">
       <h4 class="card-title">سجل الدفعات</h4>
       <div class="mb-3">
-        <a href="{% url 'payment_create' %}" class="btn btn-primary">تسجيل دفعة جديدة</a>
-        <a href="{% url 'payment_list_export' %}?export=pdf" class="btn btn-success">تصدير PDF</a>
-        <a href="{% url 'payment_list_export' %}?export=excel" class="btn btn-success">تصدير Excel</a>
+        <a href="{% url 'billing:payment_create' %}" class="btn btn-primary">تسجيل دفعة جديدة</a>
+        <a href="{% url 'billing:payment_list_export' %}?export=pdf" class="btn btn-success">تصدير PDF</a>
+        <a href="{% url 'billing:payment_list_export' %}?export=excel" class="btn btn-success">تصدير Excel</a>
       </div>
       <table id="paymentsTable" class="table table-striped">
         <thead>
@@ -43,7 +43,7 @@
       "language": {
         "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Arabic.json"
       },
-      "ajax": "{% url 'payment_list_data' %}",
+      "ajax": "{% url 'billing:payment_list_data' %}",
       "columns": [
         { "data": "receipt_number" },
         { "data": "patient" },

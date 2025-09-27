@@ -73,9 +73,9 @@
           {% endfor %}
         </tbody>
       </table>
-      <a href="{% url 'patient_list' %}" class="btn btn-primary mt-3">رجوع إلى قائمة المرضى</a>
-      <a href="{% url 'patient_update' patient.pk %}" class="btn btn-primary mt-3">تعديل</a>
-      <a href="{% url 'patient_delete' patient.pk %}" class="btn btn-danger mt-3">حذف</a>
+      <a href="{% url 'patients:patient_list' %}" class="btn btn-primary mt-3">رجوع إلى قائمة المرضى</a>
+      <a href="{% url 'patients:patient_update' patient.pk %}" class="btn btn-primary mt-3">تعديل</a>
+      <a href="{% url 'patients:patient_delete' patient.pk %}" class="btn btn-danger mt-3">حذف</a>
     </div>
   </div>
 </div>

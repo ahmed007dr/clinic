@@ -16,7 +16,7 @@ def service_create(request):
         if form.is_valid():
             service = form.save()
             messages.success(request, f'تم إنشاء الخدمة {service.name} بنجاح')
-            return redirect('service_list')
+            return redirect('services:service_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:
@@ -59,7 +59,7 @@ def service_update(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, f'تم تعديل الخدمة {service.name} بنجاح')
-            return redirect('service_list')
+            return redirect('services:service_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:
@@ -79,7 +79,7 @@ def service_delete(request, pk):
     if request.method == 'POST':
         service.delete()
         messages.success(request, 'تم حذف الخدمة بنجاح')
-        return redirect('service_list')
+        return redirect('services:service_list')
     context = {
         'service': service,
         'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
@@ -104,4 +104,4 @@ def service_list_export(request):
         return export_pdf(data, headers, title, filename)
     elif export_format == 'excel':
         return export_excel(data, headers, title, filename)
-    return redirect('service_list')
+    return redirect('services:service_list')

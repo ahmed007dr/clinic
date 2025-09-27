@@ -30,16 +30,17 @@ def home_redirect(request):
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('accounts/', include('accounts.urls')),
-    path('patients/', include('patients.urls')),
-    path('appointments/', include('appointments.urls')),
-    path('billing/', include('billing.urls')),
-    path('branches/', include('branches.urls')),
-    path('employees/', include('employees.urls')),
-    path('notifications/', include('notifications.urls')),
-    path('audit/', include('audit.urls')),
-    path('services/', include('services.urls')),
-    path('dashboard/', include('dashboard.urls')),
+    
+    path('accounts/', include(('accounts.urls', 'accounts'), namespace="accounts")),
+    path('patients/', include(('patients.urls', 'patients'), namespace="patients")),
+    path('appointments/', include(('appointments.urls', 'appointments'), namespace='appointments')),
+    path('billing/', include(('billing.urls', 'billing'), namespace="billing")),
+    path('branches/', include(('branches.urls', 'branches'), namespace="branches")),
+    path('employees/', include(('employees.urls', 'employees'), namespace="employees")),
+    path('notifications/', include(('notifications.urls', 'notifications'), namespace="notifications")),
+    path('audit/', include(('audit.urls', 'audit'), namespace="audit")),
+    path('services/', include(('services.urls', 'services'), namespace='services')),
+    path('dashboard/', include(('dashboard.urls', 'dashboard'), namespace="dashboard")),
 
     path('', lambda request: redirect('login')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

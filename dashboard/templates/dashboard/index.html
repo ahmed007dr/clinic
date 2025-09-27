@@ -18,7 +18,7 @@
         <div class="col-sm-6">
           <div class="d-flex align-items-center justify-content-md-end">
             <div class="pe-1 mb-3 mb-xl-0">
-              <a href="{% url 'financial_report' %}" class="btn btn-outline-inverse-info btn-icon-text">
+              <a href="{% url 'billing:financial_report' %}" class="btn btn-outline-inverse-info btn-icon-text">
                 تقرير مالي
                 <i class="mdi mdi-file-chart btn-icon-append"></i>
               </a>
@@ -33,7 +33,7 @@
             <div class="card-body">
               <h4 class="card-title">مواعيد اليوم</h4>
               <h2 class="text-dark font-weight-bold">{{ total_appointments_today }}</h2>
-              <a href="{% url 'appointment_list' %}" class="btn btn-primary btn-sm mt-3">عرض المواعيد</a>
+              <a href="{% url 'appointments:appointment_list' %}" class="btn btn-primary btn-sm mt-3">عرض المواعيد</a>
             </div>
           </div>
         </div>
@@ -42,7 +42,7 @@
             <div class="card-body">
               <h4 class="card-title">إجمالي المرضى</h4>
               <h2 class="text-dark font-weight-bold">{{ total_patients }}</h2>
-              <a href="{% url 'patient_create' %}" class="btn btn-primary btn-sm mt-3">إضافة مريض</a>
+              <a href="{% url 'patients:patient_create' %}" class="btn btn-primary btn-sm mt-3">إضافة مريض</a>
             </div>
           </div>
         </div>
@@ -52,7 +52,7 @@
             <div class="card-body">
               <h4 class="card-title">إجمالي الإيرادات اليوم</h4>
               <h2 class="text-dark font-weight-bold">{{ total_payments_today }} جنيه</h2>
-              <a href="{% url 'payment_list' %}" class="btn btn-primary btn-sm mt-3">عرض الدفعات</a>
+              <a href="{% url 'billing:payment_list' %}" class="btn btn-primary btn-sm mt-3">عرض الدفعات</a>
             </div>
           </div>
         </div>

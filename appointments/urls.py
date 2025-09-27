@@ -1,6 +1,12 @@
 from django.urls import path
 from .views import appointment_create, appointment_list, appointment_detail, appointment_update, appointment_delete, waiting_list, waiting_list_data
 
+
+
+app_name = "appointments"
+
+
+
 urlpatterns = [
     path('', appointment_list, name='appointment_list'),
     path('create/', appointment_create, name='appointment_create'),

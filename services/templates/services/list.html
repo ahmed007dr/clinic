@@ -15,9 +15,9 @@
     <div class="card-body">
       <h4 class="card-title">سجل الخدمات</h4>
       <div class="mb-3">
-        <a href="{% url 'service_create' %}" class="btn btn-primary">إنشاء خدمة جديدة</a>
-        <a href="{% url 'service_list_export' %}?export=pdf" class="btn btn-success">تصدير PDF</a>
-        <a href="{% url 'service_list_export' %}?export=excel" class="btn btn-success">تصدير Excel</a>
+        <a href="{% url 'services:service_create' %}" class="btn btn-primary">إنشاء خدمة جديدة</a>
+        <a href="{% url 'services:service_list_export' %}?export=pdf" class="btn btn-success">تصدير PDF</a>
+        <a href="{% url 'services:service_list_export' %}?export=excel" class="btn btn-success">تصدير Excel</a>
       </div>
       <table id="servicesTable" class="table table-striped">
         <thead>
@@ -42,7 +42,7 @@
       "language": {
         "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Arabic.json"
       },
-      "ajax": "{% url 'service_list_data' %}",
+      "ajax": "{% url 'services:service_list_data' %}",
       "columns": [
         { "data": "name" },
         { "data": "specialization" },
