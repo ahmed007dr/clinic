@@ -5,12 +5,17 @@ from branches.models import Branch
 from django.conf import settings
 from django.contrib import messages
 from django.urls import reverse
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db.models import Sum
 from datetime import datetime
 from utils.utils import export_pdf, export_excel
+from django.http import JsonResponse
+
+def is_admin(user):
+    return user.role.name == 'Admin' if user.role else False
 
 @login_required
+@user_passes_test(is_admin)
 def payment_create(request):
     if request.method == 'POST':
         form = PaymentForm(request.POST)
@@ -33,14 +38,65 @@ def payment_create(request):
 
 @login_required
 def payment_list(request):
-    payments = Payment.objects.filter(branch=request.user.branch).order_by('-date')
     context = {
-        'payments': payments,
         'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
         'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
         'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'billing/list.html', context)
+
+@login_required
+def payment_list_data(request):
+    payments = Payment.objects.filter(branch=request.user.branch).order_by('-date')
+    data = [{
+        'receipt_number': payment.receipt_number,
+        'patient': payment.patient.name,
+        'amount': str(payment.amount),
+        'method': payment.method.name if payment.method else 'غير محدد',
+        'date': payment.date.strftime('%Y-%m-%d'),
+        'actions': f'<a href="{reverse("payment_detail", args=[payment.pk])}" class="btn btn-sm btn-info">تفاصيل</a> <a href="{reverse("payment_update", args=[payment.pk])}" class="btn btn-sm btn-primary">تعديل</a> <a href="{reverse("payment_delete", args=[payment.pk])}" class="btn btn-sm btn-danger">حذف</a>' if is_admin(request.user) else f'<a href="{reverse("payment_detail", args=[payment.pk])}" class="btn btn-sm btn-info">تفاصيل</a>'
+    } for payment in payments]
+    return JsonResponse({'data': data})
+
+@login_required
+@user_passes_test(is_admin)
+def payment_update(request, pk):
+    payment = get_object_or_404(Payment, pk=pk)
+    if request.method == 'POST':
+        form = PaymentForm(request.POST, instance=payment)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'تم تعديل الدفعة {payment.receipt_number} بنجاح')
+            return redirect('payment_list')
+        else:
+            messages.error(request, 'خطأ في إدخال البيانات')
+    else:
+        form = PaymentForm(instance=payment)
+
+    context = {
+        'form': form,
+        'payment': payment,
+        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
+        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
+        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
+    }
+    return render(request, 'billing/payment_update.html', context)
+
+@login_required
+@user_passes_test(is_admin)
+def payment_delete(request, pk):
+    payment = get_object_or_404(Payment, pk=pk)
+    if request.method == 'POST':
+        payment.delete()
+        messages.success(request, 'تم حذف الدفعة بنجاح')
+        return redirect('payment_list')
+    context = {
+        'payment': payment,
+        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
+        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
+        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
+    }
+    return render(request, 'billing/payment_delete.html', context)
 
 @login_required
 def payment_detail(request, pk):
@@ -52,6 +108,24 @@ def payment_detail(request, pk):
         'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'billing/detail.html', context)
+
+@login_required
+def payment_list_export(request):
+    export_format = request.GET.get('export')
+    payments = Payment.objects.filter(branch=request.user.branch).order_by('-date')
+    data = [
+        [p.receipt_number, p.patient.name, str(p.amount), p.method.name if p.method else 'غير محدد', p.date.strftime('%Y-%m-%d')]
+        for p in payments
+    ]
+    headers = ['رقم الإيصال', 'المريض', 'المبلغ', 'طريقة الدفع', 'التاريخ']
+    title = f'قائمة الدفعات - فرع {request.user.branch.name if request.user.branch else "الكل"}'
+    filename = f'payment_list_{datetime.now().strftime("%Y%m%d")}'
+
+    if export_format == 'pdf':
+        return export_pdf(data, headers, title, filename)
+    elif export_format == 'excel':
+        return export_excel(data, headers, title, filename)
+    return redirect('payment_list')
 
 @login_required
 def expense_create(request):
@@ -78,14 +152,25 @@ def expense_create(request):
 
 @login_required
 def expense_list(request):
-    expenses = Expense.objects.filter(branch=request.user.branch).order_by('-date')
     context = {
-        'expenses': expenses,
         'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
         'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
         'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'billing/expense_list.html', context)
+
+@login_required
+def expense_list_data(request):
+    expenses = Expense.objects.filter(branch=request.user.branch).order_by('-date')
+    data = [{
+        'branch': expense.branch.name if expense.branch else 'غير محدد',
+        'category': expense.category.name if expense.category else 'غير محدد',
+        'employee': expense.employee.name if expense.employee else 'غير محدد',
+        'amount': str(expense.amount),
+        'date': expense.date.strftime('%Y-%m-%d'),
+        'actions': f'<a href="{reverse("expense_update", args=[expense.pk])}" class="btn btn-sm btn-primary">تعديل</a> <a href="{reverse("expense_delete", args=[expense.pk])}" class="btn btn-sm btn-danger">حذف</a>'
+    } for expense in expenses]
+    return JsonResponse({'data': data})
 
 @login_required
 def expense_update(request, pk):
@@ -217,7 +302,6 @@ def financial_report(request):
     total_expenses = expenses.aggregate(Sum('amount'))['amount__sum'] or 0
     net_profit = total_revenue - total_expenses
 
-    # تصدير البيانات
     if export_format:
         data = [
             ['رقم الإيصال', 'المريض', 'المبلغ', 'التاريخ'],
