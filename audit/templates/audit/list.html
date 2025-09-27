@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+  <h2>سجل التغييرات - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">سجل التغييرات</h4>
+      <table id="auditTable" class="table table-striped">
+        <thead>
+          <tr>
+            <th>المستخدم</th>
+            <th>الإجراء</th>
+            <th>اسم النموذج</th>
+            <th>رقم السجل</th>
+            <th>التاريخ</th>
+            <th>الوصف</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in audit_logs %}
+          <tr>
+            <td>{{ log.user.username|default:'غير معروف' }}</td>
+            <td>{{ log.action }}</td>
+            <td>{{ log.model_name }}</td>
+            <td>{{ log.object_id }}</td>
+            <td>{{ log.created_at }}</td>
+            <td>{{ log.description|default:'غير محدد' }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6">لا توجد سجلات</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<script src="{% static 'vendors/datatables.net/jquery.dataTables.js' %}"></script>
+<script src="{% static 'vendors/datatables.net-bs4/dataTables.bootstrap4.js' %}"></script>
+<script>
+  $(document).ready(function() {
+    $('#auditTable').DataTable({
+      "language": {
+        "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Arabic.json"
+      }
+    });
+  });
+</script>
+{% endblock %}

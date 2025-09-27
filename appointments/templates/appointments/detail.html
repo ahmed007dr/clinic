@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+  <h2>تفاصيل الموعد - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">تفاصيل الموعد: رقم التذكرة {{ appointment.id }}</h4>
+      <div class="row">
+        <div class="col-md-6">
+          <p><strong>المريض:</strong> {{ appointment.patient.name }}</p>
+          <p><strong>الطبيب:</strong> {{ appointment.doctor.name|default:'غير محدد' }}</p>
+          <p><strong>الخدمة:</strong> {{ appointment.service.name|default:'غير محدد' }}</p>
+          <p><strong>التخصص:</strong> {{ appointment.specialization.name|default:'غير محدد' }}</p>
+        </div>
+        <div class="col-md-6">
+          <p><strong>تاريخ الموعد:</strong> {{ appointment.scheduled_date }}</p>
+          <p><strong>الحالة:</strong> {{ appointment.status.name|default:'غير محدد' }}</p>
+          <p><strong>الفرع:</strong> {{ appointment.branch.name|default:'غير محدد' }}</p>
+          <p><strong>السعر:</strong> {{ appointment.price }} جنيه</p>
+          <p><strong>ملاحظات:</strong> {{ appointment.notes|default:'لا توجد ملاحظات' }}</p>
+        </div>
+      </div>
+      <a href="{% url 'appointment_list' %}" class="btn btn-primary mt-3">رجوع إلى قائمة المواعيد</a>
+      <a href="{% url 'appointment_update' appointment.pk %}" class="btn btn-primary mt-3">تعديل</a>
+      <a href="{% url 'appointment_delete' appointment.pk %}" class="btn btn-danger mt-3">حذف</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

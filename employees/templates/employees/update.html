@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+  <h2>تعديل الموظف - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  {% if messages %}
+    <div class="alert alert-info">
+      {% for message in messages %}
+        {{ message }}
+      {% endfor %}
+    </div>
+  {% endif %}
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">تعديل بيانات الموظف: {{ form.instance.name }}</h4>
+      <form class="forms-sample" method="post">
+        {% csrf_token %}
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.name.id_for_label }}">الاسم</label>
+              <div class="col-sm-9">
+                {{ form.name }}
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.employee_type.id_for_label }}">نوع الموظف</label>
+              <div class="col-sm-9">
+                {{ form.employee_type }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.specializations.id_for_label }}">التخصصات</label>
+              <div class="col-sm-9">
+                {{ form.specializations }}
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.national_id.id_for_label }}">الرقم القومي</label>
+              <div class="col-sm-9">
+                {{ form.national_id }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.branch.id_for_label }}">الفرع</label>
+              <div class="col-sm-9">
+                {{ form.branch }}
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.phone1.id_for_label }}">رقم الهاتف الأساسي</label>
+              <div class="col-sm-9">
+                {{ form.phone1 }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.phone2.id_for_label }}">رقم الهاتف الإضافي</label>
+              <div class="col-sm-9">
+                {{ form.phone2 }}
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.email.id_for_label }}">البريد الإلكتروني</label>
+              <div class="col-sm-9">
+                {{ form.email }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.salary_type.id_for_label }}">نوع الراتب</label>
+              <div class="col-sm-9">
+                {{ form.salary_type }}
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.salary_value.id_for_label }}">قيمة الراتب</label>
+              <div class="col-sm-9">
+                {{ form.salary_value }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary me-2">حفظ التعديلات</button>
+        <a href="{% url 'employee_list' %}" class="btn btn-secondary">رجوع إلى قائمة الموظفين</a>
+      </form>
+    </div>
+  </div>
+</div>
+<script src="{% static 'vendors/select2/select2.min.js' %}"></script>
+<script src="{% static 'js/select2.js' %}"></script>
+<script>
+  $(document).ready(function() {
+    $('.js-example-basic-single').select2();
+    $('.js-example-basic-multiple').select2();
+  });
+</script>
+{% endblock %}

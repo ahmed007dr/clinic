@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+  <h2>تفاصيل المريض - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">تفاصيل المريض: {{ patient.name }}</h4>
+      <div class="row">
+        <div class="col-md-6">
+          <p><strong>الاسم:</strong> {{ patient.name }}</p>
+          <p><strong>رقم الهاتف الأساسي:</strong> {{ patient.phone1|default:'غير محدد' }}</p>
+          <p><strong>رقم الهاتف الإضافي:</strong> {{ patient.phone2|default:'غير محدد' }}</p>
+          <p><strong>تاريخ الميلاد:</strong> {{ patient.birth_date|default:'غير محدد' }}</p>
+          <p><strong>الرقم القومي:</strong> {{ patient.national_id|default:'غير محدد' }}</p>
+        </div>
+        <div class="col-md-6">
+          <p><strong>الجنس:</strong> {{ patient.get_gender_display|default:'غير محدد' }}</p>
+          <p><strong>الحالة الاجتماعية:</strong> {{ patient.marital_status|default:'غير محدد' }}</p>
+          <p><strong>البريد الإلكتروني:</strong> {{ patient.email|default:'غير محدد' }}</p>
+          <p><strong>العنوان:</strong> {{ patient.address|default:'غير محدد' }}</p>
+          <p><strong>ملاحظات:</strong> {{ patient.notes|default:'لا توجد ملاحظات' }}</p>
+        </div>
+      </div>
+      <h5 class="mt-4">سجل المواعيد</h5>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>رقم التذكرة</th>
+            <th>الطبيب</th>
+            <th>الخدمة</th>
+            <th>التاريخ</th>
+            <th>الحالة</th>
+            <th>السعر</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for appointment in appointments %}
+          <tr>
+            <td>{{ appointment.id }}</td>
+            <td>{{ appointment.doctor.name|default:'غير محدد' }}</td>
+            <td>{{ appointment.service.name|default:'غير محدد' }}</td>
+            <td>{{ appointment.scheduled_date }}</td>
+            <td>{{ appointment.status.name|default:'غير محدد' }}</td>
+            <td>{{ appointment.price }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6">لا توجد مواعيد</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <h5 class="mt-4">سجل الدفعات</h5>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>رقم الإيصال</th>
+            <th>المبلغ</th>
+            <th>طريقة الدفع</th>
+            <th>التاريخ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for payment in payments %}
+          <tr>
+            <td>{{ payment.receipt_number }}</td>
+            <td>{{ payment.amount }}</td>
+            <td>{{ payment.method.name|default:'غير محدد' }}</td>
+            <td>{{ payment.date }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4">لا توجد دفعات</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <a href="{% url 'patient_list' %}" class="btn btn-primary mt-3">رجوع إلى قائمة المرضى</a>
+      <a href="{% url 'patient_update' patient.pk %}" class="btn btn-primary mt-3">تعديل</a>
+      <a href="{% url 'patient_delete' patient.pk %}" class="btn btn-danger mt-3">حذف</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

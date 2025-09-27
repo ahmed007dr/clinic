@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+  <h2>تفاصيل الدفعة - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">تفاصيل الدفعة: {{ payment.receipt_number }}</h4>
+      <div class="row">
+        <div class="col-md-6">
+          <p><strong>رقم الإيصال:</strong> {{ payment.receipt_number }}</p>
+          <p><strong>المريض:</strong> {{ payment.patient.name }}</p>
+          <p><strong>الموعد:</strong> {{ payment.appointment.id|default:'غير محدد' }}</p>
+          <p><strong>المبلغ:</strong> {{ payment.amount }} جنيه</p>
+        </div>
+        <div class="col-md-6">
+          <p><strong>طريقة الدفع:</strong> {{ payment.method.name|default:'غير محدد' }}</p>
+          <p><strong>التاريخ:</strong> {{ payment.date }}</p>
+          <p><strong>الفرع:</strong> {{ payment.branch.name|default:'غير محدد' }}</p>
+          <p><strong>ملاحظات:</strong> {{ payment.notes|default:'لا توجد ملاحظات' }}</p>
+        </div>
+      </div>
+      <a href="{% url 'payment_list' %}" class="btn btn-primary mt-3">رجوع إلى قائمة الدفعات</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

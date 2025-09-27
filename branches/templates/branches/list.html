@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+  <h2>قائمة الفروع - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  {% if messages %}
+    <div class="alert alert-info">
+      {% for message in messages %}
+        {{ message }}
+      {% endfor %}
+    </div>
+  {% endif %}
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">سجل الفروع</h4>
+      <table id="branchesTable" class="table table-striped">
+        <thead>
+          <tr>
+            <th>الاسم</th>
+            <th>الكود</th>
+            <th>العنوان</th>
+            <th>رقم الهاتف</th>
+            <th>البريد الإلكتروني</th>
+            <th>إجراءات</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for branch in branches %}
+          <tr>
+            <td>{{ branch.name }}</td>
+            <td>{{ branch.code }}</td>
+            <td>{{ branch.address|default:'غير محدد' }}</td>
+            <td>{{ branch.phone|default:'غير محدد' }}</td>
+            <td>{{ branch.email|default:'غير محدد' }}</td>
+            <td>
+              <a href="{% url 'branch_update' branch.pk %}" class="btn btn-sm btn-primary">تعديل</a>
+              <a href="{% url 'branch_delete' branch.pk %}" class="btn btn-sm btn-danger">حذف</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6">لا توجد فروع</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <a href="{% url 'branch_create' %}" class="btn btn-primary mt-3">إنشاء فرع جديد</a>
+    </div>
+  </div>
+</div>
+<script src="{% static 'vendors/datatables.net/jquery.dataTables.js' %}"></script>
+<script src="{% static 'vendors/datatables.net-bs4/dataTables.bootstrap4.js' %}"></script>
+<script>
+  $(document).ready(function() {
+    $('#branchesTable').DataTable({
+      "language": {
+        "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Arabic.json"
+      }
+    });
+  });
+</script>
+{% endblock %}

@@ -13,7 +13,22 @@
   {% endif %}
   <div class="card">
     <div class="card-body">
-      <h4 class="card-title">قائمة المواعيد</h4>
+      <h4 class="card-title">سجل المواعيد</h4>
+      <div class="row mb-3">
+        <div class="col-md-4">
+          <label>تصفية حسب الطبيب:</label>
+          <select id="doctorFilter" class="form-control js-example-basic-single">
+            <option value="">الكل</option>
+            {% for doctor in doctors %}
+            <option value="{{ doctor.id }}">{{ doctor.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label>تصفية حسب التاريخ:</label>
+          <input type="date" id="dateFilter" class="form-control">
+        </div>
+      </div>
       <table id="appointmentsTable" class="table table-striped">
         <thead>
           <tr>
@@ -24,6 +39,7 @@
             <th>التاريخ</th>
             <th>الحالة</th>
             <th>السعر</th>
+            <th>إجراءات</th>
           </tr>
         </thead>
         <tbody>
@@ -36,9 +52,14 @@
             <td>{{ appointment.scheduled_date }}</td>
             <td>{{ appointment.status.name|default:'غير محدد' }}</td>
             <td>{{ appointment.price }}</td>
+            <td>
+              <a href="{% url 'appointment_detail' appointment.pk %}" class="btn btn-sm btn-info">تفاصيل</a>
+              <a href="{% url 'appointment_update' appointment.pk %}" class="btn btn-sm btn-primary">تعديل</a>
+              <a href="{% url 'appointment_delete' appointment.pk %}" class="btn btn-sm btn-danger">حذف</a>
+            </td>
           </tr>
           {% empty %}
-          <tr><td colspan="7">لا توجد مواعيد</td></tr>
+          <tr><td colspan="8">لا توجد مواعيد</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -48,12 +69,23 @@
 </div>
 <script src="{% static 'vendors/datatables.net/jquery.dataTables.js' %}"></script>
 <script src="{% static 'vendors/datatables.net-bs4/dataTables.bootstrap4.js' %}"></script>
+<script src="{% static 'vendors/select2/select2.min.js' %}"></script>
+<script src="{% static 'js/select2.js' %}"></script>
 <script>
   $(document).ready(function() {
-    $('#appointmentsTable').DataTable({
+    var table = $('#appointmentsTable').DataTable({
       "language": {
         "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Arabic.json"
       }
+    });
+
+    $('#doctorFilter').select2();
+    $('#doctorFilter').on('change', function() {
+      table.column(2).search(this.value).draw();
+    });
+
+    $('#dateFilter').on('change', function() {
+      table.column(4).search(this.value).draw();
     });
   });
 </script>

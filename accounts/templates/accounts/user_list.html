@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+  <h2>قائمة المستخدمين - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  {% if messages %}
+    <div class="alert alert-info">
+      {% for message in messages %}
+        {{ message }}
+      {% endfor %}
+    </div>
+  {% endif %}
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">سجل المستخدمين</h4>
+      <table id="usersTable" class="table table-striped">
+        <thead>
+          <tr>
+            <th>اسم المستخدم</th>
+            <th>البريد الإلكتروني</th>
+            <th>كود العيادة</th>
+            <th>الدور</th>
+            <th>الفرع</th>
+            <th>إجراءات</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user in users %}
+          <tr>
+            <td>{{ user.username }}</td>
+            <td>{{ user.email|default:'غير محدد' }}</td>
+            <td>{{ user.clinic_code|default:'غير محدد' }}</td>
+            <td>{{ user.role.name|default:'غير محدد' }}</td>
+            <td>{{ user.branch.name|default:'غير محدد' }}</td>
+            <td>
+              <a href="{% url 'user_update' user.pk %}" class="btn btn-sm btn-primary">تعديل</a>
+              <a href="{% url 'user_delete' user.pk %}" class="btn btn-sm btn-danger">حذف</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6">لا توجد مستخدمين</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <a href="{% url 'user_create' %}" class="btn btn-primary mt-3">إنشاء مستخدم جديد</a>
+    </div>
+  </div>
+</div>
+<script src="{% static 'vendors/datatables.net/jquery.dataTables.js' %}"></script>
+<script src="{% static 'vendors/datatables.net-bs4/dataTables.bootstrap4.js' %}"></script>
+<script>
+  $(document).ready(function() {
+    $('#usersTable').DataTable({
+      "language": {
+        "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Arabic.json"
+      }
+    });
+  });
+</script>
+{% endblock %}

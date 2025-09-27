@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+  <h2>إنشاء تخصص جديد - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  {% if messages %}
+    <div class="alert alert-info">
+      {% for message in messages %}
+        {{ message }}
+      {% endfor %}
+    </div>
+  {% endif %}
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">بيانات التخصص</h4>
+      <form class="forms-sample" method="post">
+        {% csrf_token %}
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.name.id_for_label }}">الاسم</label>
+              <div class="col-sm-9">
+                {{ form.name }}
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.description.id_for_label }}">الوصف</label>
+              <div class="col-sm-9">
+                {{ form.description }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary me-2">إنشاء التخصص</button>
+        <a href="{% url 'specialization_list' %}" class="btn btn-secondary">رجوع إلى قائمة التخصصات</a>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

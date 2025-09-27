@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+  <h2>تسجيل دفعة جديدة - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  {% if messages %}
+    <div class="alert alert-info">
+      {% for message in messages %}
+        {{ message }}
+      {% endfor %}
+    </div>
+  {% endif %}
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">بيانات الدفعة</h4>
+      <form class="forms-sample" method="post">
+        {% csrf_token %}
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.appointment.id_for_label }}">الموعد</label>
+              <div class="col-sm-9">
+                {{ form.appointment }}
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.patient.id_for_label }}">المريض</label>
+              <div class="col-sm-9">
+                {{ form.patient }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.method.id_for_label }}">طريقة الدفع</label>
+              <div class="col-sm-9">
+                {{ form.method }}
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.receipt_number.id_for_label }}">رقم الإيصال</label>
+              <div class="col-sm-9">
+                {{ form.receipt_number }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.amount.id_for_label }}">المبلغ</label>
+              <div class="col-sm-9">
+                {{ form.amount }}
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.branch.id_for_label }}">الفرع</label>
+              <div class="col-sm-9">
+                {{ form.branch }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-12">
+            <div class="form-group">
+              <label for="{{ form.notes.id_for_label }}">ملاحظات</label>
+              {{ form.notes }}
+            </div>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary me-2">تسجيل الدفع</button>
+        <a href="{% url 'appointment_list' %}" class="btn btn-secondary">عرض المواعيد</a>
+      </form>
+    </div>
+  </div>
+</div>
+<script src="{% static 'vendors/select2/select2.min.js' %}"></script>
+<script src="{% static 'js/select2.js' %}"></script>
+<script>
+  $(document).ready(function() {
+    $('.js-example-basic-single').select2();
+  });
+</script>
+{% endblock %}

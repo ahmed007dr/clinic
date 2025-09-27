@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+  <h2>قائمة الموظفين - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  {% if messages %}
+    <div class="alert alert-info">
+      {% for message in messages %}
+        {{ message }}
+      {% endfor %}
+    </div>
+  {% endif %}
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">سجل الموظفين</h4>
+      <table id="employeesTable" class="table table-striped">
+        <thead>
+          <tr>
+            <th>الاسم</th>
+            <th>نوع الموظف</th>
+            <th>التخصصات</th>
+            <th>الفرع</th>
+            <th>رقم الهاتف</th>
+            <th>إجراءات</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for employee in employees %}
+          <tr>
+            <td>{{ employee.name }}</td>
+            <td>{{ employee.employee_type.name|default:'غير محدد' }}</td>
+            <td>{{ employee.specializations.all|join:", "|default:'غير محدد' }}</td>
+            <td>{{ employee.branch.name|default:'غير محدد' }}</td>
+            <td>{{ employee.phone1|default:'غير محدد' }}</td>
+            <td>
+              <a href="{% url 'employee_update' employee.pk %}" class="btn btn-sm btn-primary">تعديل</a>
+              <a href="{% url 'employee_delete' employee.pk %}" class="btn btn-sm btn-danger">حذف</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6">لا توجد موظفين</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <a href="{% url 'employee_create' %}" class="btn btn-primary mt-3">إنشاء موظف جديد</a>
+    </div>
+  </div>
+</div>
+<script src="{% static 'vendors/datatables.net/jquery.dataTables.js' %}"></script>
+<script src="{% static 'vendors/datatables.net-bs4/dataTables.bootstrap4.js' %}"></script>
+<script>
+  $(document).ready(function() {
+    $('#employeesTable').DataTable({
+      "language": {
+        "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Arabic.json"
+      }
+    });
+  });
+</script>
+{% endblock %}

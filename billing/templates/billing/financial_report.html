@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+  <h2>التقرير المالي - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">التقرير المالي</h4>
+      <form method="get" class="mb-4">
+        <div class="row">
+          <div class="col-md-4">
+            <label>من تاريخ:</label>
+            <input type="date" name="start_date" value="{{ start_date }}" class="form-control">
+          </div>
+          <div class="col-md-4">
+            <label>إلى تاريخ:</label>
+            <input type="date" name="end_date" value="{{ end_date }}" class="form-control">
+          </div>
+          <div class="col-md-4">
+            <label>الفرع:</label>
+            <select name="branch_id" class="form-control js-example-basic-single">
+              <option value="">الكل</option>
+              {% for branch in branches %}
+              <option value="{{ branch.id }}" {% if branch_id == branch.id|stringformat:"s" %}selected{% endif %}>{{ branch.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary mt-3">تصفية</button>
+      </form>
+      <div class="row">
+        <div class="col-md-4">
+          <h5>إجمالي الإيرادات: {{ total_revenue }} جنيه</h5>
+        </div>
+        <div class="col-md-4">
+          <h5>إجمالي المصروفات: {{ total_expenses }} جنيه</h5>
+        </div>
+        <div class="col-md-4">
+          <h5>صافي الربح: {{ net_profit }} جنيه</h5>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="{% static 'vendors/select2/select2.min.js' %}"></script>
+<script src="{% static 'js/select2.js' %}"></script>
+<script>
+  $(document).ready(function() {
+    $('.js-example-basic-single').select2();
+  });
+</script>
+{% endblock %}

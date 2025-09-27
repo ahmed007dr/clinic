@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+  <h2>قائمة الإشعارات - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  {% if messages %}
+    <div class="alert alert-info">
+      {% for message in messages %}
+        {{ message }}
+      {% endfor %}
+    </div>
+  {% endif %}
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">سجل الإشعارات</h4>
+      <table id="notificationsTable" class="table table-striped">
+        <thead>
+          <tr>
+            <th>العنوان</th>
+            <th>النوع</th>
+            <th>الرسالة</th>
+            <th>التاريخ</th>
+            <th>الحالة</th>
+            <th>إجراءات</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for notification in notifications %}
+          <tr>
+            <td>{{ notification.title }}</td>
+            <td>{{ notification.get_type_display }}</td>
+            <td>{{ notification.message }}</td>
+            <td>{{ notification.created_at }}</td>
+            <td>{{ notification.is_read|yesno:"مقروء,غير مقروء" }}</td>
+            <td>
+              {% if not notification.is_read %}
+              <a href="{% url 'notification_mark_read' notification.pk %}" class="btn btn-sm btn-primary">تحديد كمقروء</a>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6">لا توجد إشعارات</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<script src="{% static 'vendors/datatables.net/jquery.dataTables.js' %}"></script>
+<script src="{% static 'vendors/datatables.net-bs4/dataTables.bootstrap4.js' %}"></script>
+<script>
+  $(document).ready(function() {
+    $('#notificationsTable').DataTable({
+      "language": {
+        "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Arabic.json"
+      }
+    });
+  });
+</script>
+{% endblock %}

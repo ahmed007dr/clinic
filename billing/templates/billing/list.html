@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+  <h2>قائمة الدفعات - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  {% if messages %}
+    <div class="alert alert-info">
+      {% for message in messages %}
+        {{ message }}
+      {% endfor %}
+    </div>
+  {% endif %}
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">سجل الدفعات</h4>
+      <table id="paymentsTable" class="table table-striped">
+        <thead>
+          <tr>
+            <th>رقم الإيصال</th>
+            <th>المريض</th>
+            <th>الموعد</th>
+            <th>المبلغ</th>
+            <th>طريقة الدفع</th>
+            <th>التاريخ</th>
+            <th>الفرع</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for payment in payments %}
+          <tr>
+            <td>{{ payment.receipt_number }}</td>
+            <td>{{ payment.patient.name }}</td>
+            <td>{{ payment.appointment.id|default:'غير محدد' }}</td>
+            <td>{{ payment.amount }}</td>
+            <td>{{ payment.method.name|default:'غير محدد' }}</td>
+            <td>{{ payment.date }}</td>
+            <td>{{ payment.branch.name|default:'غير محدد' }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7">لا توجد دفعات</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <a href="{% url 'payment_create' %}" class="btn btn-primary mt-3">تسجيل دفعة جديدة</a>
+    </div>
+  </div>
+</div>
+<script src="{% static 'vendors/datatables.net/jquery.dataTables.js' %}"></script>
+<script src="{% static 'vendors/datatables.net-bs4/dataTables.bootstrap4.js' %}"></script>
+<script>
+  $(document).ready(function() {
+    $('#paymentsTable').DataTable({
+      "language": {
+        "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Arabic.json"
+      }
+    });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+  <h2>قائمة فئات المصروفات - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  {% if messages %}
+    <div class="alert alert-info">
+      {% for message in messages %}
+        {{ message }}
+      {% endfor %}
+    </div>
+  {% endif %}
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">سجل فئات المصروفات</h4>
+      <table id="expenseCategoriesTable" class="table table-striped">
+        <thead>
+          <tr>
+            <th>الاسم</th>
+            <th>الوصف</th>
+            <th>إجراءات</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for category in categories %}
+          <tr>
+            <td>{{ category.name }}</td>
+            <td>{{ category.description|default:'غير محدد' }}</td>
+            <td>
+              <a href="{% url 'expense_category_update' category.pk %}" class="btn btn-sm btn-primary">تعديل</a>
+              <a href="{% url 'expense_category_delete' category.pk %}" class="btn btn-sm btn-danger">حذف</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="3">لا توجد فئات مصروفات</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <a href="{% url 'expense_category_create' %}" class="btn btn-primary mt-3">إنشاء فئة جديدة</a>
+    </div>
+  </div>
+</div>
+<script src="{% static 'vendors/datatables.net/jquery.dataTables.js' %}"></script>
+<script src="{% static 'vendors/datatables.net-bs4/dataTables.bootstrap4.js' %}"></script>
+<script>
+  $(document).ready(function() {
+    $('#expenseCategoriesTable').DataTable({
+      "language": {
+        "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Arabic.json"
+      }
+    });
+  });
+</script>
+{% endblock %}

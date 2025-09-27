@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+  <h2>قائمة الخدمات - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  {% if messages %}
+    <div class="alert alert-info">
+      {% for message in messages %}
+        {{ message }}
+      {% endfor %}
+    </div>
+  {% endif %}
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">سجل الخدمات</h4>
+      <table id="servicesTable" class="table table-striped">
+        <thead>
+          <tr>
+            <th>الاسم</th>
+            <th>التخصص</th>
+            <th>السعر الأساسي</th>
+            <th>الوصف</th>
+            <th>إجراءات</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for service in services %}
+          <tr>
+            <td>{{ service.name }}</td>
+            <td>{{ service.specialization.name|default:'غير محدد' }}</td>
+            <td>{{ service.base_price }} جنيه</td>
+            <td>{{ service.description|default:'غير محدد' }}</td>
+            <td>
+              <a href="{% url 'service_update' service.pk %}" class="btn btn-sm btn-primary">تعديل</a>
+              <a href="{% url 'service_delete' service.pk %}" class="btn btn-sm btn-danger">حذف</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5">لا توجد خدمات</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <a href="{% url 'service_create' %}" class="btn btn-primary mt-3">إنشاء خدمة جديدة</a>
+    </div>
+  </div>
+</div>
+<script src="{% static 'vendors/datatables.net/jquery.dataTables.js' %}"></script>
+<script src="{% static 'vendors/datatables.net-bs4/dataTables.bootstrap4.js' %}"></script>
+<script>
+  $(document).ready(function() {
+    $('#servicesTable').DataTable({
+      "language": {
+        "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Arabic.json"
+      }
+    });
+  });
+</script>
+{% endblock %}

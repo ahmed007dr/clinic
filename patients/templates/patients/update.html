@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+  <h2>تعديل المريض - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  {% if messages %}
+    <div class="alert alert-info">
+      {% for message in messages %}
+        {{ message }}
+      {% endfor %}
+    </div>
+  {% endif %}
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">تعديل بيانات المريض: {{ form.instance.name }}</h4>
+      <form class="forms-sample" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.name.id_for_label }}">الاسم</label>
+              <div class="col-sm-9">
+                {{ form.name }}
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.national_id.id_for_label }}">الرقم القومي</label>
+              <div class="col-sm-9">
+                {{ form.national_id }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.gender.id_for_label }}">الجنس</label>
+              <div class="col-sm-9">
+                {{ form.gender }}
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.birth_date.id_for_label }}">تاريخ الميلاد</label>
+              <div class="col-sm-9">
+                {{ form.birth_date }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.phone1.id_for_label }}">رقم الهاتف الأساسي</label>
+              <div class="col-sm-9">
+                {{ form.phone1 }}
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.phone2.id_for_label }}">رقم الهاتف الإضافي</label>
+              <div class="col-sm-9">
+                {{ form.phone2 }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.email.id_for_label }}">البريد الإلكتروني</label>
+              <div class="col-sm-9">
+                {{ form.email }}
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.marital_status.id_for_label }}">الحالة الاجتماعية</label>
+              <div class="col-sm-9">
+                {{ form.marital_status }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.address.id_for_label }}">العنوان</label>
+              <div class="col-sm-9">
+                {{ form.address }}
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.photo.id_for_label }}">الصورة</label>
+              <div class="col-sm-9">
+                <div class="input-group col-xs-12">
+                  {{ form.photo }}
+                  <span class="input-group-append">
+                    <button class="file-upload-browse btn btn-primary" type="button">رفع</button>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-12">
+            <div class="form-group">
+              <label for="{{ form.notes.id_for_label }}">ملاحظات</label>
+              {{ form.notes }}
+            </div>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary me-2">حفظ التعديلات</button>
+        <a href="{% url 'patient_list' %}" class="btn btn-secondary">رجوع إلى قائمة المرضى</a>
+      </form>
+    </div>
+  </div>
+</div>
+<script src="{% static 'js/file-upload.js' %}"></script>
+<script src="{% static 'vendors/select2/select2.min.js' %}"></script>
+<script src="{% static 'js/select2.js' %}"></script>
+<script>
+  $(document).ready(function() {
+    $('.js-example-basic-single').select2();
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+  <h2>قائمة الانتظار - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">مواعيد اليوم</h4>
+      <table id="waitingListTable" class="table table-striped">
+        <thead>
+          <tr>
+            <th>رقم التذكرة</th>
+            <th>المريض</th>
+            <th>الطبيب</th>
+            <th>الخدمة</th>
+            <th>التاريخ</th>
+            <th>الحالة</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<script src="{% static 'vendors/datatables.net/jquery.dataTables.js' %}"></script>
+<script src="{% static 'vendors/datatables.net-bs4/dataTables.bootstrap4.js' %}"></script>
+<script>
+  $(document).ready(function() {
+    $('#waitingListTable').DataTable({
+      "language": {
+        "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Arabic.json"
+      },
+      "ajax": "{% url 'waiting_list_data' %}",
+      "columns": [
+        { "data": "id" },
+        { "data": "patient" },
+        { "data": "doctor" },
+        { "data": "service" },
+        { "data": "scheduled_date" },
+        { "data": "status" }
+      ],
+      "ordering": false,
+      "pageLength": 10
+    });
+
+    // تحديث تلقائي كل 30 ثانية
+    setInterval(function() {
+      $('#waitingListTable').DataTable().ajax.reload();
+    }, 30000);
+  });
+</script>
+{% endblock %}
