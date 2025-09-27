@@ -73,9 +73,9 @@ CLINIC_NAME = "Dr-ahmed"
 CLINIC_LOGO = "images/logo.svg"
 FOOTER_TEXT = "Copyright &copy; 2025 All rights reserved."
 
-LOGIN_URL = '/login/'
+LOGIN_URL = '/accounts/login/'  # تصحيح المسار
 LOGIN_REDIRECT_URL = '/appointments/'
-LOGOUT_REDIRECT_URL = '/login/'
+LOGOUT_REDIRECT_URL = '/accounts/login/'  # تصحيح المسار
 
 
 TEMPLATES = [

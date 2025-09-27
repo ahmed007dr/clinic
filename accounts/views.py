@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .forms import LoginForm, UserForm
+from .forms import LoginForm, UserForm, UserSettingsForm
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.conf import settings
@@ -10,7 +10,7 @@ from branches.models import Branch
 
 def user_login(request):
     if request.user.is_authenticated:
-        return redirect('appointment_list')
+        return redirect('dashboard')
     
     if request.method == 'POST':
         form = LoginForm(request, data=request.POST)
@@ -20,7 +20,8 @@ def user_login(request):
             user = authenticate(request, username=username, password=password)
             if user is not None:
                 login(request, user)
-                return redirect('appointment_list')
+                next_url = request.GET.get('next', 'dashboard')
+                return redirect(next_url)
             else:
                 messages.error(request, 'اسم المستخدم أو كلمة المرور غير صحيحة')
         else:
@@ -30,9 +31,9 @@ def user_login(request):
     
     context = {
         'form': form,
-        'clinic_name': request.user.branch.name if request.user.is_authenticated and request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': request.user.branch.logo.url if request.user.is_authenticated and request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': request.user.branch.footer_text if request.user.is_authenticated and request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
+        'clinic_name': getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
+        'clinic_logo': getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
+        'footer_text': getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'accounts/login.html', context)
 
@@ -113,3 +114,30 @@ def user_delete(request, pk):
         'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'accounts/user_delete.html', context)
+
+@login_required
+def user_settings(request):
+    if request.method == 'POST':
+        form = UserSettingsForm(request.POST, instance=request.user)
+        if form.is_valid():
+            if request.user.role.name != 'Admin':
+                form.fields['role'].disabled = True
+                form.fields['branch'].disabled = True
+            form.save()
+            messages.success(request, 'تم تحديث الإعدادات بنجاح')
+            return redirect('dashboard')
+        else:
+            messages.error(request, 'خطأ في إدخال البيانات')
+    else:
+        form = UserSettingsForm(instance=request.user)
+        if request.user.role.name != 'Admin':
+            form.fields['role'].disabled = True
+            form.fields['branch'].disabled = True
+
+    context = {
+        'form': form,
+        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
+        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
+        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
+    }
+    return render(request, 'accounts/settings.html', context)

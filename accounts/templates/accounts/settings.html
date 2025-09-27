@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+  <h2>إعدادات المستخدم - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  {% if messages %}
+    <div class="alert alert-info">
+      {% for message in messages %}
+        {{ message }}
+      {% endfor %}
+    </div>
+  {% endif %}
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">إعدادات الحساب: {{ request.user.username }}</h4>
+      <form class="forms-sample" method="post">
+        {% csrf_token %}
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.username.id_for_label }}">اسم المستخدم</label>
+              <div class="col-sm-9">
+                {{ form.username }}
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.email.id_for_label }}">البريد الإلكتروني</label>
+              <div class="col-sm-9">
+                {{ form.email }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.password.id_for_label }}">كلمة المرور الجديدة</label>
+              <div class="col-sm-9">
+                {{ form.password }}
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.confirm_password.id_for_label }}">تأكيد كلمة المرور</label>
+              <div class="col-sm-9">
+                {{ form.confirm_password }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.clinic_code.id_for_label }}">كود العيادة</label>
+              <div class="col-sm-9">
+                {{ form.clinic_code }}
+              </div>
+            </div>
+          </div>
+          {% if request.user.role.name == 'Admin' %}
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.role.id_for_label }}">الدور</label>
+              <div class="col-sm-9">
+                {{ form.role }}
+              </div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+        {% if request.user.role.name == 'Admin' %}
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-3 col-form-label" for="{{ form.branch.id_for_label }}">الفرع</label>
+              <div class="col-sm-9">
+                {{ form.branch }}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        <button type="submit" class="btn btn-primary me-2">حفظ الإعدادات</button>
+        <a href="{% url 'dashboard' %}" class="btn btn-secondary">رجوع إلى لوحة التحكم</a>
+      </form>
+    </div>
+  </div>
+</div>
+<script src="{% static 'vendors/select2/select2.min.js' %}"></script>
+<script src="{% static 'js/select2.js' %}"></script>
+<script>
+  $(document).ready(function() {
+    $('.js-example-basic-single').select2();
+  });
+</script>
+{% endblock %}
