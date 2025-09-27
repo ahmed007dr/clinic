@@ -34,8 +34,8 @@
             <td>{{ expense.amount }} جنيه</td>
             <td>{{ expense.date }}</td>
             <td>
-              <a href="{% url 'expense_update' expense.pk %}" class="btn btn-sm btn-primary">تعديل</a>
-              <a href="{% url 'expense_delete' expense.pk %}" class="btn btn-sm btn-danger">حذف</a>
+              <a href="{% url 'billing:expense_update' expense.pk %}" class="btn btn-sm btn-primary">تعديل</a>
+              <a href="{% url 'billing:expense_delete' expense.pk %}" class="btn btn-sm btn-danger">حذف</a>
             </td>
           </tr>
           {% empty %}
@@ -43,7 +43,7 @@
           {% endfor %}
         </tbody>
       </table>
-      <a href="{% url 'expense_create' %}" class="btn btn-primary mt-3">تسجيل مصروف جديد</a>
+      <a href="{% url 'billing:expense_create' %}" class="btn btn-primary mt-3">تسجيل مصروف جديد</a>
     </div>
   </div>
 </div>

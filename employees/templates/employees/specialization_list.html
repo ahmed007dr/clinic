@@ -28,8 +28,8 @@
             <td>{{ specialization.name }}</td>
             <td>{{ specialization.description|default:'غير محدد' }}</td>
             <td>
-              <a href="{% url 'specialization_update' specialization.pk %}" class="btn btn-sm btn-primary">تعديل</a>
-              <a href="{% url 'specialization_delete' specialization.pk %}" class="btn btn-sm btn-danger">حذف</a>
+              <a href="{% url 'employees:specialization_update' specialization.pk %}" class="btn btn-sm btn-primary">تعديل</a>
+              <a href="{% url 'employees:specialization_delete' specialization.pk %}" class="btn btn-sm btn-danger">حذف</a>
             </td>
           </tr>
           {% empty %}
@@ -37,7 +37,7 @@
           {% endfor %}
         </tbody>
       </table>
-      <a href="{% url 'specialization_create' %}" class="btn btn-primary mt-3">إنشاء تخصص جديد</a>
+      <a href="{% url 'employees:specialization_create' %}" class="btn btn-primary mt-3">إنشاء تخصص جديد</a>
     </div>
   </div>
 </div>

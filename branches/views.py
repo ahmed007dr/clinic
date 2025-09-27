@@ -13,7 +13,7 @@ def branch_create(request):
         if form.is_valid():
             branch = form.save()
             messages.success(request, f'تم إنشاء الفرع {branch.name} بنجاح')
-            return redirect('branch_list')
+            return redirect('branches:branch_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:
@@ -46,7 +46,7 @@ def branch_update(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, f'تم تعديل الفرع {branch.name} بنجاح')
-            return redirect('branch_list')
+            return redirect('branches:branch_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:
@@ -66,7 +66,7 @@ def branch_delete(request, pk):
     if request.method == 'POST':
         branch.delete()
         messages.success(request, 'تم حذف الفرع بنجاح')
-        return redirect('branch_list')
+        return redirect('branches:branch_list')
     context = {
         'branch': branch,
         'clinic_name': getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),

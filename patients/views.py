@@ -20,7 +20,7 @@ def patient_create(request):
         if form.is_valid():
             patient = form.save()
             messages.success(request, f'تم تسجيل المريض {patient.name} بنجاح')
-            return redirect('patient_list')
+            return redirect('patients:patient_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:
@@ -82,7 +82,7 @@ def patient_update(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, f'تم تعديل المريض {patient.name} بنجاح')
-            return redirect('patient_list')
+            return redirect('patients:patient_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:
@@ -103,7 +103,7 @@ def patient_delete(request, pk):
     if request.method == 'POST':
         patient.delete()
         messages.success(request, 'تم حذف المريض بنجاح')
-        return redirect('patient_list')
+        return redirect('patients:patient_list')
     context = {
         'patient': patient,
         'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
@@ -129,4 +129,4 @@ def patient_list_export(request):
         return export_pdf(data, headers, title, filename)
     elif export_format == 'excel':
         return export_excel(data, headers, title, filename)
-    return redirect('patient_list')
+    return redirect('patients:patient_list')

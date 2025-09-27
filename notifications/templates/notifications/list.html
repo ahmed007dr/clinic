@@ -35,7 +35,7 @@
             <td>{{ notification.is_read|yesno:"مقروء,غير مقروء" }}</td>
             <td>
               {% if not notification.is_read %}
-              <a href="{% url 'notification_mark_read' notification.pk %}" class="btn btn-sm btn-primary">تحديد كمقروء</a>
+              <a href="{% url 'notifications:notification_mark_read' notification.pk %}" class="btn btn-sm btn-primary">تحديد كمقروء</a>
               {% endif %}
             </td>
           </tr>

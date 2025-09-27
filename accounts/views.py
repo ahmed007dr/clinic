@@ -13,7 +13,7 @@ User = get_user_model()
 
 def user_login(request):
     if request.user.is_authenticated:
-        return redirect('dashboard')
+        return redirect('dashboard:dashboard')
 
     if request.method == 'POST':
         form = LoginForm(request, data=request.POST)
@@ -44,7 +44,7 @@ def user_login(request):
 @login_required
 def user_logout(request):
     logout(request)
-    return redirect('login')
+    return redirect('accounts:login')
 
 
 @login_required
@@ -55,7 +55,7 @@ def user_create(request):
         if form.is_valid():
             user = form.save()
             messages.success(request, f'تم إنشاء المستخدم {user.username} بنجاح')
-            return redirect('user_list')
+            return redirect('accounts:user_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:
@@ -92,7 +92,7 @@ def user_update(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, f'تم تعديل المستخدم {user.username} بنجاح')
-            return redirect('user_list')
+            return redirect('accounts:user_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:
@@ -114,7 +114,7 @@ def user_delete(request, pk):
     if request.method == 'POST':
         user.delete()
         messages.success(request, 'تم حذف المستخدم بنجاح')
-        return redirect('user_list')
+        return redirect('accounts:user_list')
     context = {
         'user': user,
         'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
@@ -134,7 +134,7 @@ def user_settings(request):
                 form.fields['branch'].disabled = True
             form.save()
             messages.success(request, 'تم تحديث الإعدادات بنجاح')
-            return redirect('dashboard')
+            return redirect('dashboard:dashboard')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
     else:

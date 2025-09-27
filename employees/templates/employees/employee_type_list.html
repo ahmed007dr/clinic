@@ -28,8 +28,8 @@
             <td>{{ employee_type.name }}</td>
             <td>{{ employee_type.description|default:'غير محدد' }}</td>
             <td>
-              <a href="{% url 'employee_type_update' employee_type.pk %}" class="btn btn-sm btn-primary">تعديل</a>
-              <a href="{% url 'employee_type_delete' employee_type.pk %}" class="btn btn-sm btn-danger">حذف</a>
+              <a href="{% url 'employees:employee_type_update' employee_type.pk %}" class="btn btn-sm btn-primary">تعديل</a>
+              <a href="{% url 'employees:employee_type_delete' employee_type.pk %}" class="btn btn-sm btn-danger">حذف</a>
             </td>
           </tr>
           {% empty %}
@@ -37,7 +37,7 @@
           {% endfor %}
         </tbody>
       </table>
-      <a href="{% url 'employee_type_create' %}" class="btn btn-primary mt-3">إنشاء نوع موظف جديد</a>
+      <a href="{% url 'employees:employee_type_create' %}" class="btn btn-primary mt-3">إنشاء نوع موظف جديد</a>
     </div>
   </div>
 </div>

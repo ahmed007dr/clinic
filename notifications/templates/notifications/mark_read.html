@@ -10,7 +10,7 @@
       <form method="post">
         {% csrf_token %}
         <button type="submit" class="btn btn-primary">تحديد كمقروء</button>
-        <a href="{% url 'notification_list' %}" class="btn btn-secondary">إلغاء</a>
+        <a href="{% url 'notifications:notification_list' %}" class="btn btn-secondary">إلغاء</a>
       </form>
     </div>
   </div>

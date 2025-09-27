@@ -2,7 +2,7 @@
 from django.db import models
 from branches.models import Branch
 
-class Patient(models.Model):
+class Patient(models.Model):    
     name = models.CharField(max_length=100)
     national_id = models.CharField(max_length=20, blank=True, null=True)
     gender = models.CharField(max_length=10, choices=[('male', 'ذكر'), ('female', 'أنثى')], blank=True, null=True)

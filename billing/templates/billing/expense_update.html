@@ -1,9 +1,16 @@
 {% extends 'base.html' %}
 {% load static %}
 
+{% block head %}
+<!-- CSS -->
+<link rel="stylesheet" href="{% static 'vendors/select2/select2.min.css' %}">
+<link rel="stylesheet" href="{% static 'vendors/datatables/dataTables.bootstrap4.css' %}">
+{% endblock %}
+
 {% block body %}
 <div class="container">
-  <h2>تعديل المصروف - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  <h2>تسجيل مصروف جديد - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  
   {% if messages %}
     <div class="alert alert-info">
       {% for message in messages %}
@@ -11,73 +18,82 @@
       {% endfor %}
     </div>
   {% endif %}
+
   <div class="card">
     <div class="card-body">
-      <h4 class="card-title">تعديل بيانات المصروف</h4>
+      <h4 class="card-title">بيانات المصروف</h4>
       <form class="forms-sample" method="post">
         {% csrf_token %}
+        
         <div class="row">
           <div class="col-md-6">
             <div class="form-group row">
               <label class="col-sm-3 col-form-label" for="{{ form.branch.id_for_label }}">الفرع</label>
-              <div class="col-sm-9">
-                {{ form.branch }}
-              </div>
+              <div class="col-sm-9">{{ form.branch }}</div>
             </div>
           </div>
+          
           <div class="col-md-6">
             <div class="form-group row">
               <label class="col-sm-3 col-form-label" for="{{ form.category.id_for_label }}">فئة المصروف</label>
-              <div class="col-sm-9">
-                {{ form.category }}
-              </div>
+              <div class="col-sm-9">{{ form.category }}</div>
             </div>
           </div>
         </div>
+
         <div class="row">
           <div class="col-md-6">
             <div class="form-group row">
               <label class="col-sm-3 col-form-label" for="{{ form.employee.id_for_label }}">الموظف</label>
-              <div class="col-sm-9">
-                {{ form.employee }}
-              </div>
+              <div class="col-sm-9">{{ form.employee }}</div>
             </div>
           </div>
+
           <div class="col-md-6">
             <div class="form-group row">
               <label class="col-sm-3 col-form-label" for="{{ form.amount.id_for_label }}">المبلغ</label>
-              <div class="col-sm-9">
-                {{ form.amount }}
-              </div>
+              <div class="col-sm-9">{{ form.amount }}</div>
             </div>
           </div>
         </div>
+
         <div class="row">
           <div class="col-md-6">
             <div class="form-group row">
               <label class="col-sm-3 col-form-label" for="{{ form.date.id_for_label }}">التاريخ</label>
-              <div class="col-sm-9">
-                {{ form.date }}
-              </div>
+              <div class="col-sm-9">{{ form.date }}</div>
             </div>
           </div>
+
           <div class="col-md-6">
             <div class="form-group row">
               <label class="col-sm-3 col-form-label" for="{{ form.notes.id_for_label }}">ملاحظات</label>
-              <div class="col-sm-9">
-                {{ form.notes }}
-              </div>
+              <div class="col-sm-9">{{ form.notes }}</div>
             </div>
           </div>
         </div>
-        <button type="submit" class="btn btn-primary me-2">حفظ التعديلات</button>
-        <a href="{% url 'expense_list' %}" class="btn btn-secondary">رجوع إلى قائمة المصروفات</a>
+
+        <button type="submit" class="btn btn-primary me-2">تسجيل المصروف</button>
+        <a href="{% url 'billing:expense_list' %}" class="btn btn-secondary">رجوع إلى قائمة المصروفات</a>
       </form>
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<!-- jQuery أولاً -->
+<script src="{% static 'vendors/jquery/jquery.min.js' %}"></script>
+<script src="{% static 'vendors/jquery-cookie/jquery.cookie.js' %}"></script>
+
+<!-- DataTables -->
+<script src="{% static 'vendors/datatables/jquery.dataTables.js' %}"></script>
+<script src="{% static 'vendors/datatables/dataTables.bootstrap4.js' %}"></script>
+
+<!-- Select2 -->
 <script src="{% static 'vendors/select2/select2.min.js' %}"></script>
 <script src="{% static 'js/select2.js' %}"></script>
+
 <script>
   $(document).ready(function() {
     $('.js-example-basic-single').select2();
