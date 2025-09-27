@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+  <h2>قائمة المواعيد - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  {% if messages %}
+    <div class="alert alert-info">
+      {% for message in messages %}
+        {{ message }}
+      {% endfor %}
+    </div>
+  {% endif %}
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">قائمة المواعيد</h4>
+      <table id="appointmentsTable" class="table table-striped">
+        <thead>
+          <tr>
+            <th>رقم التذكرة</th>
+            <th>المريض</th>
+            <th>الطبيب</th>
+            <th>الخدمة</th>
+            <th>التاريخ</th>
+            <th>الحالة</th>
+            <th>السعر</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for appointment in appointments %}
+          <tr>
+            <td>{{ appointment.id }}</td>
+            <td>{{ appointment.patient.name }}</td>
+            <td>{{ appointment.doctor.name|default:'غير محدد' }}</td>
+            <td>{{ appointment.service.name|default:'غير محدد' }}</td>
+            <td>{{ appointment.scheduled_date }}</td>
+            <td>{{ appointment.status.name|default:'غير محدد' }}</td>
+            <td>{{ appointment.price }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7">لا توجد مواعيد</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <a href="{% url 'appointment_create' %}" class="btn btn-primary mt-3">حجز موعد جديد</a>
+    </div>
+  </div>
+</div>
+<script src="{% static 'vendors/datatables.net/jquery.dataTables.js' %}"></script>
+<script src="{% static 'vendors/datatables.net-bs4/dataTables.bootstrap4.js' %}"></script>
+<script>
+  $(document).ready(function() {
+    $('#appointmentsTable').DataTable({
+      "language": {
+        "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Arabic.json"
+      }
+    });
+  });
+</script>
+{% endblock %}
