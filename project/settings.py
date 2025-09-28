@@ -156,10 +156,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'mail.club-ft.com'
+EMAIL_HOST = 'mail.2odays.com'
 EMAIL_PORT = 465  # SMTP Port
 EMAIL_USE_TLS = False  # استخدم SSL بدل TLS مع Port 465
 EMAIL_USE_SSL = True
-EMAIL_HOST_USER = 'MahranGroup@club-ft.com'
-EMAIL_HOST_PASSWORD = 'Dr$ahmad2022'  # كلمة السر الخاصة بالحساب
-DEFAULT_FROM_EMAIL = 'MahranGroup@club-ft.com'
+EMAIL_HOST_USER = 'dr-ahmed@2odays.com'
+EMAIL_HOST_PASSWORD = 'z75.l5aCQgU6.H'  # كلمة السر الخاصة بالحساب
+DEFAULT_FROM_EMAIL = 'dr-ahmed@2odays.com'

@@ -4,34 +4,120 @@
     <meta charset="UTF-8">
     <title>تقرير يومي - {{ clinic_name }}</title>
 </head>
-<body style="font-family: Arial, sans-serif; direction: rtl; text-align: right;">
-    <h2>تقرير يومي لعيادة {{ clinic_name }} - {{ date }}</h2>
+<body style="font-family: Arial, sans-serif; direction: rtl; text-align: right; margin: 20px;">
+    <h2 style="color: #2c3e50;">تقرير يومي لعيادة {{ clinic_name }} - {{ date }}</h2>
     <p><strong>الفترة:</strong> {{ date }}</p>
-    <h3>إجمالي الشهر</h3>
-    <p>إجمالي المصروفات: {{ month_total_expenses }} جنيه</p>
-    <p>إجمالي الإيرادات: {{ month_total_incomes }} جنيه</p>
-    <p>صافي الربح: {{ month_net_profit }} جنيه</p>
-    <h3>إجمالي اليوم</h3>
-    <p>إجمالي المصروفات: {{ day_total_expenses }} جنيه</p>
-    <p>إجمالي الإيرادات: {{ day_total_incomes }} جنيه</p>
-    <p>صافي الربح: {{ day_net_profit }} جنيه</p>
-    <h3>إحصائيات طرق الدفع (اليوم)</h3>
-    <ul>
-        {% for pm in day_payment_methods %}
-            <li>{{ pm.name }}: {{ pm.total_amount }} جنيه ({{ pm.count }} معاملة)</li>
-        {% empty %}
-            <li>لا توجد معاملات إيرادات اليوم</li>
-        {% endfor %}
-    </ul>
-    <h3>إحصائيات الأطباء (اليوم)</h3>
-    <ul>
-        {% for doctor in doctor_details %}
-            <li>{{ doctor.name }}: {{ doctor.total_revenue }} جنيه ({{ doctor.count }} موعد)</li>
-        {% empty %}
-            <li>لا توجد إيرادات مرتبطة بأطباء اليوم</li>
-        {% endfor %}
-    </ul>
-    <h3>إيرادات بدون طبيب (اليوم)</h3>
-    <p>{{ no_doctor_revenue }} جنيه</p>
+    
+    <h3 style="color: #34495e;">إجمالي الشهر</h3>
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+        <thead>
+            <tr style="background-color: #f8f9fa;">
+                <th style="border: 1px solid #ddd; padding: 10px;">البند</th>
+                <th style="border: 1px solid #ddd; padding: 10px;">المبلغ (جنيه)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 10px;">إجمالي المصروفات</td>
+                <td style="border: 1px solid #ddd; padding: 10px;">{{ month_total_expenses }}</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 10px;">إجمالي الإيرادات</td>
+                <td style="border: 1px solid #ddd; padding: 10px;">{{ month_total_incomes }}</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 10px;">صافي الربح</td>
+                <td style="border: 1px solid #ddd; padding: 10px;">{{ month_net_profit }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3 style="color: #34495e;">إجمالي اليوم</h3>
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+        <thead>
+            <tr style="background-color: #f8f9fa;">
+                <th style="border: 1px solid #ddd; padding: 10px;">البند</th>
+                <th style="border: 1px solid #ddd; padding: 10px;">المبلغ (جنيه)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 10px;">إجمالي المصروفات</td>
+                <td style="border: 1px solid #ddd; padding: 10px;">{{ day_total_expenses }}</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 10px;">إجمالي الإيرادات</td>
+                <td style="border: 1px solid #ddd; padding: 10px;">{{ day_total_incomes }}</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 10px;">صافي الربح</td>
+                <td style="border: 1px solid #ddd; padding: 10px;">{{ day_net_profit }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3 style="color: #34495e;">إحصائيات طرق الدفع (اليوم)</h3>
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+        <thead>
+            <tr style="background-color: #f8f9fa;">
+                <th style="border: 1px solid #ddd; padding: 10px;">طريقة الدفع</th>
+                <th style="border: 1px solid #ddd; padding: 10px;">المبلغ (جنيه)</th>
+                <th style="border: 1px solid #ddd; padding: 10px;">عدد المعاملات</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for pm in day_payment_methods %}
+                <tr>
+                    <td style="border: 1px solid #ddd; padding: 10px;">{{ pm.name }}</td>
+                    <td style="border: 1px solid #ddd; padding: 10px;">{{ pm.total_amount }}</td>
+                    <td style="border: 1px solid #ddd; padding: 10px;">{{ pm.count }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="3" style="border: 1px solid #ddd; padding: 10px; text-align: center;">لا توجد معاملات إيرادات اليوم</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h3 style="color: #34495e;">إحصائيات الأطباء (اليوم)</h3>
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+        <thead>
+            <tr style="background-color: #f8f9fa;">
+                <th style="border: 1px solid #ddd; padding: 10px;">اسم الطبيب</th>
+                <th style="border: 1px solid #ddd; padding: 10px;">الإيرادات (جنيه)</th>
+                <th style="border: 1px solid #ddd; padding: 10px;">عدد المواعيد</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for doctor in doctor_details %}
+                <tr>
+                    <td style="border: 1px solid #ddd; padding: 10px;">{{ doctor.name }}</td>
+                    <td style="border: 1px solid #ddd; padding: 10px;">{{ doctor.total_revenue }}</td>
+                    <td style="border: 1px solid #ddd; padding: 10px;">{{ doctor.count }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="3" style="border: 1px solid #ddd; padding: 10px; text-align: center;">لا توجد إيرادات مرتبطة بأطباء اليوم</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h3 style="color: #34495e;">إيرادات بدون طبيب (اليوم)</h3>
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background-color: #f8f9fa;">
+                <th style="border: 1px solid #ddd; padding: 10px;">البند</th>
+                <th style="border: 1px solid #ddd; padding: 10px;">المبلغ (جنيه)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 10px;">إيرادات بدون طبيب</td>
+                <td style="border: 1px solid #ddd; padding: 10px;">{{ no_doctor_revenue }}</td>
+            </tr>
+        </tbody>
+    </table>
 </body>
 </html>

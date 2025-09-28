@@ -4,17 +4,34 @@
     <meta charset="UTF-8">
     <title>تقرير سنوي - {{ clinic_name }}</title>
 </head>
-<body style="font-family: Arial, sans-serif; direction: rtl; text-align: right;">
-    <h2>تقرير سنوي لعيادة {{ clinic_name }} - {{ year }}</h2>
+<body style="font-family: Arial, sans-serif; direction: rtl; text-align: right; margin: 20px;">
+    <h2 style="color: #2c3e50;">تقرير سنوي لعيادة {{ clinic_name }} - {{ year }}</h2>
     <p><strong>الفترة:</strong> من {{ year }}-01-01 إلى {{ year }}-12-31</p>
-    <h3>تفاصيل الأشهر</h3>
-    {% for data in branch_data %}
-        <h4>{{ data.month }}</h4>
-        <p>إجمالي المصروفات: {{ data.total_expenses }} جنيه</p>
-        <p>إجمالي الإيرادات: {{ data.total_incomes }} جنيه</p>
-        <p>صافي الربح: {{ data.net_profit }} جنيه</p>
-    {% empty %}
-        <p>لا توجد بيانات لهذا العام</p>
-    {% endfor %}
+    
+    <h3 style="color: #34495e;">تفاصيل الأشهر</h3>
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background-color: #f8f9fa;">
+                <th style="border: 1px solid #ddd; padding: 10px;">الشهر</th>
+                <th style="border: 1px solid #ddd; padding: 10px;">إجمالي المصروفات (جنيه)</th>
+                <th style="border: 1px solid #ddd; padding: 10px;">إجمالي الإيرادات (جنيه)</th>
+                <th style="border: 1px solid #ddd; padding: 10px;">صافي الربح (جنيه)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for data in branch_data %}
+                <tr>
+                    <td style="border: 1px solid #ddd; padding: 10px;">{{ data.month }}</td>
+                    <td style="border: 1px solid #ddd; padding: 10px;">{{ data.total_expenses }}</td>
+                    <td style="border: 1px solid #ddd; padding: 10px;">{{ data.total_incomes }}</td>
+                    <td style="border: 1px solid #ddd; padding: 10px;">{{ data.net_profit }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="4" style="border: 1px solid #ddd; padding: 10px; text-align: center;">لا توجد بيانات لهذا العام</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </body>
 </html>
