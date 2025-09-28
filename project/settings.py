@@ -25,11 +25,11 @@ SECRET_KEY = 'django-insecure-1ed68l!)b+nz7*@v=9=*9_qf%9966$^y6grs@_d^y*@^4qf7-z
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-#ALLOWED_HOSTS = []
+ALLOWED_HOSTS = []
 
-ALLOWED_HOSTS = ['2odays.com', 'www.2odays.com']
+# ALLOWED_HOSTS = ['2odays.com', 'www.2odays.com']
 
-CSRF_TRUSTED_ORIGINS = ['https://2odays.com', 'https://2odays.com']
+# CSRF_TRUSTED_ORIGINS = ['https://2odays.com', 'https://2odays.com']
 
 
 
@@ -150,6 +150,7 @@ STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
 #add   path for url static & media
+#STATIC_ROOT = BASE_DIR / "staticfiles"  
 
 MEDIA_URL='media/'
 MEDIA_ROOT=BASE_DIR / "media"
