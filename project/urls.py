@@ -27,7 +27,8 @@ urlpatterns = [
     path('services/', include(('services.urls', 'services'), namespace='services')),
     path('dashboard/', include(('dashboard.urls', 'dashboard'), namespace="dashboard")),
 
-    path('', lambda request: redirect('login')),
+    #path('', lambda request: redirect('login')),
+    path('', lambda request: redirect('accounts:login'), name='index'),
     path('<path:unused_path>/', lambda request, unused_path: redirect('login')),
 
 ] 
