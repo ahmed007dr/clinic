@@ -120,20 +120,20 @@ def waiting_list(request):
     return render(request, 'appointments/waiting_list.html', context)
 
     
-@login_required
-@user_passes_test(is_reception_or_admin)
-def waiting_list_data(request):
-    appointments = Appointment.objects.filter(
-        status__name='Scheduled',
-        scheduled_date__date=timezone.now().date(),
-        branch=request.user.branch  # تقييد حسب فرع المستخدم
-    ).order_by('scheduled_date')
-    data = [{
-        'id': appointment.id,
-        'patient': appointment.patient.name,
-        'doctor': appointment.doctor.name if appointment.doctor else 'غير محدد',
-        'service': appointment.service.name if appointment.service else 'غير محدد',
-        'scheduled_date': appointment.scheduled_date.strftime('%Y-%m-%d %H:%M:%S'),
-        'status': appointment.status.name if appointment.status else 'غير محدد'
-    } for appointment in appointments]
-    return JsonResponse({'data': data})
+# @login_required
+# @user_passes_test(is_reception_or_admin)
+# def waiting_list_data(request):
+#     appointments = Appointment.objects.filter(
+#         status__name='Scheduled',
+#         scheduled_date__date=timezone.now().date(),
+#         branch=request.user.branch  # تقييد حسب فرع المستخدم
+#     ).order_by('scheduled_date')
+#     data = [{
+#         'id': appointment.id,
+#         'patient': appointment.patient.name,
+#         'doctor': appointment.doctor.name if appointment.doctor else 'غير محدد',
+#         'service': appointment.service.name if appointment.service else 'غير محدد',
+#         'scheduled_date': appointment.scheduled_date.strftime('%Y-%m-%d %H:%M:%S'),
+#         'status': appointment.status.name if appointment.status else 'غير محدد'
+#     } for appointment in appointments]
+#     return JsonResponse({'data': data})

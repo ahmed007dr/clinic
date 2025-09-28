@@ -25,7 +25,13 @@ SECRET_KEY = 'django-insecure-1ed68l!)b+nz7*@v=9=*9_qf%9966$^y6grs@_d^y*@^4qf7-z
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+#ALLOWED_HOSTS = []
+
+ALLOWED_HOSTS = ['2odays.com', 'www.2odays.com']
+
+CSRF_TRUSTED_ORIGINS = ['https://2odays.com', 'https://2odays.com']
+
+
 
 
 # Application definition
@@ -73,9 +79,9 @@ CLINIC_NAME = "Dr-ahmed"
 CLINIC_LOGO = "images/logo.svg"
 FOOTER_TEXT = "Copyright &copy; 2025 All rights reserved."
 
-LOGIN_URL = '/accounts/login/'  # تصحيح المسار
+LOGIN_URL = '/accounts/login/' 
 LOGIN_REDIRECT_URL = '/appointments/'
-LOGOUT_REDIRECT_URL = '/accounts/login/'  # تصحيح المسار
+LOGOUT_REDIRECT_URL = '/accounts/login/' 
 
 
 TEMPLATES = [
@@ -157,9 +163,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'mail.2odays.com'
-EMAIL_PORT = 465  # SMTP Port
-EMAIL_USE_TLS = False  # استخدم SSL بدل TLS مع Port 465
+EMAIL_PORT = 465  
+EMAIL_USE_TLS = False  
 EMAIL_USE_SSL = True
 EMAIL_HOST_USER = 'dr-ahmed@2odays.com'
-EMAIL_HOST_PASSWORD = 'z75.l5aCQgU6.H'  # كلمة السر الخاصة بالحساب
+EMAIL_HOST_PASSWORD = 'z75.l5aCQgU6.H'  
 DEFAULT_FROM_EMAIL = 'dr-ahmed@2odays.com'

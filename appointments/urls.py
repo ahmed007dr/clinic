@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import appointment_create, appointment_list, appointment_detail, appointment_update, appointment_delete, waiting_list, waiting_list_data
+from .views import appointment_create, appointment_list, appointment_detail, appointment_update, appointment_delete, waiting_list
 
 
 
@@ -14,5 +14,5 @@ urlpatterns = [
     path('<int:pk>/update/', appointment_update, name='appointment_update'),
     path('<int:pk>/delete/', appointment_delete, name='appointment_delete'),
     path('waiting/', waiting_list, name='waiting_list'),
-    path('waiting/data/', waiting_list_data, name='waiting_list_data'),
+    # path('waiting/data/', waiting_list_data, name='waiting_list_data'),
 ]
