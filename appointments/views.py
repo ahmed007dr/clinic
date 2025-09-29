@@ -119,7 +119,6 @@ def appointment_delete(request, pk):
         'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'جميع الحقوق محفوظة &copy; 2025')
     }
     return render(request, 'appointments/delete.html', context)
-
 @login_required
 @user_passes_test(is_reception_or_admin)
 def waiting_list(request):
