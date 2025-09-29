@@ -1,9 +1,8 @@
 {% extends 'base.html' %}
 {% load static %}
-
 {% block body %}
-<div class="container">
-  <h2>قائمة المواعيد - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+<div class="container" dir="rtl">
+  <h2>قائمة المواعيد - {{ clinic_name|default:"عيادة" }}</h2>
   {% if messages %}
     <div class="alert alert-info">
       {% for message in messages %}
@@ -14,79 +13,88 @@
   <div class="card">
     <div class="card-body">
       <h4 class="card-title">سجل المواعيد</h4>
-      <div class="row mb-3">
-        <div class="col-md-4">
-          <label>تصفية حسب الطبيب:</label>
-          <select id="doctorFilter" class="form-control js-example-basic-single">
-            <option value="">الكل</option>
-            {% for doctor in doctors %}
-            <option value="{{ doctor.id }}">{{ doctor.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="col-md-4">
-          <label>تصفية حسب التاريخ:</label>
-          <input type="date" id="dateFilter" class="form-control">
-        </div>
-      </div>
-      <table id="appointmentsTable" class="table table-striped">
+      <form method="GET" dir="rtl" class="mb-3">
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">بحث</button>
+      </form>
+      <table class="table table-striped">
         <thead>
           <tr>
             <th>رقم التذكرة</th>
             <th>المريض</th>
             <th>الطبيب</th>
             <th>الخدمة</th>
-            <th>التاريخ</th>
-            <th>الحالة</th>
-            <th>السعر</th>
-            <th>إجراءات</th>
+            <th>التوقيت</th>
+            {% if user.role.name == 'Admin' %}
+              <th>التاريخ</th>
+              <th>الحالة</th>
+              <th>السعر</th>
+              <th>إجراءات</th>
+            {% endif %}
           </tr>
         </thead>
         <tbody>
-          {% for appointment in appointments %}
+          {% for appointment in page_obj %}
           <tr>
-            <td>{{ appointment.id }}</td>
-            <td>{{ appointment.patient.name }}</td>
-            <td>{{ appointment.doctor.name|default:'غير محدد' }}</td>
-            <td>{{ appointment.service.name|default:'غير محدد' }}</td>
-            <td>{{ appointment.scheduled_date }}</td>
-            <td>{{ appointment.status.name|default:'غير محدد' }}</td>
-            <td>{{ appointment.price }}</td>
-            <td>
-              <a href="{% url 'appointments:appointment_detail' appointment.pk %}" class="btn btn-sm btn-info">تفاصيل</a>
-              <a href="{% url 'appointments:appointment_update' appointment.pk %}" class="btn btn-sm btn-primary">تعديل</a>
-              <a href="{% url 'appointments:appointment_delete' appointment.pk %}" class="btn btn-sm btn-danger">حذف</a>
-            </td>
+            <td>{{ appointment.serial_number }}</td>
+            <td>{{ appointment.patient__name|default:"غير محدد" }}</td>
+            <td>{{ appointment.doctor__name|default:"غير محدد" }}</td>
+            <td>{{ appointment.service__name|default:"غير محدد" }}</td>
+            <td>{{ appointment.scheduled_date|time:"H:i" }}</td>
+            {% if user.role.name == 'Admin' %}
+              <td>{{ appointment.scheduled_date|date:"Y-m-d" }}</td>
+              <td>{{ appointment.status.name|default:"غير محدد" }}</td>
+              <td>{{ appointment.price|default:"غير محدد" }}</td>
+              <td>
+                <a href="{% url 'appointments:appointment_detail' appointment.id %}" class="btn btn-sm btn-info">تفاصيل</a>
+                <a href="{% url 'appointments:appointment_update' appointment.id %}" class="btn btn-sm btn-primary">تعديل</a>
+                <a href="{% url 'appointments:appointment_delete' appointment.id %}" class="btn btn-sm btn-danger">حذف</a>
+              </td>
+            {% endif %}
           </tr>
           {% empty %}
-          <tr><td colspan="8">لا توجد مواعيد</td></tr>
+          <tr><td colspan="{% if user.role.name == 'Admin' %}9{% else %}5{% endif %}">لا توجد مواعيد</td></tr>
           {% endfor %}
         </tbody>
       </table>
-      <a href="{% url 'appointments:appointment_create' %}" class="btn btn-primary mt-3">حجز موعد جديد</a>
+      {% if page_obj.has_other_pages %}
+        <nav aria-label="Page navigation">
+          <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+              <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}">&laquo; السابق</a>
+              </li>
+            {% endif %}
+            {% with start=page_obj.number|add:-2 end=page_obj.number|add:2 %}
+              {% for num in page_obj.paginator.page_range %}
+                {% if num >= start and num <= end and num <= page_obj.paginator.num_pages %}
+                  <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                    <a class="page-link" href="?page={{ num }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}">{{ num }}</a>
+                  </li>
+                {% endif %}
+              {% endfor %}
+            {% endwith %}
+            {% if page_obj.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}">التالي &raquo;</a>
+              </li>
+            {% endif %}
+          </ul>
+        </nav>
+      {% endif %}
+      {% if user.role.name == 'Admin' %}
+        <a href="{% url 'appointments:appointment_create' %}" class="btn btn-primary mt-3">حجز موعد جديد</a>
+      {% endif %}
     </div>
   </div>
 </div>
-<script src="{% static 'vendors/datatables.net/jquery.dataTables.js' %}"></script>
-<script src="{% static 'vendors/datatables.net-bs4/dataTables.bootstrap4.js' %}"></script>
-<script src="{% static 'vendors/select2/select2.min.js' %}"></script>
-<script src="{% static 'js/select2.js' %}"></script>
-<script>
-  $(document).ready(function() {
-    var table = $('#appointmentsTable').DataTable({
-      "language": {
-        "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Arabic.json"
-      }
-    });
-
-    $('#doctorFilter').select2();
-    $('#doctorFilter').on('change', function() {
-      table.column(2).search(this.value).draw();
-    });
-
-    $('#dateFilter').on('change', function() {
-      table.column(4).search(this.value).draw();
-    });
-  });
-</script>
+<style>
+  table { width: 100%; border-collapse: collapse; font-family: 'Cairo', sans-serif; }
+  th, td { padding: 10px; text-align: right; }
+  th { background-color: #f8f9fa; }
+  .btn, p, h2, h4, h5 { font-family: 'Cairo', sans-serif; }
+  form { max-width: 400px; }
+  .pagination { margin-top: 20px; }
+  .page-link { font-family: 'Cairo', sans-serif; }
+</style>
 {% endblock %}

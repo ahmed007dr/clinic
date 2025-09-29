@@ -61,18 +61,21 @@ def patient_list_data(request):
     return JsonResponse({'data': data})
 
 @login_required
-@user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
+@user_passes_test(is_reception_or_admin)
 def patient_detail(request, pk):
     patient = get_object_or_404(Patient, pk=pk)
-    appointments = Appointment.objects.filter(patient=patient).order_by('-scheduled_date')
-    payments = Payment.objects.filter(patient=patient).order_by('-date')
+    appointments = Appointment.objects.filter(patient=patient).order_by('scheduled_date')
+    if request.user.role.name == 'Reception':
+        appointments = appointments.values('id', 'doctor__name', 'service__name')
+    payments = Payment.objects.filter(patient=patient).order_by('date') if request.user.role.name == 'Admin' else []
+    
     context = {
         'patient': patient,
         'appointments': appointments,
         'payments': payments,
-        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
+        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'عيادة'),
         'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
+        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'جميع الحقوق محفوظة &copy; 2025')
     }
     return render(request, 'patients/detail.html', context)
 

@@ -1,9 +1,8 @@
 {% extends 'base.html' %}
 {% load static %}
-
 {% block body %}
 <div class="container" dir="rtl">
-  <h2>قائمة الانتظار - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  <h2>قائمة الانتظار - {{ clinic_name|default:"عيادة" }}</h2>
   {% if messages %}
     <div class="alert alert-info">
       {% for message in messages %}
@@ -21,34 +20,61 @@
             <th>المريض</th>
             <th>الطبيب</th>
             <th>الخدمة</th>
-            <th>التاريخ</th>
-            <th>الحالة</th>
+            <th>التوقيت</th>
             {% if user.role.name == 'Admin' %}
+              <th>التاريخ</th>
+              <th>الحالة</th>
               <th>إجراءات</th>
             {% endif %}
           </tr>
         </thead>
         <tbody>
-          {% for appointment in appointments %}
+          {% for appointment in page_obj %}
           <tr>
-            <td>{{ appointment.id }}</td>
-            <td>{{ appointment.patient.name|default:"غير محدد" }}</td>
-            <td>{{ appointment.doctor.name|default:"غير محدد" }}</td>
-            <td>{{ appointment.service.name|default:"غير محدد" }}</td>
-            <td>{{ appointment.scheduled_date|date:"Y-m-d H:i:s" }}</td>
-            <td>{{ appointment.status.name|default:"غير محدد" }}</td>
+            <td>{{ appointment.serial_number }}</td>
+            <td>{{ appointment.patient__name|default:"غير محدد" }}</td>
+            <td>{{ appointment.doctor__name|default:"غير محدد" }}</td>
+            <td>{{ appointment.service__name|default:"غير محدد" }}</td>
+            <td>{{ appointment.scheduled_date|time:"H:i" }}</td>
             {% if user.role.name == 'Admin' %}
+              <td>{{ appointment.scheduled_date|date:"Y-m-d" }}</td>
+              <td>{{ appointment.status.name|default:"غير محدد" }}</td>
               <td>
-                <a href="{% url 'appointments:appointment_update' appointment.pk %}" class="btn btn-sm btn-primary">تعديل</a>
-                <a href="{% url 'appointments:appointment_delete' appointment.pk %}" class="btn btn-sm btn-danger">حذف</a>
+                <a href="{% url 'appointments:appointment_update' appointment.id %}" class="btn btn-sm btn-primary">تعديل</a>
+                <a href="{% url 'appointments:appointment_delete' appointment.id %}" class="btn btn-sm btn-danger">حذف</a>
               </td>
             {% endif %}
           </tr>
           {% empty %}
-          <tr><td colspan="{% if user.role.name == 'Admin' %}7{% else %}6{% endif %}">لا توجد مواعيد اليوم</td></tr>
+          <tr><td colspan="{% if user.role.name == 'Admin' %}8{% else %}5{% endif %}">لا توجد مواعيد اليوم</td></tr>
           {% endfor %}
         </tbody>
       </table>
+      {% if page_obj.has_other_pages %}
+        <nav aria-label="Page navigation">
+          <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+              <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">&laquo; السابق</a>
+              </li>
+            {% endif %}
+            {% with start=page_obj.number|add:-2 end=page_obj.number|add:2 %}
+              {% for num in page_obj.paginator.page_range %}
+                {% if num >= start and num <= end and num <= page_obj.paginator.num_pages %}
+                  <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                  </li>
+                {% endif %}
+              {% endfor %}
+            {% endwith %}
+            {% if page_obj.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">التالي &raquo;</a>
+              </li>
+            {% endif %}
+          </ul>
+        </nav>
+      {% endif %}
     </div>
   </div>
 </div>
@@ -56,6 +82,8 @@
   table { width: 100%; border-collapse: collapse; font-family: 'Cairo', sans-serif; }
   th, td { padding: 10px; text-align: right; }
   th { background-color: #f8f9fa; }
-  .btn { font-family: 'Cairo', sans-serif; }
+  .btn, p, h2, h4, h5 { font-family: 'Cairo', sans-serif; }
+  .pagination { margin-top: 20px; }
+  .page-link { font-family: 'Cairo', sans-serif; }
 </style>
 {% endblock %}

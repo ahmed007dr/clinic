@@ -2,25 +2,29 @@
 {% load static %}
 
 {% block body %}
-<div class="container">
-  <h2>تفاصيل المريض - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+<div class="container" dir="rtl">
+  <h2>تفاصيل المريض - {{ clinic_name|default:"عيادة" }}</h2>
   <div class="card">
     <div class="card-body">
       <h4 class="card-title">تفاصيل المريض: {{ patient.name }}</h4>
       <div class="row">
         <div class="col-md-6">
           <p><strong>الاسم:</strong> {{ patient.name }}</p>
-          <p><strong>رقم الهاتف الأساسي:</strong> {{ patient.phone1|default:'غير محدد' }}</p>
-          <p><strong>رقم الهاتف الإضافي:</strong> {{ patient.phone2|default:'غير محدد' }}</p>
-          <p><strong>تاريخ الميلاد:</strong> {{ patient.birth_date|default:'غير محدد' }}</p>
-          <p><strong>الرقم القومي:</strong> {{ patient.national_id|default:'غير محدد' }}</p>
+          {% if user.role.name == 'Admin' %}
+            <p><strong>رقم الهاتف الأساسي:</strong> {{ patient.phone1|default:'غير محدد' }}</p>
+            <p><strong>رقم الهاتف الإضافي:</strong> {{ patient.phone2|default:'غير محدد' }}</p>
+            <p><strong>تاريخ الميلاد:</strong> {{ patient.birth_date|default:'غير محدد' }}</p>
+            <p><strong>الرقم القومي:</strong> {{ patient.national_id|default:'غير محدد' }}</p>
+          {% endif %}
         </div>
         <div class="col-md-6">
-          <p><strong>الجنس:</strong> {{ patient.get_gender_display|default:'غير محدد' }}</p>
-          <p><strong>الحالة الاجتماعية:</strong> {{ patient.marital_status|default:'غير محدد' }}</p>
-          <p><strong>البريد الإلكتروني:</strong> {{ patient.email|default:'غير محدد' }}</p>
-          <p><strong>العنوان:</strong> {{ patient.address|default:'غير محدد' }}</p>
-          <p><strong>ملاحظات:</strong> {{ patient.notes|default:'لا توجد ملاحظات' }}</p>
+          {% if user.role.name == 'Admin' %}
+            <p><strong>الجنس:</strong> {{ patient.get_gender_display|default:'غير محدد' }}</p>
+            <p><strong>الحالة الاجتماعية:</strong> {{ patient.marital_status|default:'غير محدد' }}</p>
+            <p><strong>البريد الإلكتروني:</strong> {{ patient.email|default:'غير محدد' }}</p>
+            <p><strong>العنوان:</strong> {{ patient.address|default:'غير محدد' }}</p>
+            <p><strong>ملاحظات:</strong> {{ patient.notes|default:'لا توجد ملاحظات' }}</p>
+          {% endif %}
         </div>
       </div>
       <h5 class="mt-4">سجل المواعيد</h5>
@@ -30,53 +34,69 @@
             <th>رقم التذكرة</th>
             <th>الطبيب</th>
             <th>الخدمة</th>
-            <th>التاريخ</th>
-            <th>الحالة</th>
-            <th>السعر</th>
+            {% if user.role.name == 'Admin' %}
+              <th>التاريخ</th>
+              <th>الحالة</th>
+              <th>السعر</th>
+            {% endif %}
           </tr>
         </thead>
         <tbody>
           {% for appointment in appointments %}
           <tr>
             <td>{{ appointment.id }}</td>
-            <td>{{ appointment.doctor.name|default:'غير محدد' }}</td>
-            <td>{{ appointment.service.name|default:'غير محدد' }}</td>
-            <td>{{ appointment.scheduled_date }}</td>
-            <td>{{ appointment.status.name|default:'غير محدد' }}</td>
-            <td>{{ appointment.price }}</td>
+            <td>{{ appointment.doctor__name|default:'غير محدد' }}</td>
+            <td>{{ appointment.service__name|default:'غير محدد' }}</td>
+            {% if user.role.name == 'Admin' %}
+              <td>{{ appointment.scheduled_date|date:"Y-m-d H:i:s" }}</td>
+              <td>{{ appointment.status.name|default:'غير محدد' }}</td>
+              <td>{{ appointment.price }}</td>
+            {% endif %}
           </tr>
           {% empty %}
-          <tr><td colspan="6">لا توجد مواعيد</td></tr>
+          <tr><td colspan="{% if user.role.name == 'Admin' %}6{% else %}3{% endif %}">لا توجد مواعيد</td></tr>
           {% endfor %}
         </tbody>
       </table>
-      <h5 class="mt-4">سجل الدفعات</h5>
-      <table class="table table-striped">
-        <thead>
-          <tr>
-            <th>رقم الإيصال</th>
-            <th>المبلغ</th>
-            <th>طريقة الدفع</th>
-            <th>التاريخ</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for payment in payments %}
-          <tr>
-            <td>{{ payment.receipt_number }}</td>
-            <td>{{ payment.amount }}</td>
-            <td>{{ payment.method.name|default:'غير محدد' }}</td>
-            <td>{{ payment.date }}</td>
-          </tr>
-          {% empty %}
-          <tr><td colspan="4">لا توجد دفعات</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      {% if user.role.name == 'Admin' %}
+        <h5 class="mt-4">سجل الدفعات</h5>
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>رقم الإيصال</th>
+              <th>المبلغ</th>
+              <th>طريقة الدفع</th>
+              <th>التاريخ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for payment in payments %}
+            <tr>
+              <td>{{ payment.receipt_number }}</td>
+              <td>{{ payment.amount }}</td>
+              <td>{{ payment.method.name|default:'غير محدد' }}</td>
+              <td>{{ payment.date|date:"Y-m-d H:i:s" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4">لا توجد دفعات</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
       <a href="{% url 'patients:patient_list' %}" class="btn btn-primary mt-3">رجوع إلى قائمة المرضى</a>
-      <a href="{% url 'patients:patient_update' patient.pk %}" class="btn btn-primary mt-3">تعديل</a>
-      <a href="{% url 'patients:patient_delete' patient.pk %}" class="btn btn-danger mt-3">حذف</a>
+      {% if user.role.name == 'Admin' %}
+        <a href="{% url 'patients:patient_update' patient.pk %}" class="btn btn-primary mt-3">تعديل</a>
+        <a href="{% url 'patients:patient_delete' patient.pk %}" class="btn btn-danger mt-3">حذف</a>
+      {% endif %}
     </div>
   </div>
 </div>
+<style>
+  table { width: 100%; border-collapse: collapse; font-family: 'Cairo', sans-serif; }
+  th, td { padding: 10px; text-align: right; }
+  th { background-color: #f8f9fa; }
+  .btn, p, h2, h4, h5 { font-family: 'Cairo', sans-serif; }
+  .row { display: flex; flex-wrap: wrap; }
+  .col-md-6 { flex: 0 0 50%; }
+</style>
 {% endblock %}

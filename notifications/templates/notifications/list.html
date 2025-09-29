@@ -1,9 +1,8 @@
 {% extends 'base.html' %}
 {% load static %}
-
 {% block body %}
 <div class="container" dir="rtl">
-  <h2>قائمة الإشعارات - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  <h2>قائمة الإشعارات - {{ clinic_name|default:"عيادة" }}</h2>
   {% if messages %}
     <div class="alert alert-info">
       {% for message in messages %}
@@ -17,35 +16,64 @@
       <table class="table table-striped">
         <thead>
           <tr>
+            <th>رقم الإشعار</th>
             <th>العنوان</th>
             <th>النوع</th>
             <th>الرسالة</th>
             <th>التاريخ</th>
+            <th>التوقيت</th>
             <th>الحالة</th>
             <th>إجراءات</th>
           </tr>
         </thead>
         <tbody>
-          {% for notification in notifications %}
+          {% for notification in page_obj %}
           <tr>
+            <td>{{ notification.serial_number }}</td>
             <td>{{ notification.title|default:"غير محدد" }}</td>
             <td>{{ notification.get_type_display|default:"غير محدد" }}</td>
             <td>{{ notification.message|default:"غير محدد" }}</td>
-            <td>{{ notification.created_at|date:"Y-m-d H:i:s" }}</td>
+            <td>{{ notification.created_at|date:"Y-m-d" }}</td>
+            <td>{{ notification.created_at|time:"H:i" }}</td>
             <td>{{ notification.is_read|yesno:"مقروء,غير مقروء" }}</td>
             <td>
               {% if not notification.is_read %}
-                <a href="{% url 'notifications:notification_mark_read' notification.pk %}" class="btn btn-sm btn-primary">تحديد كمقروء</a>
+                <a href="{% url 'notifications:notification_mark_read' notification.id %}" class="btn btn-sm btn-primary">تحديد كمقروء</a>
               {% else %}
                 <span>مقروء</span>
               {% endif %}
             </td>
           </tr>
           {% empty %}
-          <tr><td colspan="6">لا توجد إشعارات</td></tr>
+          <tr><td colspan="8">لا توجد إشعارات</td></tr>
           {% endfor %}
         </tbody>
       </table>
+      {% if page_obj.has_other_pages %}
+        <nav aria-label="Page navigation">
+          <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+              <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">&laquo; السابق</a>
+              </li>
+            {% endif %}
+            {% with start=page_obj.number|add:-2 end=page_obj.number|add:2 %}
+              {% for num in page_obj.paginator.page_range %}
+                {% if num >= start and num <= end and num <= page_obj.paginator.num_pages %}
+                  <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                  </li>
+                {% endif %}
+              {% endfor %}
+            {% endwith %}
+            {% if page_obj.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">التالي &raquo;</a>
+              </li>
+            {% endif %}
+          </ul>
+        </nav>
+      {% endif %}
     </div>
   </div>
 </div>
@@ -53,6 +81,8 @@
   table { width: 100%; border-collapse: collapse; font-family: 'Cairo', sans-serif; }
   th, td { padding: 10px; text-align: right; }
   th { background-color: #f8f9fa; }
-  .btn { font-family: 'Cairo', sans-serif; }
+  .btn, p, h2, h4, h5 { font-family: 'Cairo', sans-serif; }
+  .pagination { margin-top: 20px; }
+  .page-link { font-family: 'Cairo', sans-serif; }
 </style>
 {% endblock %}

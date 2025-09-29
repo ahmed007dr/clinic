@@ -15,3 +15,8 @@ class AppointmentForm(forms.ModelForm):
             'price': forms.NumberInput(attrs={'class': 'form-control'}),
             'notes': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
         }
+
+
+class SearchForm(forms.Form):
+    query = forms.CharField(max_length=100, required=False, widget=forms.TextInput(attrs={'placeholder': 'ابحث باسم العميل أو الطبيب'}))
+    

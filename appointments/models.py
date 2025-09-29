@@ -1,31 +1,42 @@
-# appointments/models.py
 from django.db import models
-from patients.models import Patient
-from employees.models import Employee, Specialization
-from services.models import Service
-from accounts.models import User
-from branches.models import Branch
+from django.utils import timezone
 
 class AppointmentStatus(models.Model):
-    name = models.CharField(max_length=50, unique=True)  # Scheduled, Cancelled, ...
+    name = models.CharField(max_length=50, unique=True)
     description = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return self.name
 
-
 class Appointment(models.Model):
-    patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
-    doctor = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True,
-                               limit_choices_to={"employee_type__name": "Doctor"})
-    specialization = models.ForeignKey(Specialization, on_delete=models.SET_NULL, null=True, blank=True)
-    service = models.ForeignKey(Service, on_delete=models.SET_NULL, null=True, blank=True)
+    patient = models.ForeignKey('patients.Patient', on_delete=models.CASCADE)
+    doctor = models.ForeignKey('employees.Employee', on_delete=models.SET_NULL, null=True, blank=True,
+                              limit_choices_to={"employee_type__name": "Doctor"})
+    specialization = models.ForeignKey('employees.Specialization', on_delete=models.SET_NULL, null=True, blank=True)
+    service = models.ForeignKey('services.Service', on_delete=models.SET_NULL, null=True, blank=True)
+    status = models.ForeignKey('AppointmentStatus', on_delete=models.SET_NULL, null=True, blank=True)
+    branch = models.ForeignKey('branches.Branch', on_delete=models.SET_NULL, null=True, blank=True)
     scheduled_date = models.DateTimeField()
-    status = models.ForeignKey(AppointmentStatus, on_delete=models.SET_NULL, null=True, blank=True)
-    branch = models.ForeignKey(Branch, on_delete=models.SET_NULL, null=True, blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    created_by = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, blank=True)
+    created_by = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True, null=True)
+    serial_number = models.CharField(max_length=20, unique=True, blank=True)
 
+    def save(self, *args, **kwargs):
+        if not self.serial_number:
+            date = self.scheduled_date.date()
+            base_serial = f"{date.strftime('%Y%m%d')}-"
+            existing_count = Appointment.objects.filter(
+                scheduled_date__date=date,
+                serial_number__startswith=base_serial
+            ).count()
+            serial = f"{base_serial}{existing_count + 1:03d}"
+            while Appointment.objects.filter(serial_number=serial).exists():
+                existing_count += 1
+                serial = f"{base_serial}{existing_count + 1:03d}"
+            self.serial_number = serial
+        super().save(*args, **kwargs)
 
+    def __str__(self):
+        return f"{self.serial_number} - {self.patient.name}"

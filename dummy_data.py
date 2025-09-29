@@ -1,13 +1,13 @@
 import os
 import django
 import random
-from faker import Faker
-from datetime import datetime, timedelta
-from decimal import Decimal
-
 # Django setup
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "project.settings")
 django.setup()
+
+from faker import Faker
+from django.utils import timezone   # ✅ مهم
+from decimal import Decimal
 
 from accounts.models import User, ClinicRole
 from branches.models import Branch
@@ -58,7 +58,6 @@ print(f"✅ Created {len(roles)} roles")
 
 # ======== Users ========
 users = []
-# Admin user
 admin_role = ClinicRole.objects.get(name="Admin")
 user_admin, created = User.objects.get_or_create(
     username="dr-ahmed",
@@ -73,7 +72,6 @@ if created:
     user_admin.save()
 users.append(user_admin)
 
-# Reception user
 reception_role = ClinicRole.objects.get(name="Reception")
 user_reception, created = User.objects.get_or_create(
     username="ahmed2",
@@ -116,54 +114,10 @@ for _ in range(NUM_SPECIALIZATIONS):
     specializations.append(spec)
 print(f"✅ Created {len(specializations)} specializations")
 
-# ======== Services ========
-services_data = [
-    {"name": "Botox 4000", "base_price": 4000},
-    {"name": "Botox 5000", "base_price": 5000},
-    {"name": "Botox 8000", "base_price": 8000},
-    {"name": "Eximer 120", "base_price": 120},
-    {"name": "Eximer 160", "base_price": 160},
-    {"name": "Eximer 200", "base_price": 200},
-    {"name": "Q switch 800", "base_price": 800},
-    {"name": "Q switch 1200", "base_price": 1200},
-    {"name": "Q switch 1600", "base_price": 1600},
-    {"name": "Co2 500", "base_price": 500},
-    {"name": "Co2 750", "base_price": 750},
-    {"name": "Co2 1000", "base_price": 1000},
-    {"name": "Yellow laser 800", "base_price": 800},
-    {"name": "Yellow laser 1200", "base_price": 1200},
-    {"name": "Yellow laser 1600", "base_price": 1600},
-    {"name": "Yellow laser 2000", "base_price": 2000},
-    {"name": "Narrow band", "base_price": 50},
-    {"name": "Dermojet", "base_price": 250},
-    {"name": "Cryo 250", "base_price": 250},
-    {"name": "Cryo 450", "base_price": 450},
-    {"name": "Cryo 650", "base_price": 650},
-    {"name": "Micro neddling 800", "base_price": 800},
-    {"name": "Micro neddling 1200", "base_price": 1200},
-    {"name": "Micro neddling 1600", "base_price": 1600},
-    {"name": "Micro neddling 2000", "base_price": 2000},
-    {"name": "Hi frecator 500", "base_price": 500},
-    {"name": "Hi frecator 750", "base_price": 750},
-    {"name": "Hi frecator 1000", "base_price": 1000},
-]
-services = []
-for service_data in services_data:
-    service, created = Service.objects.get_or_create(
-        name=service_data["name"],
-        base_price=Decimal(service_data["base_price"]),
-        defaults={
-            "description": fake.sentence(),
-            "specialization": random.choice(specializations)
-        }
-    )
-    services.append(service)
-print(f"✅ Created {len(services)} services")
-
 # ======== Employees ========
 employees = []
 for _ in range(NUM_EMPLOYEES):
-    emp = Employee.objects.create(
+    emp = Employee(
         name=fake.name(),
         employee_type=random.choice(employee_types),
         branch=branch,
@@ -174,6 +128,7 @@ for _ in range(NUM_EMPLOYEES):
         salary_type=random.choice(salary_types),
         salary_value=Decimal(random.randint(3000, 15000))
     )
+    emp.save()
     emp.specializations.set(random.sample(specializations, k=random.randint(1, 2)))
     employees.append(emp)
 print(f"✅ Created {len(employees)} employees")
@@ -205,21 +160,44 @@ for name in ["Scheduled", "Cancelled", "Completed"]:
     statuses.append(status)
 print(f"✅ Created {len(statuses)} appointment statuses")
 
+# ======== Services ========
+services = []
+service_data = [
+    ("Eximer 120", "جلسة ليزر Eximer 120", 1200),
+    ("Eximer 160", "جلسة ليزر Eximer 160", 1600),
+    ("Eximer 200", "جلسة ليزر Eximer 200", 2000),
+    ("Q switch 800", "جلسة ليزر Q switch 800", 800),
+    ("Q switch 1200", "جلسة ليزر Q switch 1200", 1200),
+]
+for name, desc, price in service_data:
+    service, created = Service.objects.get_or_create(
+        name=name,
+        defaults={
+            "description": desc,
+            "specialization": random.choice(specializations),
+            "base_price": Decimal(price),
+        }
+    )
+    services.append(service)
+print(f"✅ Created {len(services)} services")
+
 # ======== Appointments ========
 appointments = []
 for _ in range(NUM_APPOINTMENTS):
-    appt = Appointment.objects.create(
+    scheduled_date = timezone.now() if random.random() < 0.1 else fake.date_time_this_year()
+    appt = Appointment(
         patient=random.choice(patients),
         doctor=random.choice([e for e in employees if e.employee_type.name == "Doctor"]),
         specialization=random.choice(specializations),
         service=random.choice(services),
-        scheduled_date=fake.date_time_this_year(),
+        scheduled_date=scheduled_date,
         status=random.choice(statuses),
         branch=branch,
         price=Decimal(random.choice([s.base_price for s in services])),
         created_by=random.choice(users),
         notes=fake.text(max_nb_chars=100)
     )
+    appt.save()
     appointments.append(appt)
 print(f"✅ Created {len(appointments)} appointments")
 
@@ -278,7 +256,7 @@ print(f"✅ Created {len(expenses)} expenses")
 # ========================
 print("\n🎉 Fake data generation completed successfully!")
 print(f" Branches: 1 (Sohag)")
-print(f" Users: 2 (dr-ahmed, ahmed2)")
+print(f" Users: {len(users)}")
 print(f" Employees: {len(employees)}")
 print(f" Patients: {len(patients)}")
 print(f" Services: {len(services)}")
