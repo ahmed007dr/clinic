@@ -30,7 +30,7 @@ class Employee(models.Model):
     phone1 = models.CharField(max_length=20, blank=True)
     phone2 = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)
-    hire_date = models.DateField()
+    hire_date = models.DateField(null=False, blank=False, default=timezone.now)
     salary_type = models.ForeignKey(SalaryType, on_delete=models.SET_NULL, null=True, blank=True)
     salary_value = models.DecimalField(max_digits=10, decimal_places=2)
     specializations = models.ManyToManyField(Specialization, blank=True)

@@ -37,13 +37,13 @@
           {% for appointment in page_obj %}
           <tr>
             <td>{{ appointment.serial_number }}</td>
-            <td>{{ appointment.patient__name|default:"غير محدد" }}</td>
-            <td>{{ appointment.doctor__name|default:"غير محدد" }}</td>
-            <td>{{ appointment.service__name|default:"غير محدد" }}</td>
+            <td>{{ appointment.patient.name|default:"غير محدد" }}</td>
+            <td>{{ appointment.doctor.name|default:"غير محدد" }}</td>
+            <td>{{ appointment.service.name|default:"غير محدد" }}</td>
             <td>{{ appointment.scheduled_date|time:"H:i" }}</td>
             {% if user.role.name == 'Admin' %}
               <td>{{ appointment.scheduled_date|date:"Y-m-d" }}</td>
-              <td>{{ appointment.status.name|default:"غير محدد" }}</td>
+              <td>{{ appointment.get_status_display|default:"غير محدد" }}</td>
               <td>{{ appointment.price|default:"غير محدد" }}</td>
               <td>
                 <a href="{% url 'appointments:appointment_detail' appointment.id %}" class="btn btn-sm btn-info">تفاصيل</a>

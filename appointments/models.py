@@ -1,20 +1,25 @@
 from django.db import models
 from django.utils import timezone
 
-class AppointmentStatus(models.Model):
-    name = models.CharField(max_length=50, unique=True)
-    description = models.TextField(blank=True, null=True)
-
-    def __str__(self):
-        return self.name
-
 class Appointment(models.Model):
+    STATUS_CHOICES = [
+        ("entered", "تم الدخول"),
+        ("waiting", "الانتظار"),
+        ("called", "تم الاتصال بالهاتف"),
+        ("quick", "حجز سريع"),
+    ]
+
     patient = models.ForeignKey('patients.Patient', on_delete=models.CASCADE)
-    doctor = models.ForeignKey('employees.Employee', on_delete=models.SET_NULL, null=True, blank=True,
-                              limit_choices_to={"employee_type__name": "Doctor"})
+    doctor = models.ForeignKey(
+        'employees.Employee',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        limit_choices_to={"employee_type__name": "Doctor"}
+    )
     specialization = models.ForeignKey('employees.Specialization', on_delete=models.SET_NULL, null=True, blank=True)
     service = models.ForeignKey('services.Service', on_delete=models.SET_NULL, null=True, blank=True)
-    status = models.ForeignKey('AppointmentStatus', on_delete=models.SET_NULL, null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="waiting")
     branch = models.ForeignKey('branches.Branch', on_delete=models.SET_NULL, null=True, blank=True)
     scheduled_date = models.DateTimeField()
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)

@@ -1,8 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
-
 {% block body %}
-<div class="container">
+<div class="container" dir="rtl">
   <h2>قائمة الدفعات - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
   {% if messages %}
     <div class="alert alert-info">
@@ -14,11 +13,13 @@
   <div class="card">
     <div class="card-body">
       <h4 class="card-title">سجل الدفعات</h4>
+      {% if request.user.is_admin %}
       <div class="mb-3">
-        <a href="{% url 'billing:payment_create' %}" class="btn btn-primary">تسجيل دفعة جديدة</a>
+        <a href="{% url 'billing:payment_create' %}" class="btn btn-primary">إنشاء دفعة جديدة</a>
         <a href="{% url 'billing:payment_list_export' %}?export=pdf" class="btn btn-success">تصدير PDF</a>
         <a href="{% url 'billing:payment_list_export' %}?export=excel" class="btn btn-success">تصدير Excel</a>
       </div>
+      {% endif %}
       <table id="paymentsTable" class="table table-striped">
         <thead>
           <tr>
@@ -30,7 +31,26 @@
             <th>إجراءات</th>
           </tr>
         </thead>
-        <tbody></tbody>
+        <tbody>
+          {% for payment in payments %}
+          <tr>
+            <td>{{ payment.receipt_number }}</td>
+            <td>{{ payment.patient.name }}</td>
+            <td>{{ payment.amount }}</td>
+            <td>{{ payment.method.name|default:"غير محدد" }}</td>
+            <td>{{ payment.date|date:"Y-m-d" }}</td>
+            <td>
+              <a href="{% url 'billing:payment_detail' payment.pk %}" class="btn btn-sm btn-info">تفاصيل</a>
+              {% if request.user.is_admin %}
+              <a href="{% url 'billing:payment_update' payment.pk %}" class="btn btn-sm btn-primary">تعديل</a>
+              <a href="{% url 'billing:payment_delete' payment.pk %}" class="btn btn-sm btn-danger">حذف</a>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6">لا توجد دفعات متاحة</td></tr>
+          {% endfor %}
+        </tbody>
       </table>
     </div>
   </div>
@@ -43,22 +63,9 @@
       "language": {
         "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Arabic.json"
       },
-      "ajax": "{% url 'billing:payment_list_data' %}",
-      "columns": [
-        { "data": "receipt_number" },
-        { "data": "patient" },
-        { "data": "amount" },
-        { "data": "method" },
-        { "data": "date" },
-        { "data": "actions" }
-      ],
       "ordering": true,
       "pageLength": 10
     });
-    // تحديث تلقائي كل 30 ثانية
-    setInterval(function() {
-      $('#paymentsTable').DataTable().ajax.reload();
-    }, 30000);
   });
 </script>
 {% endblock %}

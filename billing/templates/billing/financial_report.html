@@ -1,55 +1,487 @@
 {% extends 'base.html' %}
 {% load static %}
-
 {% block body %}
-<div class="container">
+<div class="container" dir="rtl">
   <h2>التقرير المالي - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
+  {% if messages %}
+    <div class="alert alert-info">
+      {% for message in messages %}
+        {{ message }}
+      {% endfor %}
+    </div>
+  {% endif %}
   <div class="card">
     <div class="card-body">
       <h4 class="card-title">التقرير المالي</h4>
-      <form method="get" class="mb-4">
+      {% if request.user.is_admin %}
+      <form method="get" class="mb-3">
         <div class="row">
-          <div class="col-md-4">
-            <label>من تاريخ:</label>
+          <div class="col-md-3">
+            <label>من تاريخ</label>
             <input type="date" name="start_date" value="{{ start_date }}" class="form-control">
           </div>
-          <div class="col-md-4">
-            <label>إلى تاريخ:</label>
+          <div class="col-md-3">
+            <label>إلى تاريخ</label>
             <input type="date" name="end_date" value="{{ end_date }}" class="form-control">
           </div>
-          <div class="col-md-4">
-            <label>الفرع:</label>
-            <select name="branch_id" class="form-control js-example-basic-single">
+          <div class="col-md-3">
+            <label>الفرع</label>
+            <select name="branch_id" class="form-control">
               <option value="">الكل</option>
               {% for branch in branches %}
               <option value="{{ branch.id }}" {% if branch_id == branch.id|stringformat:"s" %}selected{% endif %}>{{ branch.name }}</option>
               {% endfor %}
             </select>
           </div>
+          <div class="col-md-3">
+            <label>&nbsp;</label><br>
+            <button type="submit" class="btn btn-primary">فلتر</button>
+            <a href="?export=pdf" class="btn btn-success">تصدير PDF</a>
+            <a href="?export=excel" class="btn btn-success">تصدير Excel</a>
+          </div>
         </div>
-        <button type="submit" class="btn btn-primary mt-3">تصفية</button>
-        <a href="?start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&export=pdf" class="btn btn-success mt-3">تصدير PDF</a>
-        <a href="?start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&export=excel" class="btn btn-success mt-3">تصدير Excel</a>
       </form>
-      <div class="row">
-        <div class="col-md-4">
-          <h5>إجمالي الإيرادات: {{ total_revenue }} جنيه</h5>
+      {% endif %}
+      <ul class="nav nav-tabs" id="financialTabs" role="tablist">
+        <li class="nav-item">
+          <a class="nav-link active" id="payments-tab" data-bs-toggle="tab" href="#payments" role="tab">الإيرادات</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" id="expenses-tab" data-bs-toggle="tab" href="#expenses" role="tab">المصروفات</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" id="doctor-revenue-tab" data-bs-toggle="tab" href="#doctor-revenue" role="tab">إيرادات الأطباء</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" id="non-employee-tab" data-bs-toggle="tab" href="#non-employee" role="tab">إيرادات غير مرتبطة</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" id="doctor-summary-tab" data-bs-toggle="tab" href="#doctor-summary" role="tab">إجمالي الأطباء</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" id="branches-tab" data-bs-toggle="tab" href="#branches" role="tab">الفروع</a>
+        </li>
+      </ul>
+      <div class="tab-content" id="financialTabsContent">
+        <!-- Tab الإيرادات -->
+        <div class="tab-pane fade show active" id="payments" role="tabpanel">
+          <h5>الدفعات</h5>
+          {% if request.user.is_admin %}
+          <form method="get" class="mb-3">
+            <div class="row">
+              <div class="col-md-3">
+                <label>من تاريخ</label>
+                <input type="date" name="payments_start_date" value="{{ payments_start_date }}" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label>إلى تاريخ</label>
+                <input type="date" name="payments_end_date" value="{{ payments_end_date }}" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label>البحث باسم المريض</label>
+                <input type="text" name="payments_search" value="{{ payments_search }}" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label>&nbsp;</label><br>
+                <button type="submit" class="btn btn-primary">بحث</button>
+              </div>
+            </div>
+            <input type="hidden" name="start_date" value="{{ start_date }}">
+            <input type="hidden" name="end_date" value="{{ end_date }}">
+            <input type="hidden" name="branch_id" value="{{ branch_id }}">
+          </form>
+          {% endif %}
+          <table class="table table-striped">
+            <thead>
+              <tr>
+                <th>رقم الإيصال</th>
+                <th>المريض</th>
+                <th>المبلغ</th>
+                <th>التاريخ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for payment in payments %}
+              <tr>
+                <td>{{ payment.receipt_number }}</td>
+                <td>{{ payment.patient.name }}</td>
+                <td>{{ payment.amount }}</td>
+                <td>{{ payment.date|date:"Y-m-d" }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4">لا توجد دفعات</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% if payments.has_other_pages %}
+          <nav>
+            <ul class="pagination">
+              <li class="page-item"><a class="page-link" href="?page_payments=1&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&payments_search={{ payments_search }}&payments_start_date={{ payments_start_date }}&payments_end_date={{ payments_end_date }}">الأولى</a></li>
+              {% if payments.has_previous %}
+              <li class="page-item"><a class="page-link" href="?page_payments={{ payments.previous_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&payments_search={{ payments_search }}&payments_start_date={{ payments_start_date }}&payments_end_date={{ payments_end_date }}">السابقة</a></li>
+              {% endif %}
+              <li class="page-item active"><a class="page-link">{{ payments.number }}</a></li>
+              {% if payments.has_next %}
+              <li class="page-item"><a class="page-link" href="?page_payments={{ payments.next_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&payments_search={{ payments_search }}&payments_start_date={{ payments_start_date }}&payments_end_date={{ payments_end_date }}">التالية</a></li>
+              {% endif %}
+              <li class="page-item"><a class="page-link" href="?page_payments={{ payments.paginator.num_pages }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&payments_search={{ payments_search }}&payments_start_date={{ payments_start_date }}&payments_end_date={{ payments_end_date }}">الأخيرة</a></li>
+            </ul>
+          </nav>
+          {% endif %}
         </div>
-        <div class="col-md-4">
-          <h5>إجمالي المصروفات: {{ total_expenses }} جنيه</h5>
+        <!-- Tab المصروفات -->
+        <div class="tab-pane fade" id="expenses" role="tabpanel">
+          <h5>المصروفات</h5>
+          {% if request.user.is_admin %}
+          <form method="get" class="mb-3">
+            <div class="row">
+              <div class="col-md-3">
+                <label>من تاريخ</label>
+                <input type="date" name="expenses_start_date" value="{{ expenses_start_date }}" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label>إلى تاريخ</label>
+                <input type="date" name="expenses_end_date" value="{{ expenses_end_date }}" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label>البحث باسم الموظف</label>
+                <input type="text" name="expenses_search" value="{{ expenses_search }}" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label>&nbsp;</label><br>
+                <button type="submit" class="btn btn-primary">بحث</button>
+              </div>
+            </div>
+            <input type="hidden" name="start_date" value="{{ start_date }}">
+            <input type="hidden" name="end_date" value="{{ end_date }}">
+            <input type="hidden" name="branch_id" value="{{ branch_id }}">
+          </form>
+          {% endif %}
+          <table class="table table-striped">
+            <thead>
+              <tr>
+                <th>الفئة</th>
+                <th>الموظف</th>
+                <th>المبلغ</th>
+                <th>التاريخ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for expense in expenses %}
+              <tr>
+                <td>{{ expense.category.name|default:"غير محدد" }}</td>
+                <td>{{ expense.employee.name|default:"غير محدد" }}</td>
+                <td>{{ expense.amount }}</td>
+                <td>{{ expense.date|date:"Y-m-d" }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4">لا توجد مصروفات</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% if expenses.has_other_pages %}
+          <nav>
+            <ul class="pagination">
+              <li class="page-item"><a class="page-link" href="?page_expenses=1&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&expenses_search={{ expenses_search }}&expenses_start_date={{ expenses_start_date }}&expenses_end_date={{ expenses_end_date }}">الأولى</a></li>
+              {% if expenses.has_previous %}
+              <li class="page-item"><a class="page-link" href="?page_expenses={{ expenses.previous_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&expenses_search={{ expenses_search }}&expenses_start_date={{ expenses_start_date }}&expenses_end_date={{ expenses_end_date }}">السابقة</a></li>
+              {% endif %}
+              <li class="page-item active"><a class="page-link">{{ expenses.number }}</a></li>
+              {% if expenses.has_next %}
+              <li class="page-item"><a class="page-link" href="?page_expenses={{ expenses.next_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&expenses_search={{ expenses_search }}&expenses_start_date={{ expenses_start_date }}&expenses_end_date={{ expenses_end_date }}">التالية</a></li>
+              {% endif %}
+              <li class="page-item"><a class="page-link" href="?page_expenses={{ expenses.paginator.num_pages }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&expenses_search={{ expenses_search }}&expenses_start_date={{ expenses_start_date }}&expenses_end_date={{ expenses_end_date }}">الأخيرة</a></li>
+            </ul>
+          </nav>
+          {% endif %}
         </div>
-        <div class="col-md-4">
-          <h5>صافي الربح: {{ net_profit }} جنيه</h5>
+        <!-- Tab إيرادات الأطباء -->
+        <div class="tab-pane fade" id="doctor-revenue" role="tabpanel">
+          <h5>إيرادات الأطباء</h5>
+          {% if request.user.is_admin %}
+          <form method="get" class="mb-3">
+            <div class="row">
+              <div class="col-md-3">
+                <label>من تاريخ</label>
+                <input type="date" name="doctor_revenue_start_date" value="{{ doctor_revenue_start_date }}" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label>إلى تاريخ</label>
+                <input type="date" name="doctor_revenue_end_date" value="{{ doctor_revenue_end_date }}" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label>البحث باسم المريض أو الطبيب</label>
+                <input type="text" name="doctor_revenue_search" value="{{ doctor_revenue_search }}" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label>&nbsp;</label><br>
+                <button type="submit" class="btn btn-primary">بحث</button>
+              </div>
+            </div>
+            <input type="hidden" name="start_date" value="{{ start_date }}">
+            <input type="hidden" name="end_date" value="{{ end_date }}">
+            <input type="hidden" name="branch_id" value="{{ branch_id }}">
+          </form>
+          {% endif %}
+          <table class="table table-striped">
+            <thead>
+              <tr>
+                <th>رقم الإيصال</th>
+                <th>المريض</th>
+                <th>الطبيب</th>
+                <th>المبلغ</th>
+                <th>التاريخ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for payment in doctor_revenue %}
+              <tr>
+                <td>{{ payment.receipt_number }}</td>
+                <td>{{ payment.patient.name }}</td>
+                <td>{{ payment.appointment.doctor.name|default:"غير محدد" }}</td>
+                <td>{{ payment.amount }}</td>
+                <td>{{ payment.date|date:"Y-m-d" }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5">لا توجد إيرادات للأطباء</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% if doctor_revenue.has_other_pages %}
+          <nav>
+            <ul class="pagination">
+              <li class="page-item"><a class="page-link" href="?page_doctor_revenue=1&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&doctor_revenue_search={{ doctor_revenue_search }}&doctor_revenue_start_date={{ doctor_revenue_start_date }}&doctor_revenue_end_date={{ doctor_revenue_end_date }}">الأولى</a></li>
+              {% if doctor_revenue.has_previous %}
+              <li class="page-item"><a class="page-link" href="?page_doctor_revenue={{ doctor_revenue.previous_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&doctor_revenue_search={{ doctor_revenue_search }}&doctor_revenue_start_date={{ doctor_revenue_start_date }}&doctor_revenue_end_date={{ doctor_revenue_end_date }}">السابقة</a></li>
+              {% endif %}
+              <li class="page-item active"><a class="page-link">{{ doctor_revenue.number }}</a></li>
+              {% if doctor_revenue.has_next %}
+              <li class="page-item"><a class="page-link" href="?page_doctor_revenue={{ doctor_revenue.next_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&doctor_revenue_search={{ doctor_revenue_search }}&doctor_revenue_start_date={{ doctor_revenue_start_date }}&doctor_revenue_end_date={{ doctor_revenue_end_date }}">التالية</a></li>
+              {% endif %}
+              <li class="page-item"><a class="page-link" href="?page_doctor_revenue={{ doctor_revenue.paginator.num_pages }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&doctor_revenue_search={{ doctor_revenue_search }}&doctor_revenue_start_date={{ doctor_revenue_start_date }}&doctor_revenue_end_date={{ doctor_revenue_end_date }}">الأخيرة</a></li>
+            </ul>
+          </nav>
+          {% endif %}
+        </div>
+        <!-- Tab إيرادات غير مرتبطة -->
+        <div class="tab-pane fade" id="non-employee" role="tabpanel">
+          <h5>إيرادات غير مرتبطة بالموظفين</h5>
+          {% if request.user.is_admin %}
+          <form method="get" class="mb-3">
+            <div class="row">
+              <div class="col-md-3">
+                <label>من تاريخ</label>
+                <input type="date" name="non_employee_start_date" value="{{ non_employee_start_date }}" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label>إلى تاريخ</label>
+                <input type="date" name="non_employee_end_date" value="{{ non_employee_end_date }}" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label>البحث باسم المريض</label>
+                <input type="text" name="non_employee_search" value="{{ non_employee_search }}" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label>&nbsp;</label><br>
+                <button type="submit" class="btn btn-primary">بحث</button>
+              </div>
+            </div>
+            <input type="hidden" name="start_date" value="{{ start_date }}">
+            <input type="hidden" name="end_date" value="{{ end_date }}">
+            <input type="hidden" name="branch_id" value="{{ branch_id }}">
+          </form>
+          {% endif %}
+          <table class="table table-striped">
+            <thead>
+              <tr>
+                <th>رقم الإيصال</th>
+                <th>المريض</th>
+                <th>المبلغ</th>
+                <th>التاريخ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for payment in non_employee_revenue %}
+              <tr>
+                <td>{{ payment.receipt_number }}</td>
+                <td>{{ payment.patient.name }}</td>
+                <td>{{ payment.amount }}</td>
+                <td>{{ payment.date|date:"Y-m-d" }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4">لا توجد إيرادات غير مرتبطة</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% if non_employee_revenue.has_other_pages %}
+          <nav>
+            <ul class="pagination">
+              <li class="page-item"><a class="page-link" href="?page_non_employee=1&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&non_employee_search={{ non_employee_search }}&non_employee_start_date={{ non_employee_start_date }}&non_employee_end_date={{ non_employee_end_date }}">الأولى</a></li>
+              {% if non_employee_revenue.has_previous %}
+              <li class="page-item"><a class="page-link" href="?page_non_employee={{ non_employee_revenue.previous_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&non_employee_search={{ non_employee_search }}&non_employee_start_date={{ non_employee_start_date }}&non_employee_end_date={{ non_employee_end_date }}">السابقة</a></li>
+              {% endif %}
+              <li class="page-item active"><a class="page-link">{{ non_employee_revenue.number }}</a></li>
+              {% if non_employee_revenue.has_next %}
+              <li class="page-item"><a class="page-link" href="?page_non_employee={{ non_employee_revenue.next_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&non_employee_search={{ non_employee_search }}&non_employee_start_date={{ non_employee_start_date }}&non_employee_end_date={{ non_employee_end_date }}">التالية</a></li>
+              {% endif %}
+              <li class="page-item"><a class="page-link" href="?page_non_employee={{ non_employee_revenue.paginator.num_pages }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&non_employee_search={{ non_employee_search }}&non_employee_start_date={{ non_employee_start_date }}&non_employee_end_date={{ non_employee_end_date }}">الأخيرة</a></li>
+            </ul>
+          </nav>
+          {% endif %}
+        </div>
+        <!-- Tab إجمالي الأطباء -->
+        <div class="tab-pane fade" id="doctor-summary" role="tabpanel">
+          <h5>إجمالي إيرادات الأطباء وعدد الكشوفات</h5>
+          {% if request.user.is_admin %}
+          <form method="get" class="mb-3">
+            <div class="row">
+              <div class="col-md-3">
+                <label>من تاريخ</label>
+                <input type="date" name="doctor_summary_start_date" value="{{ doctor_summary_start_date }}" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label>إلى تاريخ</label>
+                <input type="date" name="doctor_summary_end_date" value="{{ doctor_summary_end_date }}" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label>البحث باسم الطبيب</label>
+                <input type="text" name="doctor_summary_search" value="{{ doctor_summary_search }}" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label>&nbsp;</label><br>
+                <button type="submit" class="btn btn-primary">بحث</button>
+              </div>
+            </div>
+            <input type="hidden" name="start_date" value="{{ start_date }}">
+            <input type="hidden" name="end_date" value="{{ end_date }}">
+            <input type="hidden" name="branch_id" value="{{ branch_id }}">
+          </form>
+          {% endif %}
+          <table class="table table-striped">
+            <thead>
+              <tr>
+                <th>الطبيب</th>
+                <th>إجمالي الإيرادات</th>
+                <th>عدد الكشوفات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for summary in doctor_summary %}
+              <tr>
+                <td>{{ summary.appointment__doctor__name }}</td>
+                <td>{{ summary.total_revenue }}</td>
+                <td>{{ summary.total_appointments }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3">لا توجد بيانات</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% if doctor_summary.has_other_pages %}
+          <nav>
+            <ul class="pagination">
+              <li class="page-item"><a class="page-link" href="?page_doctor_summary=1&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&doctor_summary_search={{ doctor_summary_search }}&doctor_summary_start_date={{ doctor_summary_start_date }}&doctor_summary_end_date={{ doctor_summary_end_date }}">الأولى</a></li>
+              {% if doctor_summary.has_previous %}
+              <li class="page-item"><a class="page-link" href="?page_doctor_summary={{ doctor_summary.previous_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&doctor_summary_search={{ doctor_summary_search }}&doctor_summary_start_date={{ doctor_summary_start_date }}&doctor_summary_end_date={{ doctor_summary_end_date }}">السابقة</a></li>
+              {% endif %}
+              <li class="page-item active"><a class="page-link">{{ doctor_summary.number }}</a></li>
+              {% if doctor_summary.has_next %}
+              <li class="page-item"><a class="page-link" href="?page_doctor_summary={{ doctor_summary.next_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&doctor_summary_search={{ doctor_summary_search }}&doctor_summary_start_date={{ doctor_summary_start_date }}&doctor_summary_end_date={{ doctor_summary_end_date }}">التالية</a></li>
+              {% endif %}
+              <li class="page-item"><a class="page-link" href="?page_doctor_summary={{ doctor_summary.paginator.num_pages }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&doctor_summary_search={{ doctor_summary_search }}&doctor_summary_start_date={{ doctor_summary_start_date }}&doctor_summary_end_date={{ doctor_summary_end_date }}">الأخيرة</a></li>
+            </ul>
+          </nav>
+          {% endif %}
+        </div>
+        <!-- Tab الفروع -->
+        <div class="tab-pane fade" id="branches" role="tabpanel">
+          <h5>إيرادات ومصروفات الفروع</h5>
+          {% if request.user.is_admin %}
+          <form method="get" class="mb-3">
+            <div class="row">
+              <div class="col-md-3">
+                <label>من تاريخ</label>
+                <input type="date" name="branches_start_date" value="{{ branches_start_date }}" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label>إلى تاريخ</label>
+                <input type="date" name="branches_end_date" value="{{ branches_end_date }}" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label>البحث باسم الفرع</label>
+                <input type="text" name="branches_search" value="{{ branches_search }}" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label>&nbsp;</label><br>
+                <button type="submit" class="btn btn-primary">بحث</button>
+              </div>
+            </div>
+            <input type="hidden" name="start_date" value="{{ start_date }}">
+            <input type="hidden" name="end_date" value="{{ end_date }}">
+            <input type="hidden" name="branch_id" value="{{ branch_id }}">
+          </form>
+          {% endif %}
+          <table class="table table-striped">
+            <thead>
+              <tr>
+                <th>الفرع</th>
+                <th>إجمالي الإيرادات</th>
+                <th>إجمالي المصروفات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for branch in branches_summary %}
+              <tr>
+                <td>{{ branch.name }}</td>
+                <td>{{ branch.total_revenue|default:0 }}</td>
+                <td>{{ branch.total_expenses|default:0 }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3">لا توجد بيانات</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% if branches_summary.has_other_pages %}
+          <nav>
+            <ul class="pagination">
+              <li class="page-item"><a class="page-link" href="?page_branches=1&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&branches_search={{ branches_search }}&branches_start_date={{ branches_start_date }}&branches_end_date={{ branches_end_date }}">الأولى</a></li>
+              {% if branches_summary.has_previous %}
+              <li class="page-item"><a class="page-link" href="?page_branches={{ branches_summary.previous_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&branches_search={{ branches_search }}&branches_start_date={{ branches_start_date }}&branches_end_date={{ branches_end_date }}">السابقة</a></li>
+              {% endif %}
+              <li class="page-item active"><a class="page-link">{{ branches_summary.number }}</a></li>
+              {% if branches_summary.has_next %}
+              <li class="page-item"><a class="page-link" href="?page_branches={{ branches_summary.next_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&branches_search={{ branches_search }}&branches_start_date={{ branches_start_date }}&branches_end_date={{ branches_end_date }}">التالية</a></li>
+              {% endif %}
+              <li class="page-item"><a class="page-link" href="?page_branches={{ branches_summary.paginator.num_pages }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&branches_search={{ branches_search }}&branches_start_date={{ branches_start_date }}&branches_end_date={{ branches_end_date }}">الأخيرة</a></li>
+            </ul>
+          </nav>
+          {% endif %}
         </div>
       </div>
+      <h5>الإجمالي</h5>
+      <p>إجمالي الإيرادات: {{ total_revenue }}</p>
+      <p>إجمالي المصروفات: {{ total_expenses }}</p>
+      <p>صافي الربح: {{ net_profit }}</p>
     </div>
   </div>
 </div>
-<script src="{% static 'vendors/select2/select2.min.js' %}"></script>
-<script src="{% static 'js/select2.js' %}"></script>
+<style>
+  body { font-family: 'Tajawal', sans-serif; }
+  .nav-tabs .nav-link { font-size: 1.1rem; }
+  .table { font-size: 1rem; }
+  .pagination { justify-content: center; }
+</style>
+<script src="{% static 'vendors/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
 <script>
-  $(document).ready(function() {
-    $('.js-example-basic-single').select2();
+  document.addEventListener('DOMContentLoaded', function () {
+    var triggerTabList = [].slice.call(document.querySelectorAll('#financialTabs a'));
+    triggerTabList.forEach(function (triggerEl) {
+      var tabTrigger = new bootstrap.Tab(triggerEl);
+      triggerEl.addEventListener('click', function (event) {
+        event.preventDefault();
+        tabTrigger.show();
+      });
+    });
   });
 </script>
 {% endblock %}

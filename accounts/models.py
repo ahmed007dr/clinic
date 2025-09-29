@@ -12,7 +12,7 @@ class ClinicRole(models.Model):
 class User(AbstractUser):
     clinic_code = models.CharField(max_length=20)
     role = models.ForeignKey(ClinicRole, on_delete=models.SET_NULL, null=True, blank=True)
-    branch = models.ForeignKey(Branch, on_delete=models.SET_NULL, null=True, blank=True)  # حقل جديد
+    branch = models.ForeignKey(Branch, on_delete=models.SET_NULL, null=True, blank=True)  
     def __str__(self):
         return f"{self.username} ({self.role})"
 

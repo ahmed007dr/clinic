@@ -1,6 +1,5 @@
 {% extends 'base.html' %}
 {% load static %}
-
 {% block body %}
 <div class="container" dir="rtl">
   <h2>قائمة المصروفات - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
@@ -14,49 +13,58 @@
   <div class="card">
     <div class="card-body">
       <h4 class="card-title">سجل المصروفات</h4>
-      <table class="table table-striped">
+      {% if request.user.is_admin %}
+      <div class="mb-3">
+        <a href="{% url 'billing:expense_create' %}" class="btn btn-primary">إنشاء مصروف جديد</a>
+      </div>
+      {% endif %}
+      <table id="expensesTable" class="table table-striped">
         <thead>
           <tr>
-            <th>#</th>
             <th>الفرع</th>
-            <th>فئة المصروف</th>
+            <th>الفئة</th>
             <th>الموظف</th>
             <th>المبلغ</th>
             <th>التاريخ</th>
+            {% if request.user.is_admin %}
             <th>إجراءات</th>
+            {% endif %}
           </tr>
         </thead>
         <tbody>
           {% for expense in expenses %}
           <tr>
-            <td>{{ forloop.counter }}</td>
             <td>{{ expense.branch.name|default:"غير محدد" }}</td>
             <td>{{ expense.category.name|default:"غير محدد" }}</td>
             <td>{{ expense.employee.name|default:"غير محدد" }}</td>
-            <td>{{ expense.amount }} جنيه</td>
+            <td>{{ expense.amount }}</td>
             <td>{{ expense.date|date:"Y-m-d" }}</td>
+            {% if request.user.is_admin %}
             <td>
-              {% if user.role.name == 'Admin' %}
-                <a href="{% url 'billing:expense_update' expense.pk %}" class="btn btn-sm btn-primary">تعديل</a>
-                <a href="{% url 'billing:expense_delete' expense.pk %}" class="btn btn-sm btn-danger">حذف</a>
-              {% else %}
-                <span>غير مسموح</span>
-              {% endif %}
+              <a href="{% url 'billing:expense_update' expense.pk %}" class="btn btn-sm btn-primary">تعديل</a>
+              <a href="{% url 'billing:expense_delete' expense.pk %}" class="btn btn-sm btn-danger">حذف</a>
             </td>
+            {% endif %}
           </tr>
           {% empty %}
-          <tr><td colspan="7">لا توجد مصروفات</td></tr>
+          <tr><td colspan="6">لا توجد مصروفات متاحة</td></tr>
           {% endfor %}
         </tbody>
       </table>
-      <a href="{% url 'billing:expense_create' %}" class="btn btn-primary mt-3">تسجيل مصروف جديد</a>
     </div>
   </div>
 </div>
-<style>
-  table { width: 100%; border-collapse: collapse; font-family: 'Cairo', sans-serif; }
-  th, td { padding: 10px; text-align: right; }
-  th { background-color: #f8f9fa; }
-  .btn { font-family: 'Cairo', sans-serif; }
-</style>
+<script src="{% static 'vendors/datatables.net/jquery.dataTables.js' %}"></script>
+<script src="{% static 'vendors/datatables.net-bs4/dataTables.bootstrap4.js' %}"></script>
+<script>
+  $(document).ready(function() {
+    $('#expensesTable').DataTable({
+      "language": {
+        "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Arabic.json"
+      },
+      "ordering": true,
+      "pageLength": 10
+    });
+  });
+</script>
 {% endblock %}

@@ -13,7 +13,6 @@ from django.core.paginator import Paginator
 def is_reception_or_admin(user):
     return user.role.name in ['Reception', 'Admin'] if user.role else False
 
-
 @login_required
 @user_passes_test(is_reception_or_admin)
 def appointment_create(request):
@@ -38,7 +37,6 @@ def appointment_create(request):
     }
     return render(request, 'appointments/create.html', context)
 
-
 @login_required
 @user_passes_test(is_reception_or_admin)
 def appointment_list(request):
@@ -50,7 +48,7 @@ def appointment_list(request):
             query = form.cleaned_data.get('query')
             if query:
                 appointments = appointments.filter(patient__name__icontains=query) | appointments.filter(doctor__name__icontains=query)
-        appointments = appointments.values('id', 'serial_number', 'patient__name', 'doctor__name', 'service__name', 'scheduled_date')
+        appointments = appointments.select_related('patient', 'doctor', 'service')
     else:
         if form.is_valid():
             query = form.cleaned_data.get('query')
@@ -126,12 +124,12 @@ def appointment_delete(request, pk):
 @user_passes_test(is_reception_or_admin)
 def waiting_list(request):
     appointments = Appointment.objects.filter(
-        status__name='Scheduled',
+        status='waiting',
         scheduled_date__date=timezone.now().date()
     ).order_by('-scheduled_date', '-serial_number')
     if request.user.role.name == 'Reception' and request.user.branch:
         appointments = appointments.filter(branch=request.user.branch)
-        appointments = appointments.values('id', 'serial_number', 'patient__name', 'doctor__name', 'service__name', 'scheduled_date')
+        appointments = appointments.select_related('patient', 'doctor', 'service')
     paginator = Paginator(appointments, 20) 
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
