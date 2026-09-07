@@ -9,10 +9,21 @@ def get_current_request():
     return getattr(_thread_locals, "request", None)
 
 
-class ThreadLocalMiddleware(MiddlewareMixin):
-    """ Middleware لحفظ request لكل thread """
-    def process_request(self, request):
+class ThreadLocalMiddleware:
+    """ Middleware لحفظ request لكل thread، مع مسحه دائمًا بعد انتهاء الطلب.
+    بدون المسح في finally، أي عملية save() تحدث على نفس الـ thread خارج
+    سياق طلب فعلي (مثل: طلب لاحق تتعامل معه Passenger على نفس الـ worker
+    thread قبل أي طلب جديد، أو اختبارات تعمل على نفس الـ thread) كانت
+    ستُنسب خطأً إلى مستخدم الطلب السابق في AuditLog. """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
         _thread_locals.request = request
+        try:
+            return self.get_response(request)
+        finally:
+            _thread_locals.request = None
 
 
 class AuditMiddleware(MiddlewareMixin):

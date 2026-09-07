@@ -1,7 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from .forms import BranchForm
 from .models import Branch
-from django.conf import settings
 from django.contrib import messages
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -25,9 +24,6 @@ def branch_create(request):
 
     context = {
         'form': form,
-        'clinic_name': getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'branches/create.html', context)
 
@@ -36,9 +32,6 @@ def branch_list(request):
     branches = Branch.objects.all()
     context = {
         'branches': branches,
-        'clinic_name': getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'branches/list.html', context)
 
@@ -59,9 +52,6 @@ def branch_update(request, pk):
 
     context = {
         'form': form,
-        'clinic_name': getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'branches/update.html', context)
 
@@ -75,8 +65,5 @@ def branch_delete(request, pk):
         return redirect('branches:branch_list')
     context = {
         'branch': branch,
-        'clinic_name': getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'branches/delete.html', context)

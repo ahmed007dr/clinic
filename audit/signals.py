@@ -3,18 +3,24 @@ from django.dispatch import receiver
 from django.utils import timezone
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ImproperlyConfigured
-from django.db.utils import OperationalError, ProgrammingError
+from django.db.utils import OperationalError, ProgrammingError, IntegrityError
 from .models import AuditLog
 from .middleware import get_current_request
 
-EXCLUDED_MODELS = {"AuditLog", "Session"}
+# ContentType/Migration are Django's own bookkeeping models — auditing them
+# is meaningless noise, and saving them fires during migrate/loaddata before
+# their own schema is fully settled (e.g. contenttypes.0001 creates
+# django_content_type with a NOT NULL "name" column that 0002 later drops;
+# a ContentType lookup from this signal in between the two would otherwise
+# raise IntegrityError and abort the migration).
+EXCLUDED_MODELS = {"AuditLog", "Session", "ContentType", "Migration"}
 
 
 def create_audit_log(user, action, instance, description=""):
     """Helper لإنشاء AuditLog"""
     try:
         model_name = ContentType.objects.get_for_model(instance).model
-    except (OperationalError, ProgrammingError, ImproperlyConfigured):
+    except (OperationalError, ProgrammingError, ImproperlyConfigured, IntegrityError):
         # قاعدة البيانات لسه ما خلصتش إعدادها (أثناء migrate/loaddata)
         return
 

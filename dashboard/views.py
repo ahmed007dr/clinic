@@ -3,7 +3,6 @@ from django.contrib.auth.decorators import login_required
 from appointments.models import Appointment
 from patients.models import Patient
 from billing.models import Payment, Expense
-from django.conf import settings
 from django.db.models import Sum, Count
 from datetime import datetime, timedelta
 from django.utils import timezone
@@ -45,8 +44,5 @@ def dashboard(request):
         'revenue_by_day': revenue_by_day[::-1],
         'expenses_by_day': expenses_by_day[::-1],
         'is_reception': request.user.role.name == 'Reception' if request.user.role else False,
-        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
-        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'Copyright &copy; 2025 All rights reserved.')
     }
     return render(request, 'dashboard/index.html', context)

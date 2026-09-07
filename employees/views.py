@@ -1,7 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from .forms import EmployeeForm, EmployeeTypeForm, SpecializationForm
 from .models import Employee, EmployeeType, Specialization
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator
@@ -24,9 +23,6 @@ def employee_create(request):
         form = EmployeeForm()
     context = {
         'form': form,
-        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'عيادة'),
-        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'جميع الحقوق محفوظة &copy; 2025')
     }
     return render(request, 'employees/create.html', context)
 
@@ -43,9 +39,6 @@ def employee_list(request):
     context = {
         'employees': page_obj,
         'page_obj': page_obj,
-        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'عيادة'),
-        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'جميع الحقوق محفوظة &copy; 2025')
     }
     return render(request, 'employees/list.html', context)
 
@@ -65,9 +58,6 @@ def employee_update(request, pk):
         form = EmployeeForm(instance=employee)
     context = {
         'form': form,
-        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'عيادة'),
-        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'جميع الحقوق محفوظة &copy; 2025')
     }
     return render(request, 'employees/update.html', context)
 
@@ -81,9 +71,6 @@ def employee_delete(request, pk):
         return redirect('employees:employee_list')
     context = {
         'employee': employee,
-        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'عيادة'),
-        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'جميع الحقوق محفوظة &copy; 2025')
     }
     return render(request, 'employees/delete.html', context)
 
@@ -102,9 +89,6 @@ def employee_type_create(request):
         form = EmployeeTypeForm()
     context = {
         'form': form,
-        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'عيادة'),
-        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'جميع الحقوق محفوظة &copy; 2025')
     }
     return render(request, 'employees/employee_type_create.html', context)
 
@@ -114,9 +98,6 @@ def employee_type_list(request):
     employee_types = EmployeeType.objects.all().order_by('name')
     context = {
         'employee_types': employee_types,
-        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'عيادة'),
-        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'جميع الحقوق محفوظة &copy; 2025')
     }
     return render(request, 'employees/employee_type_list.html', context)
 
@@ -136,9 +117,6 @@ def employee_type_update(request, pk):
         form = EmployeeTypeForm(instance=employee_type)
     context = {
         'form': form,
-        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'عيادة'),
-        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'جميع الحقوق محفوظة &copy; 2025')
     }
     return render(request, 'employees/employee_type_update.html', context)
 
@@ -152,9 +130,6 @@ def employee_type_delete(request, pk):
         return redirect('employees:employee_type_list')
     context = {
         'employee_type': employee_type,
-        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'عيادة'),
-        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'جميع الحقوق محفوظة &copy; 2025')
     }
     return render(request, 'employees/employee_type_delete.html', context)
 
@@ -173,9 +148,6 @@ def specialization_create(request):
         form = SpecializationForm()
     context = {
         'form': form,
-        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'عيادة'),
-        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'جميع الحقوق محفوظة &copy; 2025')
     }
     return render(request, 'employees/specialization_create.html', context)
 
@@ -185,9 +157,6 @@ def specialization_list(request):
     specializations = Specialization.objects.all().order_by('name')
     context = {
         'specializations': specializations,
-        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'عيادة'),
-        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'جميع الحقوق محفوظة &copy; 2025')
     }
     return render(request, 'employees/specialization_list.html', context)
 
@@ -207,9 +176,6 @@ def specialization_update(request, pk):
         form = SpecializationForm(instance=specialization)
     context = {
         'form': form,
-        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'عيادة'),
-        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'جميع الحقوق محفوظة &copy; 2025')
     }
     return render(request, 'employees/specialization_update.html', context)
 
@@ -223,8 +189,5 @@ def specialization_delete(request, pk):
         return redirect('employees:specialization_list')
     context = {
         'specialization': specialization,
-        'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'عيادة'),
-        'clinic_logo': request.user.branch.logo.url if request.user.branch and request.user.branch.logo else getattr(settings, 'CLINIC_LOGO', 'images/logo.svg'),
-        'footer_text': request.user.branch.footer_text if request.user.branch and request.user.branch.footer_text else getattr(settings, 'FOOTER_TEXT', 'جميع الحقوق محفوظة &copy; 2025')
     }
     return render(request, 'employees/specialization_delete.html', context)

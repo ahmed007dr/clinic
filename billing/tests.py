@@ -15,8 +15,8 @@ class BillingTestBase(TestCase):
     def setUp(self):
         self.branch_a = Branch.objects.create(name='Branch A', code='A')
         self.branch_b = Branch.objects.create(name='Branch B', code='B')
-        self.admin_role = ClinicRole.objects.create(name='Admin')
-        self.reception_role = ClinicRole.objects.create(name='Reception')
+        self.admin_role, _ = ClinicRole.objects.get_or_create(name='Admin')
+        self.reception_role, _ = ClinicRole.objects.get_or_create(name='Reception')
 
         self.admin = User.objects.create_user(username='admin', password='pass12345', role=self.admin_role, branch=self.branch_a)
         self.reception_a = User.objects.create_user(username='recA', password='pass12345', role=self.reception_role, branch=self.branch_a)
