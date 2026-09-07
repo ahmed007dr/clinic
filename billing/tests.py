@@ -7,6 +7,7 @@ from branches.models import Branch
 from patients.models import Patient
 from appointments.models import Appointment
 from .models import Payment
+from .forms import PaymentForm, ExpenseForm
 
 User = get_user_model()
 
@@ -66,3 +67,27 @@ class PaymentDetailScopingTests(BillingTestBase):
         self.client.login(username='admin', password='pass12345')
         response = self.client.get(reverse('billing:payment_detail', args=[self.payment_b.pk]))
         self.assertEqual(response.status_code, 200)
+
+
+class NegativeAmountValidationTests(BillingTestBase):
+    """A negative amount would silently corrupt every revenue total in financial_report."""
+
+    def test_payment_form_rejects_negative_amount(self):
+        form = PaymentForm(data={
+            'appointment': self.appointment_b.pk,
+            'patient': self.patient_b.pk,
+            'receipt_number': 'R-NEG-1',
+            'amount': '-50',
+            'branch': self.branch_b.pk,
+        })
+        self.assertFalse(form.is_valid())
+        self.assertIn('amount', form.errors)
+
+    def test_expense_form_rejects_negative_amount(self):
+        form = ExpenseForm(data={
+            'branch': self.branch_b.pk,
+            'amount': '-50',
+            'date': timezone.now().date(),
+        })
+        self.assertFalse(form.is_valid())
+        self.assertIn('amount', form.errors)

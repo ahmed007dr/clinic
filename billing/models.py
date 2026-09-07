@@ -1,5 +1,6 @@
 # billing/models.py
 from django.db import models
+from django.core.validators import MinValueValidator
 from patients.models import Patient
 from appointments.models import Appointment
 from branches.models import Branch
@@ -21,7 +22,7 @@ class Payment(models.Model):
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
     method = models.ForeignKey(PaymentMethod, on_delete=models.SET_NULL, null=True)
     receipt_number = models.CharField(max_length=50, unique=True)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     branch = models.ForeignKey(Branch, on_delete=models.SET_NULL, null=True, blank=True)
     date = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True, null=True)
@@ -44,7 +45,7 @@ class Expense(models.Model):
 
     employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name="expenses")
 
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     date = models.DateField()
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True

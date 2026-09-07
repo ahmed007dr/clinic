@@ -3,6 +3,7 @@ from django.urls import reverse
 from django.contrib.auth import get_user_model
 from accounts.models import ClinicRole
 from branches.models import Branch
+from .forms import ServiceForm
 
 User = get_user_model()
 
@@ -31,3 +32,12 @@ class ServiceAuthorizationTests(TestCase):
         response = self.client.get(reverse('services:service_create'))
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, reverse('services:service_list'))
+
+
+class ServicePriceValidationTests(TestCase):
+    """A negative base_price would silently corrupt pricing/reporting downstream."""
+
+    def test_service_form_rejects_negative_base_price(self):
+        form = ServiceForm(data={'name': 'Consultation', 'base_price': '-10'})
+        self.assertFalse(form.is_valid())
+        self.assertIn('base_price', form.errors)

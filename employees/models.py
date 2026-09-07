@@ -1,4 +1,5 @@
 from django.db import models, transaction
+from django.core.validators import MinValueValidator
 from branches.models import Branch
 from django.utils import timezone
 
@@ -32,7 +33,7 @@ class Employee(models.Model):
     email = models.EmailField(blank=True)
     hire_date = models.DateField(null=False, blank=False, default=timezone.now)
     salary_type = models.ForeignKey(SalaryType, on_delete=models.SET_NULL, null=True, blank=True)
-    salary_value = models.DecimalField(max_digits=10, decimal_places=2)
+    salary_value = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     specializations = models.ManyToManyField(Specialization, blank=True)
     serial_number = models.CharField(max_length=20, unique=True, blank=True)
 

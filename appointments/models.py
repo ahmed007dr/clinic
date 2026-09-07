@@ -1,4 +1,5 @@
 from django.db import models, transaction
+from django.core.validators import MinValueValidator
 from django.utils import timezone
 
 class Appointment(models.Model):
@@ -22,7 +23,7 @@ class Appointment(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="waiting")
     branch = models.ForeignKey('branches.Branch', on_delete=models.SET_NULL, null=True, blank=True)
     scheduled_date = models.DateTimeField()
-    price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
     created_by = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True, null=True)
