@@ -7,6 +7,7 @@ from django.conf import settings
 
 from .forms import LoginForm, UserForm, UserSettingsForm
 from branches.models import Branch
+from audit.models import AuditLog
 
 User = get_user_model()
 
@@ -23,6 +24,13 @@ def user_login(request):
             user = authenticate(request, username=username, password=password)
             if user is not None:
                 login(request, user)
+                AuditLog.objects.create(
+                    user=user,
+                    action="login",
+                    description="User logged in",
+                    ip_address=request.META.get("REMOTE_ADDR"),
+                    user_agent=request.META.get("HTTP_USER_AGENT"),
+                )
                 #next_url = request.GET.get('next', 'dashboard')
                 next_url = request.GET.get('next', reverse("dashboard:dashboard"))
 
@@ -45,6 +53,13 @@ def user_login(request):
 
 @login_required
 def user_logout(request):
+    AuditLog.objects.create(
+        user=request.user,
+        action="logout",
+        description="User logged out",
+        ip_address=request.META.get("REMOTE_ADDR"),
+        user_agent=request.META.get("HTTP_USER_AGENT"),
+    )
     logout(request)
     return redirect('accounts:login')
 

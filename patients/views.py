@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import Http404
 from .forms import PatientForm
 from .models import Patient
 from appointments.models import Appointment
@@ -57,6 +58,8 @@ def patient_list(request):
 @user_passes_test(is_reception_or_admin)
 def patient_detail(request, pk):
     patient = get_object_or_404(Patient, pk=pk)
+    if request.user.role.name == 'Reception' and request.user.branch and patient.branch_id != request.user.branch_id:
+        raise Http404
     appointments = Appointment.objects.filter(patient=patient).order_by('-scheduled_date', '-serial_number')
     if request.user.role.name == 'Reception':
         appointments = appointments.values('id', 'serial_number', 'doctor__name', 'service__name')

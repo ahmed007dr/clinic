@@ -70,12 +70,15 @@ def generate_daily_report():
         }
 
         # تحويل التمبليت إلى نص
+        recipient_list = list(recipients)
+        if not recipient_list:
+            continue  # لا يوجد مستلمون نشطون لهذا التقرير
         email_body = render_to_string('reports/daily_report.html', context)
         email = EmailMessage(
             subject=f'التقرير اليومي - {branch.name} - {today.strftime("%Y-%m-%d")}',
             body=email_body,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            to=recipients or [settings.ADMIN_EMAIL]
+            to=recipient_list
         )
         email.content_subtype = 'html'  # إرسال الإيميل كنص HTML
         email.send()
@@ -139,12 +142,15 @@ def generate_monthly_report():
             'service_details': service_details
         }
 
+        recipient_list = list(recipients)
+        if not recipient_list:
+            continue  # لا يوجد مستلمون نشطون لهذا التقرير
         email_body = render_to_string('reports/monthly_report.html', context)
         email = EmailMessage(
             subject=f'التقرير الشهري - {branch.name} - {start_date.strftime("%Y-%m")}',
             body=email_body,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            to=recipients or [settings.ADMIN_EMAIL]
+            to=recipient_list
         )
         email.content_subtype = 'html'
         email.send()
@@ -176,12 +182,15 @@ def generate_annual_report():
             'year': start_date.year,
             'branch_data': branch_data
         }
+        recipient_list = list(recipients)
+        if not recipient_list:
+            continue  # لا يوجد مستلمون نشطون لهذا التقرير
         email_body = render_to_string('reports/annual_report.html', context)
         email = EmailMessage(
             subject=f'التقرير السنوي - {branch.name} - {start_date.year}',
             body=email_body,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            to=recipients or [settings.ADMIN_EMAIL]
+            to=recipient_list
         )
         email.content_subtype = 'html'
         email.send()

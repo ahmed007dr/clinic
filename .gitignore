@@ -12,5 +12,4 @@ media/
 venv/
 *.env
 *.bak
-*/migrations/
 setting.md

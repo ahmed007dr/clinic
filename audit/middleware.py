@@ -16,7 +16,10 @@ class ThreadLocalMiddleware(MiddlewareMixin):
 
 
 class AuditMiddleware(MiddlewareMixin):
-    """ Middleware يسجل دخول/خروج """
+    """ Middleware يسجل دخول/خروج عبر Django admin فقط.
+    تسجيل الدخول/الخروج الفعلي للتطبيق (accounts:login/logout) يتم
+    تسجيله مباشرة من accounts.views، لأن المستخدم لا يكون
+    is_authenticated بعد أثناء معالجة طلب تسجيل الدخول نفسه. """
     def process_view(self, request, view_func, view_args, view_kwargs):
         if request.user.is_authenticated:
             if request.path == "/admin/login/":

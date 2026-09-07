@@ -10,7 +10,7 @@ from datetime import datetime
 
 @login_required
 def service_create(request):
-    if not request.user.is_superuser:
+    if not (request.user.role and request.user.role.name == 'Admin'):
         messages.error(request, 'غير مصرح لك بإنشاء خدمة')
         return redirect('services:service_list')
     if request.method == 'POST':
@@ -44,7 +44,7 @@ def service_list(request):
 
 @login_required
 def service_update(request, pk):
-    if not request.user.is_superuser:
+    if not (request.user.role and request.user.role.name == 'Admin'):
         messages.error(request, 'غير مصرح لك بتعديل الخدمة')
         return redirect('services:service_list')
     service = get_object_or_404(Service, pk=pk)
@@ -68,7 +68,7 @@ def service_update(request, pk):
 
 @login_required
 def service_delete(request, pk):
-    if not request.user.is_superuser:
+    if not (request.user.role and request.user.role.name == 'Admin'):
         messages.error(request, 'غير مصرح لك بحذف الخدمة')
         return redirect('services:service_list')
     service = get_object_or_404(Service, pk=pk)
@@ -86,7 +86,7 @@ def service_delete(request, pk):
 
 @login_required
 def service_list_export(request):
-    if not request.user.is_superuser:
+    if not (request.user.role and request.user.role.name == 'Admin'):
         messages.error(request, 'غير مصرح لك بتصدير البيانات')
         return redirect('services:service_list')
     export_format = request.GET.get('export')

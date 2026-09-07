@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import Http404
 from .forms import PaymentForm, ExpenseForm, ExpenseCategoryForm
 from .models import Payment, Expense, ExpenseCategory
 from branches.models import Branch
@@ -6,7 +7,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, Q
 from datetime import datetime
 from utils.utils import export_pdf, export_excel
 from django.core.paginator import Paginator
@@ -88,6 +89,8 @@ def payment_delete(request, pk):
 @login_required
 def payment_detail(request, pk):
     payment = get_object_or_404(Payment, pk=pk)
+    if not is_admin(request.user) and request.user.branch and payment.branch_id != request.user.branch_id:
+        raise Http404
     context = {
         'payment': payment,
         'clinic_name': request.user.branch.name if request.user.branch else getattr(settings, 'CLINIC_NAME', 'Clinic Dashboard'),
@@ -256,7 +259,7 @@ def expense_category_delete(request, pk):
     }
     return render(request, 'billing/expense_category_delete.html', context)
 
-login_required
+@login_required
 def financial_report(request):
     # معايير الفلترة العامة
     start_date = request.GET.get('start_date')
