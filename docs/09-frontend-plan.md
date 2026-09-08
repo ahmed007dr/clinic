@@ -30,14 +30,42 @@ The first commit in the repo's history deletes a `static.zip`, which suggests th
 
 **Consequences:** a fresh clone renders completely unstyled. A new developer cannot see the product. CI cannot verify anything visual. Deployment depends on files that exist only on one machine.
 
+### Audit result (2026-09-08) — the authoritative asset set
+
+`static.zip` **is recoverable from git**: added in `6dc57b9`, removed in `61a6f84`. 5.7 MB, 184 entries, nested under `static/`. Nothing exists on disk.
+
+**It satisfies only 14 of the 24 assets the templates reference.** The gap is not uniform, and three different categories need three different answers:
+
+**a) Genuinely missing and load-bearing — DataTables.** Nine list pages (`user_list`, `audit`, `expense_category_list`, `expense_list`, `billing/list`, `branches/list`, `employee_type_list`, `specialization_list`, `services/list`) call `.DataTable({…})` on real table IDs. It is referenced under **three different paths** (`datatables.net/`, `datatables.net-bs4/`, `datatables/`) and present under none. Those pages currently have no working sort, search or client-side paging.
+
+**b) Redundant references that should be deleted, not satisfied.** `vendor.bundle.base.js` begins with `/*! jQuery v3.6.0` and also contains Bootstrap 5.1.3 and Popper. So:
+
+| Reference | Verdict |
+|---|---|
+| `vendors/jquery/jquery.min.js` | remove — already in the bundle |
+| `vendors/bootstrap/js/bootstrap.bundle.min.js` | remove — already in the bundle |
+| `vendors/chart.js/Chart.min.css` | remove — Chart.js ships no stylesheet |
+| `vendors/jquery-cookie/jquery.cookie.js` | remove — loaded once, never used |
+
+Adding files to satisfy these would be exactly the duplicated-vendor mistake to avoid.
+
+**c) A version conflict to resolve before adding anything.** The templates ask for the **Bootstrap 4** DataTables integration (`dataTables.bootstrap4.*`) while the bundle ships **Bootstrap 5.1.3**. The correct fix is the Bootstrap 5 build, not the referenced BS4 one.
+
+**Also found:** `billing/expense_update.html` is a rogue template carrying its own duplicate asset stack under a fourth set of paths, including its own jQuery. It is the only user of `vendors/datatables/*` and `jquery-cookie`.
+
+**Archive hygiene:** 138 of its 184 entries are referenced by nothing — theme demo docs, jvectormap, justgage, typeahead, raphael, progressbar, `.DS_Store` files and source maps. Committing the archive wholesale would add ~5 MB of dead weight; the authoritative set is closer to 20 files plus the MDI webfonts.
+
 | ID | Item | Status |
 |---|---|---|
-| FE-001 | Recover the theme assets and commit them (or vendor them via a documented, reproducible fetch) | **Not started** |
-| FE-002 | Make `STATICFILES_DIRS` resolve, so `check` is clean | **Not started** |
-| FE-003 | `STATIC_ROOT` + `collectstatic` for deployment (currently commented out in settings) | **Not started** |
-| FE-004 | Decide CDN vs vendored for third-party libraries | **Not started** |
+| FE-001 | Commit the authoritative set only — the 14 satisfied assets plus MDI fonts — from the recovered archive | **Not started** |
+| FE-001b | Add DataTables (Bootstrap **5** build) and collapse its three reference paths to one | **Not started** |
+| FE-001c | Remove the four redundant references above; normalise `expense_update.html` onto the shared stack | **Not started** |
+| FE-002 | Make `STATICFILES_DIRS` resolve so `manage.py check` is clean | **Not started** |
+| FE-003 | `STATIC_ROOT` + verify `collectstatic` from a clean clone (currently commented out in settings) | **Not started** |
+| FE-004 | Verify rendering with `DEBUG=False` and staticfiles serving | **Not started** |
+| FE-005 | A test asserting every `{% static %}` reference resolves, so this cannot silently regress | **Not started** |
 
-Nothing else on this page can be verified visually until FE-001 is resolved.
+Nothing else on this page can be verified visually until these are resolved.
 
 ---
 
@@ -80,11 +108,36 @@ Cross-cutting work already applied:
 | FE-012 | **Error states** | Django's default 404/500 pages; no branded error templates |
 | FE-013 | **Mobile / responsive verification** | The theme is responsive in principle; never verified on a real device. doc §72 wants doctor screens mobile-friendly |
 | FE-014 | **Accessibility** | No keyboard-focus styling, landmarks or ARIA review |
-| FE-015 | **Add-row button on the prescription formset** | Currently three fixed blank rows — a doctor needing a fourth medication must save and re-edit. The clearest immediate UX defect in the new work |
+| FE-015 | **Add/remove medication lines on the prescription formset** | See the analysis below — this is P1 |
 | FE-016 | **Client-side validation and inline field errors** | Errors are dumped as a block at the top of the form |
 | FE-017 | **Dashboard** | Single page of counters; doc §47 wants revenue/expense/doctor/service breakdowns |
 | FE-018 | **Search and filtering** | Only appointments have a search box; no debouncing anywhere |
 | FE-019 | **Print styles beyond the prescription** | The prescription sheet is the only print-designed page |
+
+### FE-015 analysis (2026-09-08) — P1
+
+Current state: `inlineformset_factory(extra=3, min_num=1, validate_min=True, can_delete=True)`, rendered as fixed table rows with **no JavaScript at all** on the page.
+
+Two defects, not one:
+
+1. **No way to add a fourth medication.** A doctor prescribing four drugs must save, then re-open and edit.
+2. **No way to remove a line while creating.** The `DELETE` checkbox is rendered under `{% if not is_new %}`, so on the create screen the three rows cannot be reduced either.
+
+Approach (no React, no AJAX, formset stays authoritative):
+
+- Render `formset.empty_form` once as a hidden `__prefix__` row template.
+- "Add medication" clones it, substitutes the index, and increments `items-TOTAL_FORMS` — the management form remains the single source of truth for the server.
+- "Remove" deletes the row from the DOM for unsaved rows and decrements `TOTAL_FORMS`; for saved rows it ticks `DELETE` and hides the row, which is what the formset expects.
+- Server-side validation stays authoritative: `validate_min` still rejects an empty prescription regardless of what the client sends.
+- `TenantScopedFormMixin` runs when `empty_form` is instantiated, so relation querysets stay request-time evaluated. `PrescriptionItem` has no relation fields today, but the row template must not bypass the form.
+- RTL: the add/remove controls sit inside the existing RTL table; no direction-specific CSS needed.
+
+**Test coverage gap found while analysing.** Reception access is asserted for `prescription_create` and `prescription_detail`, but there is **no test for `prescription_update` or `prescription_print`**. Both are `@clinical_required`, so they are believed safe — but that is currently belief, not evidence. Regression tests to add alongside the fix:
+
+- multiple medication lines submit and persist correctly (3, and more than 3)
+- removing a line on create, and on update
+- `validate_min` still rejects a prescription with every line blank
+- Reception blocked on all four prescription URLs, by direct URL
 
 ---
 

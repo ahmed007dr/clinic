@@ -2,6 +2,21 @@
 
 Status values: `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `NEEDS_REVIEW`.
 
+## Agreed priority order (2026-09-08)
+
+Architectural direction settled: **the staff application stays on Django templates and is not rewritten.** The Patient Portal will eventually be a separate React app, and the API will be designed around *its* requirements — not built as a generic API for the whole system.
+
+| Priority | Scope | State |
+|---|---|---|
+| **P0** | Repository/static reproducibility — establish the authoritative asset set, track it in git, drop the `static.zip` dependency, verify `collectstatic` from a clean clone and rendering with `DEBUG=False`, add a check so it cannot silently regress | Audit complete, **not implemented** |
+| **P1** | FE-015 — dynamic add/remove of prescription medication lines. Django formset stays authoritative; no React, no AJAX | Analysis complete, **not implemented** |
+| **P2** | PostgreSQL + RLS readiness (INFRA-002/003, TENANT-007) — the next architectural milestone. No broad frontend work starts before this | Parked → now next after P0/P1 |
+| **P3** | Clinical domain, in order: treatment plans → sessions → procedures → lab results → secure attachments | Not started |
+| **P4** | SaaS: plans, subscriptions, entitlements, platform admin, billing | Not started |
+| — | Patient Portal (React) — **design document first**, covering patient auth, account recovery, tenant resolution, identity/authorization, and every data surface. A patient must never reach another patient's data even knowing its UUID; authorization is enforced server-side, never by hiding UI | Not started |
+
+Standing constraints: no large frontend refactor, no rewriting working screens, no second frontend architecture until the Patient Portal requirements justify it.
+
 | ID | Task | Status | Notes |
 |---|---|---|---|
 | SEC-001 | Rotate SECRET_KEY / EMAIL_HOST_PASSWORD, move secrets to env | DONE (local) | Code done: `project/settings.py` reads `SECRET_KEY`, `DEBUG`, `EMAIL_*`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS` via `django-environ` from `.env` (gitignored, confirmed via `git check-ignore`). New random `SECRET_KEY` generated. User rotated the email account itself (new address/host/password, `support@club-ft.com` on `mail.club-ft.com`, replacing the leaked `dr-ahmed@2odays.com` credential) — local `.env` updated and verified to load correctly (`manage.py check` clean, including the `$` in the password parsing as a literal, not shell-expanded). **Still open**: the production server's own `.env` (or equivalent env config) needs the same update — this agent has no access to the live server |
