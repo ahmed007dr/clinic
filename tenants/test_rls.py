@@ -16,6 +16,7 @@ database. They skip on SQLite, which has no equivalent — a fact worth keeping
 visible, because it means a green SQLite run says nothing about this layer.
 """
 
+from django.apps import apps as django_apps
 from django.db import ProgrammingError, connection, transaction
 from django.test import TestCase
 
@@ -23,32 +24,14 @@ from patients.models import Patient
 
 from .context import tenant_context
 from .models import Tenant
+from .rls import tenant_tables
 
-# Every policy is generated from one template in the migration, so proving the
-# behaviour on one table proves the shape. This list guards against a table
-# being added to the schema and forgotten in TENANT_TABLES, which is the
-# realistic way this protection would decay.
-EXPECTED_PROTECTED_TABLES = {
-    "accounts_clinicrole",
-    "appointments_appointment",
-    "billing_expense",
-    "billing_expensecategory",
-    "billing_payment",
-    "billing_paymentmethod",
-    "branches_branch",
-    "employees_employee",
-    "employees_employeetype",
-    "employees_salarytype",
-    "employees_specialization",
-    "medical_allergy",
-    "medical_prescription",
-    "medical_prescriptionitem",
-    "medical_visit",
-    "notifications_notification",
-    "patients_patient",
-    "reports_reportrecipient",
-    "services_service",
-}
+# Derived from the live model registry, not written out. A literal list would
+# guard against a policy being deleted but not against the realistic decay
+# mode: a tenant-owned model added later while the list stays as it was. Asking
+# the models means a new model arrives already expected, and ships unprotected
+# only over a failing test.
+EXPECTED_PROTECTED_TABLES = set(tenant_tables(django_apps))
 
 
 class RowLevelSecurityTests(TestCase):
@@ -87,10 +70,22 @@ class RowLevelSecurityTests(TestCase):
 
     # ---- the policies exist and are forced ----------------------------------
 
+    def test_the_expected_set_is_not_empty(self):
+        """The derivation feeds the check below, so an empty or broken result
+        would turn that check into a no-op that passes."""
+        self.assertGreaterEqual(len(EXPECTED_PROTECTED_TABLES), 19)
+        self.assertIn("patients_patient", EXPECTED_PROTECTED_TABLES)
+        # Excluded on purpose — see tenants/rls.py for why each one is.
+        self.assertNotIn("accounts_user", EXPECTED_PROTECTED_TABLES)
+        self.assertNotIn("audit_auditlog", EXPECTED_PROTECTED_TABLES)
+
     def test_every_tenant_table_has_the_policy_enabled_and_forced(self):
         """FORCE is the load-bearing half: without it PostgreSQL skips policies
         for the table owner, which is the role the application connects as, so
         the protection would be silently absent in exactly the case it matters.
+
+        The expected set comes from the models, so a tenant-owned model added
+        without a policy fails here rather than shipping unprotected.
         """
         rows = self.sql(
             """

@@ -2,7 +2,7 @@ from django.contrib import admin
 
 from tenants.admin import TenantOwnedAdmin
 
-from .models import Allergy, Prescription, PrescriptionItem, Visit
+from .models import Allergy, Prescription, PrescriptionItem, TreatmentPlan, Visit
 
 
 @admin.register(Visit)
@@ -20,6 +20,15 @@ class AllergyAdmin(TenantOwnedAdmin):
     list_filter = ("severity",)
     search_fields = ("patient__name", "substance")
     readonly_fields = ("uuid", "recorded_at")
+
+
+@admin.register(TreatmentPlan)
+class TreatmentPlanAdmin(TenantOwnedAdmin):
+    list_display = ("serial_number", "title", "patient", "doctor", "status", "start_date")
+    list_filter = ("status", "branch")
+    search_fields = ("serial_number", "title", "patient__name")
+    date_hierarchy = "start_date"
+    readonly_fields = ("uuid", "serial_number", "created_at", "updated_at")
 
 
 class PrescriptionItemInline(admin.TabularInline):

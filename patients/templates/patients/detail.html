@@ -137,6 +137,36 @@
       <a href="{% url 'medical:visit_create' patient.uuid %}" class="btn btn-primary">تسجيل زيارة جديدة</a>
     </div>
   </div>
+
+  <div class="card mt-4">
+    <div class="card-body">
+      <h4 class="card-title">خطط العلاج</h4>
+      <table class="table table-striped">
+        <thead>
+          <tr><th>رقم الخطة</th><th>الاسم</th><th>تاريخ البدء</th><th>الجلسات</th><th>الحالة</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for plan in treatment_plans %}
+          <tr>
+            <td>{{ plan.serial_number }}</td>
+            <td>{{ plan.title }}</td>
+            <td>{{ plan.start_date|date:"Y-m-d" }}</td>
+            <td>{{ plan.planned_sessions }}</td>
+            <td>
+              <span class="badge {% if plan.status == 'active' %}bg-primary{% elif plan.status == 'completed' %}bg-success{% elif plan.status == 'cancelled' %}bg-danger{% else %}bg-secondary{% endif %}">
+                {{ plan.get_status_display }}
+              </span>
+            </td>
+            <td><a href="{% url 'medical:treatment_plan_detail' plan.uuid %}" class="btn btn-sm btn-info">تفاصيل</a></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6">لا توجد خطط علاج</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <a href="{% url 'medical:treatment_plan_create' patient.uuid %}" class="btn btn-primary">خطة علاج جديدة</a>
+    </div>
+  </div>
   {% endif %}
 </div>
 <style>

@@ -1,7 +1,7 @@
 from django import forms
 from django.forms import inlineformset_factory
 
-from .models import Allergy, Prescription, PrescriptionItem, Visit
+from .models import Allergy, Prescription, PrescriptionItem, TreatmentPlan, Visit
 from tenants.forms import TenantScopedFormMixin
 
 
@@ -38,6 +38,33 @@ class AllergyForm(TenantScopedFormMixin, forms.ModelForm):
             "substance": forms.TextInput(attrs={"class": "form-control"}),
             "reaction": forms.TextInput(attrs={"class": "form-control"}),
             "severity": forms.Select(attrs={"class": "form-control js-example-basic-single"}),
+            "notes": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
+        }
+
+
+class TreatmentPlanForm(TenantScopedFormMixin, forms.ModelForm):
+    """TenantScopedFormMixin is not optional here: doctor, branch and service
+    are all ModelChoiceFields, and their querysets would otherwise be built at
+    import time with no tenant in context — leaving every dropdown empty."""
+
+    class Meta:
+        model = TreatmentPlan
+        fields = [
+            "title", "service", "doctor", "branch",
+            "planned_sessions", "status", "start_date", "notes",
+        ]
+        widgets = {
+            "title": forms.TextInput(
+                attrs={"class": "form-control", "placeholder": "مثال: علاج بالليزر"}
+            ),
+            "service": forms.Select(attrs={"class": "form-control js-example-basic-single"}),
+            "doctor": forms.Select(attrs={"class": "form-control js-example-basic-single"}),
+            "branch": forms.Select(attrs={"class": "form-control js-example-basic-single"}),
+            "planned_sessions": forms.NumberInput(attrs={"class": "form-control", "min": 1}),
+            "status": forms.Select(attrs={"class": "form-control js-example-basic-single"}),
+            "start_date": forms.DateInput(
+                attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"
+            ),
             "notes": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
         }
 

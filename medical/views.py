@@ -5,8 +5,14 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from patients.models import Patient
 
-from .forms import AllergyForm, PrescriptionForm, PrescriptionItemFormSet, VisitForm
-from .models import Allergy, Prescription, Visit, allergy_conflicts
+from .forms import (
+    AllergyForm,
+    PrescriptionForm,
+    PrescriptionItemFormSet,
+    TreatmentPlanForm,
+    VisitForm,
+)
+from .models import Allergy, Prescription, TreatmentPlan, Visit, allergy_conflicts
 from .permissions import can_view_clinical, scoped_to_user
 
 clinical_required = user_passes_test(can_view_clinical)
@@ -112,6 +118,73 @@ def allergy_create(request, patient_uuid):
         form = AllergyForm()
 
     return render(request, "medical/allergy_form.html", {"form": form, "patient": patient})
+
+
+def _get_treatment_plan(request, uuid):
+    return get_object_or_404(
+        scoped_to_user(TreatmentPlan.objects.all(), request.user), uuid=uuid
+    )
+
+
+@login_required
+@clinical_required
+def treatment_plan_create(request, patient_uuid):
+    patient = _get_patient(request, patient_uuid)
+
+    if request.method == "POST":
+        form = TreatmentPlanForm(request.POST)
+        if form.is_valid():
+            plan = form.save(commit=False)
+            plan.tenant = request.user.tenant
+            plan.patient = patient
+            plan.created_by = request.user
+            if not plan.branch_id:
+                plan.branch = patient.branch or request.user.branch
+            plan.save()
+            messages.success(request, f"تم إنشاء خطة العلاج {plan.serial_number} بنجاح")
+            return redirect("medical:treatment_plan_detail", uuid=plan.uuid)
+        messages.error(request, "خطأ في إدخال البيانات")
+    else:
+        form = TreatmentPlanForm(initial={"branch": patient.branch or request.user.branch})
+
+    return render(request, "medical/treatment_plan_form.html", {
+        "form": form,
+        "patient": patient,
+        "is_new": True,
+    })
+
+
+@login_required
+@clinical_required
+def treatment_plan_detail(request, uuid):
+    plan = _get_treatment_plan(request, uuid)
+    return render(request, "medical/treatment_plan_detail.html", {
+        "plan": plan,
+        "patient": plan.patient,
+    })
+
+
+@login_required
+@clinical_required
+def treatment_plan_update(request, uuid):
+    plan = _get_treatment_plan(request, uuid)
+
+    if request.method == "POST":
+        form = TreatmentPlanForm(request.POST, instance=plan)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "تم تعديل خطة العلاج بنجاح")
+            return redirect("medical:treatment_plan_detail", uuid=plan.uuid)
+        messages.error(request, "خطأ في إدخال البيانات")
+    else:
+        form = TreatmentPlanForm(instance=plan)
+
+    return render(request, "medical/treatment_plan_form.html", {
+        "form": form,
+        "patient": plan.patient,
+        "plan": plan,
+        "is_new": False,
+    })
 
 
 def _get_prescription(request, uuid):

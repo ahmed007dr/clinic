@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block body %}
+<div class="container">
+  <h2>خطة العلاج {{ plan.serial_number }} - {{ patient.name }}</h2>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert {% if message.tags == 'warning' %}alert-warning{% elif message.tags == 'error' %}alert-danger{% else %}alert-info{% endif %}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">{{ plan.title }}</h4>
+      <table class="table">
+        <tr>
+          <th style="width:25%">الحالة</th>
+          <td>
+            <span class="badge {% if plan.status == 'active' %}bg-primary{% elif plan.status == 'completed' %}bg-success{% elif plan.status == 'cancelled' %}bg-danger{% else %}bg-secondary{% endif %}">
+              {{ plan.get_status_display }}
+            </span>
+          </td>
+        </tr>
+        <tr><th>تاريخ البدء</th><td>{{ plan.start_date|date:"Y-m-d" }}</td></tr>
+        <tr><th>عدد الجلسات المخططة</th><td>{{ plan.planned_sessions }}</td></tr>
+        <tr><th>الخدمة</th><td>{{ plan.service.name|default:"غير محددة" }}</td></tr>
+        <tr><th>الطبيب</th><td>{{ plan.doctor.name|default:"غير محدد" }}</td></tr>
+        <tr><th>الفرع</th><td>{{ plan.branch.name|default:"غير محدد" }}</td></tr>
+        {% if plan.visit %}
+          <tr>
+            <th>الزيارة</th>
+            <td><a href="{% url 'medical:visit_detail' plan.visit.uuid %}">{{ plan.visit.serial_number }}</a></td>
+          </tr>
+        {% endif %}
+      </table>
+
+      {% if plan.notes %}
+        <p><strong>ملاحظات:</strong> {{ plan.notes|linebreaksbr }}</p>
+      {% endif %}
+
+      <a href="{% url 'medical:treatment_plan_update' plan.uuid %}" class="btn btn-primary mt-3">تعديل</a>
+      <a href="{% url 'patients:patient_detail' patient.uuid %}" class="btn btn-secondary mt-3">رجوع إلى ملف المريض</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

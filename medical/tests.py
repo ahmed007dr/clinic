@@ -18,7 +18,7 @@ from tenants.provisioning import provision_tenant_defaults
 from tenants.context import tenant_context
 from tenants.testing import act_as_tenant
 
-from .models import Allergy, Prescription, PrescriptionItem, Visit
+from .models import Allergy, Prescription, PrescriptionItem, TreatmentPlan, Visit
 
 User = get_user_model()
 
@@ -470,3 +470,160 @@ class PrescriptionUrlAccessTests(ClinicalTestBase):
             with self.subTest(view=name):
                 url = reverse(f'medical:{name}', args=[self.prescription.uuid])
                 self.assertEqual(self.client.get(url).status_code, 200)
+
+
+class TreatmentPlanTests(ClinicalTestBase):
+    """P3 — a course of treatment delivered over several visits (doc §28).
+
+    Structured, unlike the free-text `Visit.treatment_plan` note it sits beside:
+    a named course with its own identity, which sessions will be booked against.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.client.login(email='doc@t.local', password='pass12345')
+
+    def _post(self, **overrides):
+        data = {
+            'title': 'علاج بالليزر',
+            'planned_sessions': '6',
+            'status': TreatmentPlan.Status.ACTIVE,
+            'start_date': '2026-09-08',
+        }
+        data.update(overrides)
+        return self.client.post(
+            reverse('medical:treatment_plan_create', args=[self.patient.uuid]), data
+        )
+
+    def test_doctor_can_create_a_plan_and_it_gets_a_serial(self):
+        self.assertEqual(self._post().status_code, 302)
+        plan = TreatmentPlan.all_objects.get()
+        self.assertEqual(plan.patient, self.patient)
+        self.assertEqual(plan.tenant, self.tenant)
+        self.assertEqual(plan.created_by, self.doctor_user)
+        self.assertEqual(plan.planned_sessions, 6)
+        self.assertTrue(plan.serial_number)
+
+    def test_the_branch_defaults_to_the_patients(self):
+        """Left unset the plan would be invisible to branch-scoped staff."""
+        self._post()
+        self.assertEqual(TreatmentPlan.all_objects.get().branch, self.branch)
+
+    def test_a_plan_needs_a_title(self):
+        self.assertEqual(self._post(title='').status_code, 200)
+        self.assertFalse(TreatmentPlan.all_objects.exists())
+
+    def test_zero_sessions_is_refused(self):
+        """A course of nothing is not a course — and `planned_sessions` feeds
+        the session scheduling that follows."""
+        self.assertEqual(self._post(planned_sessions='0').status_code, 200)
+        self.assertFalse(TreatmentPlan.all_objects.exists())
+
+    def test_serials_are_per_tenant_and_restart_at_001(self):
+        self._post()
+        self.assertTrue(TreatmentPlan.all_objects.get().serial_number.endswith('-001'))
+
+    def test_doctor_can_read_and_update_a_plan(self):
+        self._post()
+        plan = TreatmentPlan.all_objects.get()
+
+        response = self.client.get(
+            reverse('medical:treatment_plan_detail', args=[plan.uuid])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'علاج بالليزر')
+
+        response = self.client.post(
+            reverse('medical:treatment_plan_update', args=[plan.uuid]),
+            {
+                'title': 'علاج بالليزر - معدل',
+                'planned_sessions': '8',
+                'status': TreatmentPlan.Status.COMPLETED,
+                'start_date': '2026-09-08',
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        plan.refresh_from_db()
+        self.assertEqual(plan.planned_sessions, 8)
+        self.assertEqual(plan.status, TreatmentPlan.Status.COMPLETED)
+
+    def test_the_plan_form_offers_this_tenants_records(self):
+        """Regression guard: ModelChoiceField querysets built at import time
+        resolve with no tenant in context and bake in .none(), which left every
+        dropdown in the app empty once and was invisible in the tests."""
+        form = self.client.get(
+            reverse('medical:treatment_plan_create', args=[self.patient.uuid])
+        ).context['form']
+        self.assertGreater(form.fields['branch'].queryset.count(), 0)
+
+    def test_the_plan_appears_on_the_patient_page(self):
+        self._post()
+        response = self.client.get(
+            reverse('patients:patient_detail', args=[self.patient.uuid])
+        )
+        self.assertContains(response, 'علاج بالليزر')
+
+
+class TreatmentPlanAccessTests(ClinicalTestBase):
+    """A treatment plan states a diagnosis-driven course of care, so it sits
+    behind the same wall as the rest of the clinical record."""
+
+    def setUp(self):
+        super().setUp()
+        self.plan = TreatmentPlan.all_objects.create(
+            tenant=self.tenant, patient=self.patient, branch=self.branch,
+            title='CONFIDENTIAL COURSE', planned_sessions=3,
+        )
+
+    def test_reception_is_blocked_on_every_plan_url(self):
+        self.client.login(email='rec@t.local', password='pass12345')
+        urls = [
+            reverse('medical:treatment_plan_create', args=[self.patient.uuid]),
+            reverse('medical:treatment_plan_detail', args=[self.plan.uuid]),
+            reverse('medical:treatment_plan_update', args=[self.plan.uuid]),
+        ]
+        for url in urls:
+            with self.subTest(url=url):
+                self.assertNotEqual(self.client.get(url).status_code, 200)
+                self.assertNotEqual(self.client.post(url, {}).status_code, 200)
+
+    def test_a_plan_never_reaches_receptions_patient_page(self):
+        self.client.login(email='rec@t.local', password='pass12345')
+        response = self.client.get(
+            reverse('patients:patient_detail', args=[self.patient.uuid])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'CONFIDENTIAL COURSE')
+
+    def test_a_user_with_no_role_gets_nothing(self):
+        User.objects.create_user(
+            username='norole2', email='norole2@t.local', password='pass12345',
+            tenant=self.tenant, branch=self.branch,
+        )
+        self.client.login(email='norole2@t.local', password='pass12345')
+        self.assertNotEqual(
+            self.client.get(
+                reverse('medical:treatment_plan_detail', args=[self.plan.uuid])
+            ).status_code,
+            200,
+        )
+
+
+class TreatmentPlanIsolationTests(ClinicalIsolationTests):
+    def test_another_tenants_doctor_cannot_open_a_plan(self):
+        plan = TreatmentPlan.all_objects.create(
+            tenant=self.tenant, patient=self.patient, branch=self.branch,
+            title='Ours', planned_sessions=2,
+        )
+        self.client.login(email='otherdoc@t.local', password='pass12345')
+        response = self.client.get(
+            reverse('medical:treatment_plan_detail', args=[plan.uuid])
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_another_tenants_doctor_cannot_create_against_the_patient(self):
+        self.client.login(email='otherdoc@t.local', password='pass12345')
+        response = self.client.get(
+            reverse('medical:treatment_plan_create', args=[self.patient.uuid])
+        )
+        self.assertEqual(response.status_code, 404)

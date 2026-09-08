@@ -1,8 +1,16 @@
 from django.conf import settings
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
 
 from tenants.models import SerialCounter, TenantOwnedModel
+
+
+def today():
+    """The project runs with USE_TZ = False, so `timezone.now()` is naive and
+    `timezone.localdate()` refuses it. Kept as a named module-level function
+    because a field default has to stay importable for migrations."""
+    return timezone.now().date()
 
 
 class Visit(TenantOwnedModel):
@@ -144,6 +152,96 @@ class PrescriptionItem(TenantOwnedModel):
 
     def __str__(self):
         return self.medication
+
+
+class TreatmentPlan(TenantOwnedModel):
+    """A course of treatment delivered over several visits — doc/readme.md §28.
+
+    Distinct from `Visit.treatment_plan`, which is a free-text note about one
+    encounter and stays as it is. This is the structured version: a named
+    course ("Laser Treatment, 6 sessions") that outlives any single visit and
+    that sessions are booked against.
+
+    `planned_sessions` is the intent, not the truth. What was actually
+    delivered is counted from the sessions themselves, because courses get
+    extended, cut short, or abandoned, and a stored counter would drift.
+    """
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "مسودة"
+        ACTIVE = "active", "جارية"
+        COMPLETED = "completed", "مكتملة"
+        CANCELLED = "cancelled", "ملغاة"
+
+    patient = models.ForeignKey(
+        "patients.Patient", on_delete=models.PROTECT, related_name="treatment_plans"
+    )
+    # The consultation that led to the plan. Optional and SET_NULL: a course
+    # can be agreed outside a recorded visit, and losing the link must not take
+    # the plan with it.
+    visit = models.ForeignKey(
+        Visit, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="treatment_plans",
+    )
+    doctor = models.ForeignKey(
+        "employees.Employee", on_delete=models.SET_NULL,
+        null=True, blank=True,
+        limit_choices_to={"employee_type__name": "Doctor"},
+        related_name="treatment_plans",
+    )
+    branch = models.ForeignKey(
+        "branches.Branch", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    # What the course delivers, for pricing. Optional because a plan can be
+    # written before the service catalogue has an entry for it.
+    service = models.ForeignKey(
+        "services.Service", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="treatment_plans",
+    )
+
+    title = models.CharField(max_length=200, verbose_name="اسم الخطة")
+    planned_sessions = models.PositiveIntegerField(
+        default=1, validators=[MinValueValidator(1)], verbose_name="عدد الجلسات المخططة"
+    )
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.ACTIVE,
+        verbose_name="الحالة",
+    )
+    start_date = models.DateField(default=today, verbose_name="تاريخ البدء")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+
+    serial_number = models.CharField(max_length=20, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta(TenantOwnedModel.Meta):
+        ordering = ["-start_date", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "serial_number"],
+                name="uniq_treatment_plan_serial_per_tenant",
+            )
+        ]
+        verbose_name = "خطة علاج"
+        verbose_name_plural = "خطط العلاج"
+
+    def __str__(self):
+        return f"{self.serial_number} - {self.title}"
+
+    def save(self, *args, **kwargs):
+        if not self.serial_number:
+            self.serial_number = SerialCounter.next_serial(
+                self.tenant_id, "treatment_plan", self.start_date
+            )
+        super().save(*args, **kwargs)
+
+    @property
+    def is_open(self):
+        return self.status in {self.Status.DRAFT, self.Status.ACTIVE}
 
 
 def allergy_conflicts(patient, medications):
