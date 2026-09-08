@@ -33,7 +33,7 @@ class Patient(TenantOwnedModel):
     created_at = models.DateTimeField(auto_now_add=True)  # تاريخ الإنشاء أول مرة
     updated_at = models.DateTimeField(auto_now=True)      # آخر تعديل
 
-    class Meta:
+    class Meta(TenantOwnedModel.Meta):
         constraints = [
             models.UniqueConstraint(fields=["tenant", "serial_number"], name="uniq_patient_serial_per_tenant")
         ]

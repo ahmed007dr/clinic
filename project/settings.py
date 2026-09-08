@@ -70,6 +70,9 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
+    # Must follow AuthenticationMiddleware — the tenant comes from request.user.
+    "tenants.middleware.TenantMiddleware",
+
     "audit.middleware.ThreadLocalMiddleware",
     "audit.middleware.AuditMiddleware",
 

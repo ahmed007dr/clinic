@@ -2,6 +2,8 @@ import uuid
 
 from django.db import models, transaction
 
+from .context import get_current_tenant
+
 
 class Tenant(models.Model):
     """A paying customer — one clinic business, owning one or more Branches."""
@@ -31,6 +33,23 @@ class Tenant(models.Model):
         return self.status in {self.Status.TRIAL, self.Status.ACTIVE}
 
 
+class TenantManager(models.Manager):
+    """Scopes every read to the tenant in context, and fails closed.
+
+    No tenant in context returns nothing rather than everything: the direction
+    a mistake falls matters more than whether one happens. Use `all_objects`
+    where crossing tenants is genuinely intended (platform staff, scheduled
+    jobs that loop over tenants, migrations).
+    """
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        tenant = get_current_tenant()
+        if tenant is None:
+            return queryset.none()
+        return queryset.filter(tenant=tenant)
+
+
 class TenantOwnedModel(models.Model):
     """Base for every model whose rows belong to exactly one tenant.
 
@@ -41,8 +60,15 @@ class TenantOwnedModel(models.Model):
 
     tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, related_name="+")
 
+    # Declared first, so _default_manager (admin, ModelForm querysets) is the
+    # safe one. base_manager_name keeps _base_manager unfiltered — Django uses
+    # it to follow foreign keys, and filtering that breaks related lookups.
+    objects = TenantManager()
+    all_objects = models.Manager()
+
     class Meta:
         abstract = True
+        base_manager_name = "all_objects"
 
 
 class SerialCounter(models.Model):

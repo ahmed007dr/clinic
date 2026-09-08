@@ -38,7 +38,7 @@ class Employee(TenantOwnedModel):
     specializations = models.ManyToManyField(Specialization, blank=True)
     serial_number = models.CharField(max_length=20, blank=True)
 
-    class Meta:
+    class Meta(TenantOwnedModel.Meta):
         constraints = [
             models.UniqueConstraint(fields=["tenant", "serial_number"], name="uniq_employee_serial_per_tenant"),
             models.UniqueConstraint(fields=["tenant", "national_id"], name="uniq_employee_national_id_per_tenant"),

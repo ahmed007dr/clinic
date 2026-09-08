@@ -35,14 +35,24 @@ Chosen 2026-09-08. Design: [07-multi-tenancy-architecture.md](07-multi-tenancy-a
 | TENANT-002 | `tenant` FK on all 17 models + backfill | DONE | 15 models via the base, `User` and `AuditLog` with nullable FKs. 10 hand-written `0002_add_tenant` migrations (add nullable → backfill → enforce NOT NULL), verified with `makemigrations --check` reporting no drift. **Upgrade path tested by simulation**: built the pre-tenant schema, inserted legacy rows, migrated forward — all rows backfilled to Tenant #1, zero orphans |
 | TENANT-003 | Per-tenant unique constraints | DONE | 9 global `unique=True` flags replaced with `UniqueConstraint(tenant, …)` across Branch (name + code), Service, PaymentMethod, ExpenseCategory, ClinicRole, Employee (national_id), Payment (receipt_number), ReportRecipient (email), and `serial_number` on 4 models. Relaxing global → per-tenant can't invalidate existing rows, so no data fix-up was needed. Tests prove two tenants can now hold the same branch name, service name and role names, while duplicates *within* one tenant are still rejected |
 | TENANT-004 | `SerialCounter` replaces count-based serials | DONE | New `SerialCounter(tenant, scope, date) → last_value` in `tenants`, locked with `select_for_update()`. The four `save()` overrides drop from ~14 lines of counting-and-retrying to one call, and the serial format now lives in one place. **`tenants.0004` seeds counters from existing serials** — without it the first insert after deploy would re-issue a number an existing row already held. Verified by simulation: 5 legacy rows for today → counter seeded to 5 → next patient issued `-006`, zero duplicates |
-| TENANT-005 | contextvar + tenant middleware | TODO | |
-| TENANT-006 | `TenantManager` (fails closed) | TODO | |
-| TENANT-007 | PostgreSQL RLS policies | TODO | |
-| TEST-002 | Cross-tenant isolation suite | TODO | |
+| TENANT-005 | contextvar + tenant middleware | DONE | `tenants/context.py` (`contextvars` + `tenant_context` manager) and `tenants/middleware.py`, placed after `AuthenticationMiddleware`. Tenant is derived from `request.user` only — never a header, query param or URL segment — and reset in a `finally` block, so it cannot survive into the next request on a reused worker thread (the BUG-002 failure mode, designed out) |
+| TENANT-006 | `TenantManager` (fails closed) | DONE | `objects` is now tenant-scoped and returns `.none()` with no context; `all_objects` is the explicit escape hatch. `base_manager_name = "all_objects"` keeps FK traversal working — the 11 models with their own `Meta` had to inherit `TenantOwnedModel.Meta` or that option is silently dropped. Keeping the scoped manager as the *default* is what makes every existing `get_object_or_404(Model, pk=…)` call tenant-safe for free |
+| TENANT-007 | PostgreSQL RLS policies | BLOCKED | Needs PostgreSQL — there is no SQLite equivalent, so the policies can be written but not proven. Deliberately not shipped unverified: this is the backstop layer, and unverified security SQL is worse than none |
+| TEST-002 | Cross-tenant isolation suite | DONE | `tenants/test_isolation.py`: a Tenant A **admin** (so every role check passes — only tenant scoping stands in the way) gets 404 on read *and* write across 15 of Tenant B's URLs, list views don't leak, a delete attempt leaves the row intact, and the manager's own behaviour is pinned including failing closed with no context. 46 tests total |
 | SEC-009 | Email login + `User.tenant` + platform staff | TODO | |
 | SEC-010 | Per-tenant role seeding | TODO | |
 | SEC-011 | UUID/slug public identifiers | TODO | |
 | TENANT-008 | Tenant onboarding + second tenant | TODO | First live proof isolation holds |
+
+### Found while implementing TENANT-005/006
+
+Switching the default manager to fail closed exposed a cross-tenant leak already latent in the scheduled reports, plus two paths that would have gone silently empty:
+
+1. **`reports/views.py` would have emailed one tenant's revenue to another's recipients.** Both the branch loop (`Branch.objects.all()`) and the recipient list spanned the whole database. As soon as a second tenant existed, every tenant's daily/monthly/annual figures would have gone to every active `ReportRecipient` — across clinics. All three generators now loop over tenants and do their work inside `tenant_context`, which scopes branches and recipients automatically.
+2. **The two `post_migrate` seeding hooks** run with no tenant in context, so they now read through `all_objects` — otherwise the `get_or_create` lookup finds nothing, tries to insert, and collides with the row that already exists.
+3. **Django admin** would have shown empty changelists for all 15 tenant-owned models, since admin reads `_default_manager`. `TenantOwnedAdmin` in `tenants/admin.py` reads `all_objects` instead. This mattered more than it looks: `PaymentMethod` and `SalaryType` have no views at all and are *only* manageable through admin.
+
+Existing tests needed the same treatment — fixtures build data for two tenants from outside any request, so they use `all_objects` deliberately rather than relying on ambient context.
 
 ### Found while implementing TENANT-002
 

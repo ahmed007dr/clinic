@@ -1,5 +1,6 @@
 # accounts/admin.py
 from django.contrib import admin
+from tenants.admin import TenantOwnedAdmin
 from .models import User, ClinicRole
 
 @admin.register(User)
@@ -22,7 +23,7 @@ class UserAdmin(admin.ModelAdmin):
     )
 
 @admin.register(ClinicRole)
-class RoleAdmin(admin.ModelAdmin):
+class RoleAdmin(TenantOwnedAdmin):
     list_display = ("name", "description")
     search_fields = ("name",)
     ordering = ("name",)

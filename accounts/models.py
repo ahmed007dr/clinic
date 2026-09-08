@@ -8,7 +8,7 @@ class ClinicRole(TenantOwnedModel):
     name = models.CharField(max_length=50)
     description = models.TextField(blank=True, null=True)
 
-    class Meta:
+    class Meta(TenantOwnedModel.Meta):
         constraints = [
             models.UniqueConstraint(fields=["tenant", "name"], name="uniq_clinicrole_name_per_tenant")
         ]

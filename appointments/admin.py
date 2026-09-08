@@ -1,8 +1,9 @@
 from django.contrib import admin
+from tenants.admin import TenantOwnedAdmin
 from .models import Appointment
 
 @admin.register(Appointment)
-class AppointmentAdmin(admin.ModelAdmin):
+class AppointmentAdmin(TenantOwnedAdmin):
     list_display = ("patient", "doctor", "service", "scheduled_date", "status", "price", "branch", "created_at")
     list_filter = ("status", "scheduled_date", "branch")  # يعمل مع status كـ CharField
     search_fields = ("patient__name", "doctor__name", "service__name")

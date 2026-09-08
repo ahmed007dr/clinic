@@ -1,9 +1,10 @@
 # patients/admin.py
 from django.contrib import admin
+from tenants.admin import TenantOwnedAdmin
 from .models import Patient
 
 @admin.register(Patient)
-class PatientAdmin(admin.ModelAdmin):
+class PatientAdmin(TenantOwnedAdmin):
     list_display = ("name", "phone1", "gender", "birth_date", "national_id")
     search_fields = ("name", "phone1", "phone2", "national_id", "email")
     list_filter = ("gender", "birth_date")

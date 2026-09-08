@@ -1,9 +1,10 @@
 # employees/admin.py
 from django.contrib import admin
+from tenants.admin import TenantOwnedAdmin
 from .models import Employee, Specialization, EmployeeType
 
 @admin.register(Employee)
-class EmployeeAdmin(admin.ModelAdmin):
+class EmployeeAdmin(TenantOwnedAdmin):
     list_display = ("name", "employee_type", "hire_date", "branch", "salary_value")
     search_fields = ("name", "national_id", "phone1", "email")
     list_filter = ("employee_type", "branch", "hire_date")
@@ -16,13 +17,13 @@ class EmployeeAdmin(admin.ModelAdmin):
     )
 
 @admin.register(Specialization)
-class SpecializationAdmin(admin.ModelAdmin):
+class SpecializationAdmin(TenantOwnedAdmin):
     list_display = ("name", "description")
     search_fields = ("name",)
     ordering = ("name",)
 
 @admin.register(EmployeeType)
-class EmployeeTypeAdmin(admin.ModelAdmin):
+class EmployeeTypeAdmin(TenantOwnedAdmin):
     list_display = ("name", "description")
     search_fields = ("name",)
     ordering = ("name",)

@@ -9,7 +9,7 @@ class ReportRecipient(TenantOwnedModel):
     def __str__(self):
         return self.email
 
-    class Meta:
+    class Meta(TenantOwnedModel.Meta):
         verbose_name = "مستلم التقرير"
         verbose_name_plural = "مستلمو التقرير"
         constraints = [

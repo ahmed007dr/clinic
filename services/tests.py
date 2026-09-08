@@ -15,9 +15,9 @@ class ServiceAuthorizationTests(TestCase):
 
     def setUp(self):
         self.tenant = Tenant.objects.first()  # created by tenants.0002 data migration
-        self.branch = Branch.objects.create(tenant=self.tenant, name='Branch A', code='A')
-        self.admin_role, _ = ClinicRole.objects.get_or_create(tenant=self.tenant, name='Admin')
-        self.reception_role, _ = ClinicRole.objects.get_or_create(tenant=self.tenant, name='Reception')
+        self.branch = Branch.all_objects.create(tenant=self.tenant, name='Branch A', code='A')
+        self.admin_role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Admin')
+        self.reception_role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Reception')
 
         # role='Admin' but NOT a Django is_superuser — this is the case that
         # was broken before BE-002 (previously blocked by the is_superuser check).

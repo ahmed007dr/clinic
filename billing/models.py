@@ -14,7 +14,7 @@ class PaymentMethod(TenantOwnedModel):
     name = models.CharField(max_length=50)  # Cash, Visa, Insurance, etc
     description = models.TextField(blank=True, null=True)
 
-    class Meta:
+    class Meta(TenantOwnedModel.Meta):
         constraints = [
             models.UniqueConstraint(fields=["tenant", "name"], name="uniq_paymentmethod_name_per_tenant")
         ]
@@ -33,7 +33,7 @@ class Payment(TenantOwnedModel):
     date = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True, null=True)
 
-    class Meta:
+    class Meta(TenantOwnedModel.Meta):
         constraints = [
             models.UniqueConstraint(fields=["tenant", "receipt_number"], name="uniq_payment_receipt_per_tenant")
         ]
@@ -46,7 +46,7 @@ class ExpenseCategory(TenantOwnedModel):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
 
-    class Meta:
+    class Meta(TenantOwnedModel.Meta):
         constraints = [
             models.UniqueConstraint(fields=["tenant", "name"], name="uniq_expensecategory_name_per_tenant")
         ]

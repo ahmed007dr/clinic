@@ -10,8 +10,9 @@ def ensure_doctor_type(sender, **kwargs):
     from employees.models import EmployeeType
     from tenants.models import Tenant
 
+    # all_objects: this runs at migrate time, with no tenant in context.
     for tenant in Tenant.objects.all():
-        EmployeeType.objects.get_or_create(
+        EmployeeType.all_objects.get_or_create(
             tenant=tenant, name="Doctor", defaults={"description": "Medical Doctor"}
         )
 

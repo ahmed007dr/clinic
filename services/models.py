@@ -10,7 +10,7 @@ class Service(TenantOwnedModel):
     specialization = models.ForeignKey(Specialization, on_delete=models.SET_NULL, null=True, blank=True)
     base_price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
 
-    class Meta:
+    class Meta(TenantOwnedModel.Meta):
         constraints = [
             models.UniqueConstraint(fields=["tenant", "name"], name="uniq_service_name_per_tenant")
         ]

@@ -11,7 +11,7 @@ class Branch(TenantOwnedModel):
     logo = models.ImageField(upload_to="branches/", blank=True, null=True)
     footer_text = models.CharField(max_length=200, blank=True, null=True)
 
-    class Meta:
+    class Meta(TenantOwnedModel.Meta):
         constraints = [
             models.UniqueConstraint(fields=["tenant", "name"], name="uniq_branch_name_per_tenant"),
             models.UniqueConstraint(fields=["tenant", "code"], name="uniq_branch_code_per_tenant"),

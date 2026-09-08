@@ -1,9 +1,10 @@
 # services/admin.py
 from django.contrib import admin
+from tenants.admin import TenantOwnedAdmin
 from .models import Service
 
 @admin.register(Service)
-class ServiceAdmin(admin.ModelAdmin):
+class ServiceAdmin(TenantOwnedAdmin):
     list_display = ("name", "specialization", "base_price")
     search_fields = ("name", "description")
     list_filter = ("specialization",)

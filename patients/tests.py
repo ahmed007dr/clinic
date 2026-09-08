@@ -14,16 +14,16 @@ class PatientBranchScopingTests(TestCase):
 
     def setUp(self):
         self.tenant = Tenant.objects.first()  # created by tenants.0002 data migration
-        self.branch_a = Branch.objects.create(tenant=self.tenant, name='Branch A', code='A')
-        self.branch_b = Branch.objects.create(tenant=self.tenant, name='Branch B', code='B')
-        self.admin_role, _ = ClinicRole.objects.get_or_create(tenant=self.tenant, name='Admin')
-        self.reception_role, _ = ClinicRole.objects.get_or_create(tenant=self.tenant, name='Reception')
+        self.branch_a = Branch.all_objects.create(tenant=self.tenant, name='Branch A', code='A')
+        self.branch_b = Branch.all_objects.create(tenant=self.tenant, name='Branch B', code='B')
+        self.admin_role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Admin')
+        self.reception_role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Reception')
 
         self.admin = User.objects.create_user(username='admin', password='pass12345', tenant=self.tenant, role=self.admin_role, branch=self.branch_a)
         self.reception_a = User.objects.create_user(username='recA', password='pass12345', tenant=self.tenant, role=self.reception_role, branch=self.branch_a)
         self.reception_b = User.objects.create_user(username='recB', password='pass12345', tenant=self.tenant, role=self.reception_role, branch=self.branch_b)
 
-        self.patient_b = Patient.objects.create(tenant=self.tenant, name='Patient B', branch=self.branch_b)
+        self.patient_b = Patient.all_objects.create(tenant=self.tenant, name='Patient B', branch=self.branch_b)
 
     def test_reception_cannot_view_other_branch_patient(self):
         self.client.login(username='recA', password='pass12345')

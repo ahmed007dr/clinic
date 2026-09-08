@@ -30,7 +30,7 @@ class Appointment(TenantOwnedModel):
     notes = models.TextField(blank=True, null=True)
     serial_number = models.CharField(max_length=20, blank=True)
 
-    class Meta:
+    class Meta(TenantOwnedModel.Meta):
         constraints = [
             models.UniqueConstraint(fields=["tenant", "serial_number"], name="uniq_appointment_serial_per_tenant")
         ]

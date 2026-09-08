@@ -1,9 +1,10 @@
 # notifications/admin.py
 from django.contrib import admin
+from tenants.admin import TenantOwnedAdmin
 from .models import Notification
 
 @admin.register(Notification)
-class NotificationAdmin(admin.ModelAdmin):
+class NotificationAdmin(TenantOwnedAdmin):
     list_display = ("title", "user", "type", "is_read", "created_at")
     list_filter = ("type", "is_read", "created_at")
     search_fields = ("title", "user__username", "message")

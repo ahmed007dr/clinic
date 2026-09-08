@@ -20,7 +20,7 @@ class Notification(TenantOwnedModel):
     created_at = models.DateTimeField(auto_now_add=True)
     serial_number = models.CharField(max_length=20, blank=True)
 
-    class Meta:
+    class Meta(TenantOwnedModel.Meta):
         constraints = [
             models.UniqueConstraint(fields=["tenant", "serial_number"], name="uniq_notification_serial_per_tenant")
         ]

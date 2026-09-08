@@ -12,11 +12,12 @@ def ensure_default_roles(sender, **kwargs):
     from accounts.models import ClinicRole
     from tenants.models import Tenant
 
+    # all_objects: this runs at migrate time, with no tenant in context.
     for tenant in Tenant.objects.all():
-        ClinicRole.objects.get_or_create(
+        ClinicRole.all_objects.get_or_create(
             tenant=tenant, name="Admin", defaults={"description": "System administrator"}
         )
-        ClinicRole.objects.get_or_create(
+        ClinicRole.all_objects.get_or_create(
             tenant=tenant, name="Reception", defaults={"description": "Reception staff"}
         )
 
