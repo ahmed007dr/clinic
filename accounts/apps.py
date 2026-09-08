@@ -1,29 +1,15 @@
 # accounts/apps.py
 from django.apps import AppConfig
-from django.db.models.signals import post_migrate
 
-def ensure_default_roles(sender, **kwargs):
-    """Roles are tenant-owned, so seed them per tenant.
-
-    Interim: TENANT-008 moves this into tenant provisioning, where it belongs.
-    Note ClinicRole.name is still globally unique until TENANT-003 converts it
-    to (tenant, name) — so this only works while a single tenant exists.
-    """
-    from accounts.models import ClinicRole
-    from tenants.models import Tenant
-
-    # all_objects: this runs at migrate time, with no tenant in context.
-    for tenant in Tenant.objects.all():
-        ClinicRole.all_objects.get_or_create(
-            tenant=tenant, name="Admin", defaults={"description": "System administrator"}
-        )
-        ClinicRole.all_objects.get_or_create(
-            tenant=tenant, name="Reception", defaults={"description": "Reception staff"}
-        )
 
 class AccountsConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "accounts"
 
-    def ready(self):
-        post_migrate.connect(ensure_default_roles, sender=self)
+    # Role seeding moved to tenants.provisioning (SEC-010) — roles are
+    # tenant-owned, so they belong to tenant setup rather than to migrate.
+    #
+    # Note: accounts/signals.py defines set_default_role but nothing has ever
+    # imported it, so that receiver has never been connected. Left as-is
+    # deliberately — switching dormant behaviour on is a separate decision,
+    # not a side effect of this refactor.

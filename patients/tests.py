@@ -19,23 +19,23 @@ class PatientBranchScopingTests(TestCase):
         self.admin_role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Admin')
         self.reception_role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Reception')
 
-        self.admin = User.objects.create_user(username='admin', password='pass12345', tenant=self.tenant, role=self.admin_role, branch=self.branch_a)
-        self.reception_a = User.objects.create_user(username='recA', password='pass12345', tenant=self.tenant, role=self.reception_role, branch=self.branch_a)
-        self.reception_b = User.objects.create_user(username='recB', password='pass12345', tenant=self.tenant, role=self.reception_role, branch=self.branch_b)
+        self.admin = User.objects.create_user(username='admin', email='admin@t.local', password='pass12345', tenant=self.tenant, role=self.admin_role, branch=self.branch_a)
+        self.reception_a = User.objects.create_user(username='recA', email='reca@t.local', password='pass12345', tenant=self.tenant, role=self.reception_role, branch=self.branch_a)
+        self.reception_b = User.objects.create_user(username='recB', email='recb@t.local', password='pass12345', tenant=self.tenant, role=self.reception_role, branch=self.branch_b)
 
         self.patient_b = Patient.all_objects.create(tenant=self.tenant, name='Patient B', branch=self.branch_b)
 
     def test_reception_cannot_view_other_branch_patient(self):
-        self.client.login(username='recA', password='pass12345')
+        self.client.login(email='reca@t.local', password='pass12345')
         response = self.client.get(reverse('patients:patient_detail', args=[self.patient_b.pk]))
         self.assertEqual(response.status_code, 404)
 
     def test_reception_can_view_own_branch_patient(self):
-        self.client.login(username='recB', password='pass12345')
+        self.client.login(email='recb@t.local', password='pass12345')
         response = self.client.get(reverse('patients:patient_detail', args=[self.patient_b.pk]))
         self.assertEqual(response.status_code, 200)
 
     def test_admin_can_view_any_branch_patient(self):
-        self.client.login(username='admin', password='pass12345')
+        self.client.login(email='admin@t.local', password='pass12345')
         response = self.client.get(reverse('patients:patient_detail', args=[self.patient_b.pk]))
         self.assertEqual(response.status_code, 200)

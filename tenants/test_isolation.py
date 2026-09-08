@@ -37,7 +37,7 @@ class CrossTenantIsolationTests(TestCase):
         role_a, _ = ClinicRole.all_objects.get_or_create(tenant=self.a, name='Admin')
         branch_a = Branch.all_objects.create(tenant=self.a, name='A Main', code='AM')
         self.user_a = User.objects.create_user(
-            username='a-admin', password='pass12345',
+            username='a-admin', email='aadmin@t.local', password='pass12345',
             tenant=self.a, role=role_a, branch=branch_a,
         )
 
@@ -58,7 +58,7 @@ class CrossTenantIsolationTests(TestCase):
         )
         self.service_b = Service.all_objects.create(tenant=self.b, name='B Service', base_price=10)
 
-        self.client.login(username='a-admin', password='pass12345')
+        self.client.login(email='aadmin@t.local', password='pass12345')
 
     def foreign_urls(self):
         return [

@@ -6,8 +6,16 @@ User = get_user_model()
 
 
 class LoginForm(AuthenticationForm):
-    username = forms.CharField(widget=forms.TextInput(attrs={'class': 'form-control form-control-lg border-left-0', 'placeholder': 'اسم المستخدم'}))
-    password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control form-control-lg border-left-0', 'placeholder': 'كلمة المرور'}))
+    # AuthenticationForm always names this field "username" and passes its value
+    # to authenticate(), which resolves it against USERNAME_FIELD — now email.
+    username = forms.EmailField(
+        label='البريد الإلكتروني',
+        widget=forms.EmailInput(attrs={'class': 'form-control form-control-lg border-left-0', 'placeholder': 'البريد الإلكتروني'}),
+    )
+    password = forms.CharField(
+        label='كلمة المرور',
+        widget=forms.PasswordInput(attrs={'class': 'form-control form-control-lg border-left-0', 'placeholder': 'كلمة المرور'}),
+    )
 
 
 class UserForm(forms.ModelForm):
@@ -17,6 +25,7 @@ class UserForm(forms.ModelForm):
     class Meta:
         model = User
         fields = ['username', 'email', 'clinic_code', 'role', 'branch']
+        labels = {'email': 'البريد الإلكتروني (يُستخدم لتسجيل الدخول)'}
         widgets = {
             'username': forms.TextInput(attrs={'class': 'form-control'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),

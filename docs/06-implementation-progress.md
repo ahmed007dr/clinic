@@ -39,8 +39,9 @@ Chosen 2026-09-08. Design: [07-multi-tenancy-architecture.md](07-multi-tenancy-a
 | TENANT-006 | `TenantManager` (fails closed) | DONE | `objects` is now tenant-scoped and returns `.none()` with no context; `all_objects` is the explicit escape hatch. `base_manager_name = "all_objects"` keeps FK traversal working — the 11 models with their own `Meta` had to inherit `TenantOwnedModel.Meta` or that option is silently dropped. Keeping the scoped manager as the *default* is what makes every existing `get_object_or_404(Model, pk=…)` call tenant-safe for free |
 | TENANT-007 | PostgreSQL RLS policies | BLOCKED | Needs PostgreSQL — there is no SQLite equivalent, so the policies can be written but not proven. Deliberately not shipped unverified: this is the backstop layer, and unverified security SQL is worse than none |
 | TEST-002 | Cross-tenant isolation suite | DONE | `tenants/test_isolation.py`: a Tenant A **admin** (so every role check passes — only tenant scoping stands in the way) gets 404 on read *and* write across 15 of Tenant B's URLs, list views don't leak, a delete attempt leaves the row intact, and the manager's own behaviour is pinned including failing closed with no context. 46 tests total |
-| SEC-009 | Email login + `User.tenant` + platform staff | TODO | |
-| SEC-010 | Per-tenant role seeding | TODO | |
+| SEC-009 | Email login + `User.tenant` + platform staff | DONE | `USERNAME_FIELD = "email"` (unique platform-wide); `username` keeps its validators but is now unique only per tenant, so two clinics can each have a "reception". Added `is_platform_staff` — operators carry no tenant, and therefore get **no implicit access**: the scoped manager returns nothing for them, so crossing tenants stays an explicit act. `accounts.0005` backfills emails before applying the unique constraint (see the deploy note below) |
+| SEC-010 | Per-tenant role seeding | DONE | `tenants/provisioning.py` is now the single source of truth (`provision_tenant_defaults`, `create_tenant`), called by the post_migrate backstop, the demo seeder, and — later — tenant onboarding. The two app-level `post_migrate` hooks in `accounts` and `employees` are gone |
+| DEMO-001 | Demo data for local testing | DONE | `python manage.py seed_demo [--reset]` seeds **two** tenants with Arabic Faker data — one tenant proves nothing about isolation. Replaces the old `dummy_data.py`, which had been broken for some time (it imported an `AppointmentStatus` model that does not exist) |
 | SEC-011 | UUID/slug public identifiers | TODO | |
 | TENANT-008 | Tenant onboarding + second tenant | TODO | First live proof isolation holds |
 
@@ -64,6 +65,15 @@ Making `tenant` required surfaced four write paths that would otherwise have bro
 4. **`employee_create` needed `form.save_m2m()`** once it switched to `commit=False` — without it the employee's specializations would have been silently dropped on every create.
 
 *(Superseded by TENANT-003 below, which removed the global unique constraints that made those seeding hooks single-tenant-only. One correction to an earlier note here: `EmployeeType.name` was never globally unique — only `ClinicRole.name` was.)*
+
+## Deploy note for SEC-009 — existing staff log in differently afterwards
+
+`accounts.0005_email_login` makes email the login credential. Accounts created under the old username-based login may have a blank or duplicated email, so the migration backfills before applying the unique constraint:
+
+- A blank email, or one that collides with an earlier account (case-insensitively), is replaced with `username@tenant-slug.local`.
+- The migration prints every address it generated. **Those placeholders are the new login credentials** — the account stays reachable, but the address should be replaced with a real one.
+
+Verified by simulation against four legacy accounts — two with no email, two differing only by case: the first keeps its address, the other three get placeholders, and all four end up unique.
 
 ## Production-deploy caveat for INFRA-001 (read before running `migrate` on the live server)
 
