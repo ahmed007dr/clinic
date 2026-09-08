@@ -33,12 +33,12 @@ class BranchAuthorizationTests(TestCase):
 
     def test_reception_cannot_reach_branch_update(self):
         self.client.login(email='rec@t.local', password='pass12345')
-        response = self.client.get(reverse('branches:branch_update', args=[self.branch_a.pk]))
+        response = self.client.get(reverse('branches:branch_update', args=[self.branch_a.uuid]))
         self.assertEqual(response.status_code, 302)
 
     def test_reception_cannot_reach_branch_delete(self):
         self.client.login(email='rec@t.local', password='pass12345')
-        response = self.client.get(reverse('branches:branch_delete', args=[self.branch_a.pk]))
+        response = self.client.get(reverse('branches:branch_delete', args=[self.branch_a.uuid]))
         self.assertEqual(response.status_code, 302)
 
     def test_reception_can_still_list_branches(self):

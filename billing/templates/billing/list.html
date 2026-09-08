@@ -40,10 +40,10 @@
             <td>{{ payment.method.name|default:"غير محدد" }}</td>
             <td>{{ payment.date|date:"Y-m-d" }}</td>
             <td>
-              <a href="{% url 'billing:payment_detail' payment.pk %}" class="btn btn-sm btn-info">تفاصيل</a>
+              <a href="{% url 'billing:payment_detail' payment.uuid %}" class="btn btn-sm btn-info">تفاصيل</a>
               {% if request.user.is_admin %}
-              <a href="{% url 'billing:payment_update' payment.pk %}" class="btn btn-sm btn-primary">تعديل</a>
-              <a href="{% url 'billing:payment_delete' payment.pk %}" class="btn btn-sm btn-danger">حذف</a>
+              <a href="{% url 'billing:payment_update' payment.uuid %}" class="btn btn-sm btn-primary">تعديل</a>
+              <a href="{% url 'billing:payment_delete' payment.uuid %}" class="btn btn-sm btn-danger">حذف</a>
               {% endif %}
             </td>
           </tr>

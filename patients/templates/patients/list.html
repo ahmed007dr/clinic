@@ -45,9 +45,9 @@
               <td>{{ patient.birth_date|date:"Y-m-d"|default:"غير محدد" }}</td>
               <td>{{ patient.national_id|default:"غير محدد" }}</td>
               <td>
-                <a href="{% url 'patients:patient_detail' patient.id %}" class="btn btn-sm btn-info">تفاصيل</a>
-                <a href="{% url 'patients:patient_update' patient.id %}" class="btn btn-sm btn-primary">تعديل</a>
-                <a href="{% url 'patients:patient_delete' patient.id %}" class="btn btn-sm btn-danger">حذف</a>
+                <a href="{% url 'patients:patient_detail' patient.uuid %}" class="btn btn-sm btn-info">تفاصيل</a>
+                <a href="{% url 'patients:patient_update' patient.uuid %}" class="btn btn-sm btn-primary">تعديل</a>
+                <a href="{% url 'patients:patient_delete' patient.uuid %}" class="btn btn-sm btn-danger">حذف</a>
               </td>
             {% endif %}
           </tr>

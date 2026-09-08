@@ -7,5 +7,5 @@ app_name = "notification"
 
 urlpatterns = [
     path('', notification_list, name='notification_list'),
-    path('<int:pk>/mark-read/', notification_mark_read, name='notification_mark_read'),
+    path('<uuid:uuid>/mark-read/', notification_mark_read, name='notification_mark_read'),
 ]

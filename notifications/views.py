@@ -23,8 +23,8 @@ def notification_list(request):
 
 @login_required
 @user_passes_test(is_reception_or_admin)
-def notification_mark_read(request, pk):
-    notification = Notification.objects.get(pk=pk, user=request.user)
+def notification_mark_read(request, uuid):
+    notification = Notification.objects.get(uuid=uuid, user=request.user)
     notification.is_read = True
     notification.save()
     messages.success(request, 'تم تحديد الإشعار كمقروء')

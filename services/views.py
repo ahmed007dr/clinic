@@ -38,11 +38,11 @@ def service_list(request):
     return render(request, 'services/list.html', context)
 
 @login_required
-def service_update(request, pk):
+def service_update(request, uuid):
     if not (request.user.role and request.user.role.name == 'Admin'):
         messages.error(request, 'غير مصرح لك بتعديل الخدمة')
         return redirect('services:service_list')
-    service = get_object_or_404(Service, pk=pk)
+    service = get_object_or_404(Service, uuid=uuid)
     if request.method == 'POST':
         form = ServiceForm(request.POST, instance=service)
         if form.is_valid():
@@ -59,11 +59,11 @@ def service_update(request, pk):
     return render(request, 'services/update.html', context)
 
 @login_required
-def service_delete(request, pk):
+def service_delete(request, uuid):
     if not (request.user.role and request.user.role.name == 'Admin'):
         messages.error(request, 'غير مصرح لك بحذف الخدمة')
         return redirect('services:service_list')
-    service = get_object_or_404(Service, pk=pk)
+    service = get_object_or_404(Service, uuid=uuid)
     if request.method == 'POST':
         service.delete()
         messages.success(request, 'تم حذف الخدمة بنجاح')

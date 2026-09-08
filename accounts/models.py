@@ -1,4 +1,6 @@
 # accounts/models.py
+import uuid
+
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.validators import UnicodeUsernameValidator
@@ -20,6 +22,9 @@ class ClinicRole(TenantOwnedModel):
 class User(AbstractUser):
     # Null only for platform staff (SaaS operators), who legitimately span tenants.
     tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, related_name="+", null=True, blank=True)
+
+    # Public identifier — see TenantOwnedModel.uuid.
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
 
     # Email is the login: it is the one identifier that stays unique across the
     # whole platform, which lets usernames repeat between clinics.

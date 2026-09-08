@@ -65,8 +65,8 @@ def appointment_list(request):
 
 @login_required
 @user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
-def appointment_detail(request, pk):
-    appointment = get_object_or_404(Appointment, pk=pk)
+def appointment_detail(request, uuid):
+    appointment = get_object_or_404(Appointment, uuid=uuid)
     context = {
         'appointment': appointment,
     }
@@ -74,13 +74,13 @@ def appointment_detail(request, pk):
 
 @login_required
 @user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
-def appointment_update(request, pk):
-    appointment = get_object_or_404(Appointment, pk=pk)
+def appointment_update(request, uuid):
+    appointment = get_object_or_404(Appointment, uuid=uuid)
     if request.method == 'POST':
         form = AppointmentForm(request.POST, instance=appointment)
         if form.is_valid():
             form.save()
-            messages.success(request, f'تم تعديل الموعد بنجاح (رقم التذكرة: {appointment.id})')
+            messages.success(request, f'تم تعديل الموعد بنجاح (رقم التذكرة: {appointment.serial_number})')
             return redirect('appointments:appointment_list')
         else:
             messages.error(request, 'خطأ في إدخال البيانات')
@@ -94,8 +94,8 @@ def appointment_update(request, pk):
 
 @login_required
 @user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
-def appointment_delete(request, pk):
-    appointment = get_object_or_404(Appointment, pk=pk)
+def appointment_delete(request, uuid):
+    appointment = get_object_or_404(Appointment, uuid=uuid)
     if request.method == 'POST':
         appointment.delete()
         messages.success(request, 'تم حذف الموعد بنجاح')

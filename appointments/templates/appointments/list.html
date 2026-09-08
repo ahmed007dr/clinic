@@ -46,9 +46,9 @@
               <td>{{ appointment.get_status_display|default:"غير محدد" }}</td>
               <td>{{ appointment.price|default:"غير محدد" }}</td>
               <td>
-                <a href="{% url 'appointments:appointment_detail' appointment.id %}" class="btn btn-sm btn-info">تفاصيل</a>
-                <a href="{% url 'appointments:appointment_update' appointment.id %}" class="btn btn-sm btn-primary">تعديل</a>
-                <a href="{% url 'appointments:appointment_delete' appointment.id %}" class="btn btn-sm btn-danger">حذف</a>
+                <a href="{% url 'appointments:appointment_detail' appointment.uuid %}" class="btn btn-sm btn-info">تفاصيل</a>
+                <a href="{% url 'appointments:appointment_update' appointment.uuid %}" class="btn btn-sm btn-primary">تعديل</a>
+                <a href="{% url 'appointments:appointment_delete' appointment.uuid %}" class="btn btn-sm btn-danger">حذف</a>
               </td>
             {% endif %}
           </tr>

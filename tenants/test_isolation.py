@@ -62,21 +62,21 @@ class CrossTenantIsolationTests(TestCase):
 
     def foreign_urls(self):
         return [
-            reverse('patients:patient_detail', args=[self.patient_b.pk]),
-            reverse('patients:patient_update', args=[self.patient_b.pk]),
-            reverse('patients:patient_delete', args=[self.patient_b.pk]),
-            reverse('appointments:appointment_detail', args=[self.appointment_b.pk]),
-            reverse('appointments:appointment_update', args=[self.appointment_b.pk]),
-            reverse('appointments:appointment_delete', args=[self.appointment_b.pk]),
-            reverse('billing:payment_detail', args=[self.payment_b.pk]),
-            reverse('billing:payment_update', args=[self.payment_b.pk]),
-            reverse('billing:payment_delete', args=[self.payment_b.pk]),
-            reverse('employees:employee_update', args=[self.employee_b.pk]),
-            reverse('employees:employee_delete', args=[self.employee_b.pk]),
-            reverse('branches:branch_update', args=[self.branch_b.pk]),
-            reverse('branches:branch_delete', args=[self.branch_b.pk]),
-            reverse('services:service_update', args=[self.service_b.pk]),
-            reverse('services:service_delete', args=[self.service_b.pk]),
+            reverse('patients:patient_detail', args=[self.patient_b.uuid]),
+            reverse('patients:patient_update', args=[self.patient_b.uuid]),
+            reverse('patients:patient_delete', args=[self.patient_b.uuid]),
+            reverse('appointments:appointment_detail', args=[self.appointment_b.uuid]),
+            reverse('appointments:appointment_update', args=[self.appointment_b.uuid]),
+            reverse('appointments:appointment_delete', args=[self.appointment_b.uuid]),
+            reverse('billing:payment_detail', args=[self.payment_b.uuid]),
+            reverse('billing:payment_update', args=[self.payment_b.uuid]),
+            reverse('billing:payment_delete', args=[self.payment_b.uuid]),
+            reverse('employees:employee_update', args=[self.employee_b.uuid]),
+            reverse('employees:employee_delete', args=[self.employee_b.uuid]),
+            reverse('branches:branch_update', args=[self.branch_b.uuid]),
+            reverse('branches:branch_delete', args=[self.branch_b.uuid]),
+            reverse('services:service_update', args=[self.service_b.uuid]),
+            reverse('services:service_delete', args=[self.service_b.uuid]),
         ]
 
     def test_reading_another_tenants_records_returns_404(self):
@@ -90,7 +90,7 @@ class CrossTenantIsolationTests(TestCase):
                 self.assertEqual(self.client.post(url, {}).status_code, 404)
 
     def test_deleting_another_tenants_patient_leaves_it_intact(self):
-        self.client.post(reverse('patients:patient_delete', args=[self.patient_b.pk]), {})
+        self.client.post(reverse('patients:patient_delete', args=[self.patient_b.uuid]), {})
         self.assertTrue(Patient.all_objects.filter(pk=self.patient_b.pk).exists())
 
     def test_list_views_do_not_include_another_tenants_rows(self):

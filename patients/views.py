@@ -38,7 +38,7 @@ def patient_create(request):
 def patient_list(request):
     patients = Patient.objects.all().order_by('-created_at', '-serial_number')
     if request.user.role.name == 'Reception' and request.user.branch:
-        patients = patients.filter(branch=request.user.branch).values('id', 'serial_number', 'name', 'phone1', 'gender')
+        patients = patients.filter(branch=request.user.branch).values('uuid', 'serial_number', 'name', 'phone1', 'gender')
     paginator = Paginator(patients, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -51,13 +51,13 @@ def patient_list(request):
 
 @login_required
 @user_passes_test(is_reception_or_admin)
-def patient_detail(request, pk):
-    patient = get_object_or_404(Patient, pk=pk)
+def patient_detail(request, uuid):
+    patient = get_object_or_404(Patient, uuid=uuid)
     if request.user.role.name == 'Reception' and request.user.branch and patient.branch_id != request.user.branch_id:
         raise Http404
     appointments = Appointment.objects.filter(patient=patient).order_by('-scheduled_date', '-serial_number')
     if request.user.role.name == 'Reception':
-        appointments = appointments.values('id', 'serial_number', 'doctor__name', 'service__name')
+        appointments = appointments.values('uuid', 'serial_number', 'doctor__name', 'service__name')
     payments = Payment.objects.filter(patient=patient).order_by('date') if request.user.role.name == 'Admin' else []
 
     context = {
@@ -69,8 +69,8 @@ def patient_detail(request, pk):
 
 @login_required
 @user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
-def patient_update(request, pk):
-    patient = get_object_or_404(Patient, pk=pk)
+def patient_update(request, uuid):
+    patient = get_object_or_404(Patient, uuid=uuid)
     if request.method == 'POST':
         form = PatientForm(request.POST, request.FILES, instance=patient)
         if form.is_valid():
@@ -88,8 +88,8 @@ def patient_update(request, pk):
 
 @login_required
 @user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
-def patient_delete(request, pk):
-    patient = get_object_or_404(Patient, pk=pk)
+def patient_delete(request, uuid):
+    patient = get_object_or_404(Patient, uuid=uuid)
     if request.method == 'POST':
         patient.delete()
         messages.success(request, 'تم حذف المريض بنجاح')

@@ -28,8 +28,8 @@
             <td>{{ category.name }}</td>
             <td>{{ category.description|default:'غير محدد' }}</td>
             <td>
-              <a href="{% url 'billing:expense_category_update' category.pk %}" class="btn btn-sm btn-primary">تعديل</a>
-              <a href="{% url 'billing:expense_category_delete' category.pk %}" class="btn btn-sm btn-danger">حذف</a>
+              <a href="{% url 'billing:expense_category_update' category.uuid %}" class="btn btn-sm btn-primary">تعديل</a>
+              <a href="{% url 'billing:expense_category_delete' category.uuid %}" class="btn btn-sm btn-danger">حذف</a>
             </td>
           </tr>
           {% empty %}

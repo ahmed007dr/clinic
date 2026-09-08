@@ -6,7 +6,7 @@
   <h2>تفاصيل الموعد - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
   <div class="card">
     <div class="card-body">
-      <h4 class="card-title">تفاصيل الموعد: رقم التذكرة {{ appointment.id }}</h4>
+      <h4 class="card-title">تفاصيل الموعد: رقم التذكرة {{ appointment.serial_number }}</h4>
       <div class="row">
         <div class="col-md-6">
           <p><strong>المريض:</strong> {{ appointment.patient.name }}</p>
@@ -23,8 +23,8 @@
         </div>
       </div>
       <a href="{% url 'appointments:appointment_list' %}" class="btn btn-primary mt-3">رجوع إلى قائمة المواعيد</a>
-      <a href="{% url 'appointments:appointment_update' appointment.pk %}" class="btn btn-primary mt-3">تعديل</a>
-      <a href="{% url 'appointments:appointment_delete' appointment.pk %}" class="btn btn-danger mt-3">حذف</a>
+      <a href="{% url 'appointments:appointment_update' appointment.uuid %}" class="btn btn-primary mt-3">تعديل</a>
+      <a href="{% url 'appointments:appointment_delete' appointment.uuid %}" class="btn btn-danger mt-3">حذف</a>
     </div>
   </div>
 </div>

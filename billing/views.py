@@ -44,8 +44,8 @@ def payment_list(request):
 
 @login_required
 @user_passes_test(is_admin)
-def payment_update(request, pk):
-    payment = get_object_or_404(Payment, pk=pk)
+def payment_update(request, uuid):
+    payment = get_object_or_404(Payment, uuid=uuid)
     if request.method == 'POST':
         form = PaymentForm(request.POST, instance=payment)
         if form.is_valid():
@@ -64,8 +64,8 @@ def payment_update(request, pk):
 
 @login_required
 @user_passes_test(is_admin)
-def payment_delete(request, pk):
-    payment = get_object_or_404(Payment, pk=pk)
+def payment_delete(request, uuid):
+    payment = get_object_or_404(Payment, uuid=uuid)
     if request.method == 'POST':
         payment.delete()
         messages.success(request, 'تم حذف الدفعة بنجاح')
@@ -76,8 +76,8 @@ def payment_delete(request, pk):
     return render(request, 'billing/payment_delete.html', context)
 
 @login_required
-def payment_detail(request, pk):
-    payment = get_object_or_404(Payment, pk=pk)
+def payment_detail(request, uuid):
+    payment = get_object_or_404(Payment, uuid=uuid)
     if not is_admin(request.user) and request.user.branch and payment.branch_id != request.user.branch_id:
         raise Http404
     context = {
@@ -134,8 +134,8 @@ def expense_list(request):
 
 @login_required
 @user_passes_test(is_admin)
-def expense_update(request, pk):
-    expense = get_object_or_404(Expense, pk=pk)
+def expense_update(request, uuid):
+    expense = get_object_or_404(Expense, uuid=uuid)
     if request.method == 'POST':
         form = ExpenseForm(request.POST, instance=expense)
         if form.is_valid():
@@ -153,8 +153,8 @@ def expense_update(request, pk):
 
 @login_required
 @user_passes_test(is_admin)
-def expense_delete(request, pk):
-    expense = get_object_or_404(Expense, pk=pk)
+def expense_delete(request, uuid):
+    expense = get_object_or_404(Expense, uuid=uuid)
     if request.method == 'POST':
         expense.delete()
         messages.success(request, 'تم حذف المصروف بنجاح')
@@ -194,8 +194,8 @@ def expense_category_list(request):
 
 @login_required
 @user_passes_test(is_admin)
-def expense_category_update(request, pk):
-    category = get_object_or_404(ExpenseCategory, pk=pk)
+def expense_category_update(request, uuid):
+    category = get_object_or_404(ExpenseCategory, uuid=uuid)
     if request.method == 'POST':
         form = ExpenseCategoryForm(request.POST, instance=category)
         if form.is_valid():
@@ -213,8 +213,8 @@ def expense_category_update(request, pk):
 
 @login_required
 @user_passes_test(is_admin)
-def expense_category_delete(request, pk):
-    category = get_object_or_404(ExpenseCategory, pk=pk)
+def expense_category_delete(request, uuid):
+    category = get_object_or_404(ExpenseCategory, uuid=uuid)
     if request.method == 'POST':
         category.delete()
         messages.success(request, 'تم حذف فئة المصروف بنجاح')
@@ -229,7 +229,7 @@ def financial_report(request):
     # معايير الفلترة العامة
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
-    branch_id = request.GET.get('branch_id')
+    branch_uuid = request.GET.get('branch')
     # معايير الفلترة لكل tab
     payments_search = request.GET.get('payments_search', '')
     expenses_search = request.GET.get('expenses_search', '')
@@ -256,9 +256,9 @@ def financial_report(request):
     if end_date:
         payments = payments.filter(date__lte=end_date)
         expenses = expenses.filter(date__lte=end_date)
-    if branch_id:
-        payments = payments.filter(branch_id=branch_id)
-        expenses = expenses.filter(branch_id=branch_id)
+    if branch_uuid:
+        payments = payments.filter(branch__uuid=branch_uuid)
+        expenses = expenses.filter(branch__uuid=branch_uuid)
 
     # فلترة الإيرادات (بحث حسب اسم المريض)
     if payments_search:
@@ -352,7 +352,7 @@ def financial_report(request):
         'branches': branches,
         'start_date': start_date,
         'end_date': end_date,
-        'branch_id': branch_id,
+        'branch_uuid': branch_uuid,
         'payments_search': payments_search,
         'expenses_search': expenses_search,
         'doctor_revenue_search': doctor_revenue_search,

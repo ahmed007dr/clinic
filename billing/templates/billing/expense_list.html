@@ -41,8 +41,8 @@
             <td>{{ expense.date|date:"Y-m-d" }}</td>
             {% if request.user.is_admin %}
             <td>
-              <a href="{% url 'billing:expense_update' expense.pk %}" class="btn btn-sm btn-primary">تعديل</a>
-              <a href="{% url 'billing:expense_delete' expense.pk %}" class="btn btn-sm btn-danger">حذف</a>
+              <a href="{% url 'billing:expense_update' expense.uuid %}" class="btn btn-sm btn-primary">تعديل</a>
+              <a href="{% url 'billing:expense_delete' expense.uuid %}" class="btn btn-sm btn-danger">حذف</a>
             </td>
             {% endif %}
           </tr>

@@ -96,8 +96,8 @@ def user_list(request):
 
 @login_required
 @user_passes_test(lambda u: u.role and u.role.name == 'Admin')
-def user_update(request, pk):
-    user = get_object_or_404(User, pk=pk)
+def user_update(request, uuid):
+    user = get_object_or_404(User, uuid=uuid)
     if request.method == 'POST':
         form = UserForm(request.POST, instance=user)
         if form.is_valid():
@@ -117,8 +117,8 @@ def user_update(request, pk):
 
 @login_required
 @user_passes_test(lambda u: u.role and u.role.name == 'Admin')
-def user_delete(request, pk):
-    user = get_object_or_404(User, pk=pk)
+def user_delete(request, uuid):
+    user = get_object_or_404(User, uuid=uuid)
     if request.method == 'POST':
         user.delete()
         messages.success(request, 'تم حذف المستخدم بنجاح')

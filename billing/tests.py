@@ -57,17 +57,17 @@ class PaymentDetailScopingTests(BillingTestBase):
 
     def test_reception_cannot_view_other_branch_payment(self):
         self.client.login(email='reca@t.local', password='pass12345')
-        response = self.client.get(reverse('billing:payment_detail', args=[self.payment_b.pk]))
+        response = self.client.get(reverse('billing:payment_detail', args=[self.payment_b.uuid]))
         self.assertEqual(response.status_code, 404)
 
     def test_reception_can_view_own_branch_payment(self):
         self.client.login(email='recb@t.local', password='pass12345')
-        response = self.client.get(reverse('billing:payment_detail', args=[self.payment_b.pk]))
+        response = self.client.get(reverse('billing:payment_detail', args=[self.payment_b.uuid]))
         self.assertEqual(response.status_code, 200)
 
     def test_admin_can_view_any_branch_payment(self):
         self.client.login(email='admin@t.local', password='pass12345')
-        response = self.client.get(reverse('billing:payment_detail', args=[self.payment_b.pk]))
+        response = self.client.get(reverse('billing:payment_detail', args=[self.payment_b.uuid]))
         self.assertEqual(response.status_code, 200)
 
 

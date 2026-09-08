@@ -60,6 +60,11 @@ class TenantOwnedModel(models.Model):
 
     tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, related_name="+")
 
+    # The public identifier. Sequential primary keys stay internal: a URL like
+    # /patients/1247/ discloses roughly how many patients a clinic has, and
+    # makes walking every record trivial for anyone already inside the tenant.
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+
     # Declared first, so _default_manager (admin, ModelForm querysets) is the
     # safe one. base_manager_name keeps _base_manager unfiltered — Django uses
     # it to follow foreign keys, and filtering that breaks related lookups.

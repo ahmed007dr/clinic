@@ -29,7 +29,9 @@ urlpatterns = [
 
     #path('', lambda request: redirect('login')),
     path('', lambda request: redirect('accounts:login'), name='index'),
-    path('<path:unused_path>/', lambda request, unused_path: redirect('login')),
+    # 'login' is namespaced as 'accounts:login', so the un-namespaced name here
+    # raised NoReverseMatch — every unmatched URL 500'd instead of redirecting.
+    path('<path:unused_path>/', lambda request, unused_path: redirect('accounts:login')),
 
 ] 
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

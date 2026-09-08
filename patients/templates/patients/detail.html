@@ -44,7 +44,7 @@
         <tbody>
           {% for appointment in appointments %}
           <tr>
-            <td>{{ appointment.id }}</td>
+            <td>{{ appointment.serial_number }}</td>
             <td>{{ appointment.doctor__name|default:'غير محدد' }}</td>
             <td>{{ appointment.service__name|default:'غير محدد' }}</td>
             {% if user.role.name == 'Admin' %}
@@ -85,8 +85,8 @@
       {% endif %}
       <a href="{% url 'patients:patient_list' %}" class="btn btn-primary mt-3">رجوع إلى قائمة المرضى</a>
       {% if user.role.name == 'Admin' %}
-        <a href="{% url 'patients:patient_update' patient.pk %}" class="btn btn-primary mt-3">تعديل</a>
-        <a href="{% url 'patients:patient_delete' patient.pk %}" class="btn btn-danger mt-3">حذف</a>
+        <a href="{% url 'patients:patient_update' patient.uuid %}" class="btn btn-primary mt-3">تعديل</a>
+        <a href="{% url 'patients:patient_delete' patient.uuid %}" class="btn btn-danger mt-3">حذف</a>
       {% endif %}
     </div>
   </div>

@@ -44,8 +44,8 @@
             {% if user.role.name == 'Admin' %}
               <td>{{ employee.phone1|default:"غير مسجل" }}</td>
               <td>
-                <a href="{% url 'employees:employee_update' employee.id %}" class="btn btn-sm btn-primary">تعديل</a>
-                <a href="{% url 'employees:employee_delete' employee.id %}" class="btn btn-sm btn-danger">حذف</a>
+                <a href="{% url 'employees:employee_update' employee.uuid %}" class="btn btn-sm btn-primary">تعديل</a>
+                <a href="{% url 'employees:employee_delete' employee.uuid %}" class="btn btn-sm btn-danger">حذف</a>
               </td>
             {% endif %}
           </tr>

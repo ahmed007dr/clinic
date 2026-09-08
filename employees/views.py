@@ -34,7 +34,7 @@ def employee_create(request):
 def employee_list(request):
     employees = Employee.objects.all().order_by('-hire_date', '-serial_number')
     if request.user.role.name == 'Reception' and request.user.branch:
-        employees = employees.filter(branch=request.user.branch).values('id', 'serial_number', 'name', 'employee_type__name', 'branch__name', 'specializations__name')
+        employees = employees.filter(branch=request.user.branch).values('uuid', 'serial_number', 'name', 'employee_type__name', 'branch__name', 'specializations__name')
     paginator = Paginator(employees, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -47,8 +47,8 @@ def employee_list(request):
 
 @login_required
 @user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
-def employee_update(request, pk):
-    employee = get_object_or_404(Employee, pk=pk)
+def employee_update(request, uuid):
+    employee = get_object_or_404(Employee, uuid=uuid)
     if request.method == 'POST':
         form = EmployeeForm(request.POST, instance=employee)
         if form.is_valid():
@@ -66,8 +66,8 @@ def employee_update(request, pk):
 
 @login_required
 @user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
-def employee_delete(request, pk):
-    employee = get_object_or_404(Employee, pk=pk)
+def employee_delete(request, uuid):
+    employee = get_object_or_404(Employee, uuid=uuid)
     if request.method == 'POST':
         employee.delete()
         messages.success(request, 'تم حذف الموظف بنجاح')
@@ -108,8 +108,8 @@ def employee_type_list(request):
 
 @login_required
 @user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
-def employee_type_update(request, pk):
-    employee_type = get_object_or_404(EmployeeType, pk=pk)
+def employee_type_update(request, uuid):
+    employee_type = get_object_or_404(EmployeeType, uuid=uuid)
     if request.method == 'POST':
         form = EmployeeTypeForm(request.POST, instance=employee_type)
         if form.is_valid():
@@ -127,8 +127,8 @@ def employee_type_update(request, pk):
 
 @login_required
 @user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
-def employee_type_delete(request, pk):
-    employee_type = get_object_or_404(EmployeeType, pk=pk)
+def employee_type_delete(request, uuid):
+    employee_type = get_object_or_404(EmployeeType, uuid=uuid)
     if request.method == 'POST':
         employee_type.delete()
         messages.success(request, 'تم حذف نوع الموظف بنجاح')
@@ -169,8 +169,8 @@ def specialization_list(request):
 
 @login_required
 @user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
-def specialization_update(request, pk):
-    specialization = get_object_or_404(Specialization, pk=pk)
+def specialization_update(request, uuid):
+    specialization = get_object_or_404(Specialization, uuid=uuid)
     if request.method == 'POST':
         form = SpecializationForm(request.POST, instance=specialization)
         if form.is_valid():
@@ -188,8 +188,8 @@ def specialization_update(request, pk):
 
 @login_required
 @user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
-def specialization_delete(request, pk):
-    specialization = get_object_or_404(Specialization, pk=pk)
+def specialization_delete(request, uuid):
+    specialization = get_object_or_404(Specialization, uuid=uuid)
     if request.method == 'POST':
         specialization.delete()
         messages.success(request, 'تم حذف التخصص بنجاح')

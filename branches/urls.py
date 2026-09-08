@@ -9,6 +9,6 @@ app_name = "branches"
 urlpatterns = [
     path('create/', branch_create, name='branch_create'),
     path('', branch_list, name='branch_list'),
-    path('<int:pk>/update/', branch_update, name='branch_update'),
-    path('<int:pk>/delete/', branch_delete, name='branch_delete'),
+    path('<uuid:uuid>/update/', branch_update, name='branch_update'),
+    path('<uuid:uuid>/delete/', branch_delete, name='branch_delete'),
 ]

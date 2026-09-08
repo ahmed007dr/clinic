@@ -28,8 +28,8 @@
             <td>{{ specialization.name }}</td>
             <td>{{ specialization.description|default:'غير محدد' }}</td>
             <td>
-              <a href="{% url 'employees:specialization_update' specialization.pk %}" class="btn btn-sm btn-primary">تعديل</a>
-              <a href="{% url 'employees:specialization_delete' specialization.pk %}" class="btn btn-sm btn-danger">حذف</a>
+              <a href="{% url 'employees:specialization_update' specialization.uuid %}" class="btn btn-sm btn-primary">تعديل</a>
+              <a href="{% url 'employees:specialization_delete' specialization.uuid %}" class="btn btn-sm btn-danger">حذف</a>
             </td>
           </tr>
           {% empty %}

@@ -13,7 +13,7 @@
   {% endif %}
   <div class="card">
     <div class="card-body">
-      <h4 class="card-title">تعديل بيانات الموعد: رقم التذكرة {{ form.instance.id }}</h4>
+      <h4 class="card-title">تعديل بيانات الموعد: رقم التذكرة {{ form.instance.serial_number }}</h4>
       <form class="forms-sample" method="post">
         {% csrf_token %}
         <div class="row">

@@ -26,10 +26,10 @@
           </div>
           <div class="col-md-3">
             <label>الفرع</label>
-            <select name="branch_id" class="form-control">
+            <select name="branch" class="form-control">
               <option value="">الكل</option>
               {% for branch in branches %}
-              <option value="{{ branch.id }}" {% if branch_id == branch.id|stringformat:"s" %}selected{% endif %}>{{ branch.name }}</option>
+              <option value="{{ branch.uuid }}" {% if branch_uuid == branch.uuid|stringformat:"s" %}selected{% endif %}>{{ branch.name }}</option>
               {% endfor %}
             </select>
           </div>

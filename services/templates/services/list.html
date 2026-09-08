@@ -41,8 +41,8 @@
             <td>{{ service.description|default:"غير محدد" }}</td>
             {% if request.user.is_superuser %}
             <td>
-              <a href="{% url 'services:service_update' service.pk %}" class="btn btn-sm btn-primary">تعديل</a>
-              <a href="{% url 'services:service_delete' service.pk %}" class="btn btn-sm btn-danger">حذف</a>
+              <a href="{% url 'services:service_update' service.uuid %}" class="btn btn-sm btn-primary">تعديل</a>
+              <a href="{% url 'services:service_delete' service.uuid %}" class="btn btn-sm btn-danger">حذف</a>
             </td>
             {% endif %}
           </tr>
