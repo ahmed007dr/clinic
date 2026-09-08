@@ -68,6 +68,113 @@ class Visit(TenantOwnedModel):
         super().save(*args, **kwargs)
 
 
+class Prescription(TenantOwnedModel):
+    """A prescription is a document, not a field on the visit — it is printed,
+    handed to the patient and taken to a pharmacy, so it carries its own
+    identity and issue date. A visit can produce more than one.
+
+    There is no delete view by design: doc/readme.md §66 requires that medical
+    data not change without trace. Edits are recorded by the audit signals.
+    """
+
+    visit = models.ForeignKey(
+        Visit, on_delete=models.PROTECT, related_name="prescriptions"
+    )
+    # Denormalised from visit.patient so a patient's prescription history is a
+    # single-table query, and so it survives if the visit link ever changes.
+    patient = models.ForeignKey(
+        "patients.Patient", on_delete=models.PROTECT, related_name="prescriptions"
+    )
+    doctor = models.ForeignKey(
+        "employees.Employee", on_delete=models.SET_NULL,
+        null=True, blank=True,
+        limit_choices_to={"employee_type__name": "Doctor"},
+        related_name="prescriptions",
+    )
+
+    issued_at = models.DateTimeField(default=timezone.now, verbose_name="تاريخ الصرف")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+
+    serial_number = models.CharField(max_length=20, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta(TenantOwnedModel.Meta):
+        ordering = ["-issued_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "serial_number"],
+                name="uniq_prescription_serial_per_tenant",
+            )
+        ]
+        verbose_name = "روشتة"
+        verbose_name_plural = "الروشتات"
+
+    def __str__(self):
+        return f"{self.serial_number} - {self.patient.name}"
+
+    def save(self, *args, **kwargs):
+        if not self.serial_number:
+            self.serial_number = SerialCounter.next_serial(
+                self.tenant_id, "prescription", self.issued_at.date()
+            )
+        super().save(*args, **kwargs)
+
+
+class PrescriptionItem(TenantOwnedModel):
+    """One medication line. CASCADE because a line has no meaning apart from
+    the prescription that issued it."""
+
+    prescription = models.ForeignKey(
+        Prescription, on_delete=models.CASCADE, related_name="items"
+    )
+    medication = models.CharField(max_length=200, verbose_name="الدواء")
+    dosage = models.CharField(max_length=100, blank=True, verbose_name="الجرعة")
+    frequency = models.CharField(max_length=100, blank=True, verbose_name="التكرار")
+    duration = models.CharField(max_length=100, blank=True, verbose_name="المدة")
+    instructions = models.CharField(max_length=300, blank=True, verbose_name="تعليمات")
+
+    class Meta(TenantOwnedModel.Meta):
+        ordering = ["id"]
+        verbose_name = "دواء"
+        verbose_name_plural = "الأدوية"
+
+    def __str__(self):
+        return self.medication
+
+
+def allergy_conflicts(patient, medications):
+    """Flag prescribed medications that mention a recorded allergen.
+
+    Deliberately crude substring matching, and deliberately non-blocking:
+    doc/readme.md §26 is explicit that the system may surface suggestions but
+    never makes the medical decision. This warns; the doctor decides.
+    """
+    # all_objects deliberately: the patient already pins the tenant, and a
+    # safety check must not depend on ambient request context. Reading through
+    # the scoped manager would silently return no allergens — and therefore no
+    # warnings — from a management command or a background job.
+    allergens = [
+        substance.strip()
+        for substance in Allergy.all_objects.filter(patient=patient).values_list(
+            "substance", flat=True
+        )
+        if substance and substance.strip()
+    ]
+
+    conflicts = []
+    for medication in medications:
+        if not medication:
+            continue
+        for allergen in allergens:
+            if allergen.lower() in medication.lower():
+                conflicts.append((medication, allergen))
+    return conflicts
+
+
 class Allergy(TenantOwnedModel):
     """Kept separate from the visit that recorded it: an allergy is a standing
     fact about the patient, and has to be visible on every future encounter,

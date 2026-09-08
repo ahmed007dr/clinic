@@ -24,7 +24,7 @@ from billing.models import Expense, ExpenseCategory, Payment, PaymentMethod
 from branches.models import Branch
 from employees.models import Employee, EmployeeType, SalaryType, Specialization
 from notifications.models import Notification
-from medical.models import Allergy, Visit
+from medical.models import Allergy, Prescription, PrescriptionItem, Visit
 from patients.models import Patient
 from services.models import Service
 from tenants.context import tenant_context
@@ -39,6 +39,12 @@ COMPLAINTS = ["حكة وطفح جلدي", "تساقط الشعر", "بقع دا�
 DIAGNOSES = ["التهاب جلدي تحسسي", "أكزيما", "حب شباب متوسط", "تصبغات جلدية", "صدفية خفيفة"]
 ALLERGENS = ["البنسلين", "الأسبرين", "اليود", "اللاتكس", "السلفا"]
 REACTIONS = ["طفح جلدي", "تورم", "ضيق تنفس", "حكة شديدة"]
+MEDICATIONS = [
+    ("كريم هيدروكورتيزون", "1%", "مرتين يومياً", "أسبوعين", "موضعي على المنطقة المصابة"),
+    ("لوراتادين", "10 مجم", "مرة يومياً", "10 أيام", "قبل النوم"),
+    ("دوكسيسيكلين", "100 مجم", "مرتين يومياً", "شهر", "بعد الأكل"),
+    ("مرطب طبي", "-", "عند اللزوم", "مستمر", "بعد الاستحمام"),
+]
 
 TENANTS = [
     {
@@ -109,6 +115,8 @@ class Command(BaseCommand):
             Expense.all_objects.all().delete()
             # Clinical records first: Visit.patient and Allergy.patient are
             # PROTECT, so patients cannot be cleared while these exist.
+            PrescriptionItem.all_objects.all().delete()
+            Prescription.all_objects.all().delete()
             Visit.all_objects.all().delete()
             Allergy.all_objects.all().delete()
             Appointment.all_objects.all().delete()
@@ -299,6 +307,25 @@ class Command(BaseCommand):
                     )
                 )
 
+            prescriptions = []
+            for visit in visits:
+                if random.random() > 0.75:
+                    continue
+                prescription = Prescription.objects.create(
+                    tenant=tenant, visit=visit, patient=visit.patient,
+                    doctor=visit.doctor, issued_at=visit.visit_date,
+                    created_by=users[2],
+                )
+                for medication, dosage, frequency, duration, instructions in random.sample(
+                    MEDICATIONS, k=random.randint(1, 3)
+                ):
+                    PrescriptionItem.objects.create(
+                        tenant=tenant, prescription=prescription,
+                        medication=medication, dosage=dosage, frequency=frequency,
+                        duration=duration, instructions=instructions,
+                    )
+                prescriptions.append(prescription)
+
             allergies = []
             for patient in patients[:5]:
                 substance = random.choice(ALLERGENS)
@@ -338,6 +365,7 @@ class Command(BaseCommand):
             "expenses": len(expenses),
             "visits": len(visits),
             "allergies": len(allergies),
+            "prescriptions": len(prescriptions),
         }
 
     def _user(self, tenant, email, username, role, branch):
@@ -372,7 +400,8 @@ class Command(BaseCommand):
                 f"{s['payments']} payments  {s['expenses']} expenses"
             )
             self.stdout.write(
-                f"    {s['visits']} clinical visits  {s['allergies']} recorded allergies"
+                f"    {s['visits']} clinical visits  {s['prescriptions']} prescriptions  "
+                f"{s['allergies']} recorded allergies"
             )
             self.stdout.write(f"    admin@{s['slug']}.local      (Admin)")
             self.stdout.write(f"    reception@{s['slug']}.local  (Reception)")

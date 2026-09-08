@@ -17,15 +17,17 @@ def can_view_clinical(user):
     return bool(role and role.name in CLINICAL_ROLES)
 
 
-def scoped_to_user(queryset, user):
+def scoped_to_user(queryset, user, branch_field="branch"):
     """Admins are org-wide by design; everyone else is limited to their branch.
 
     The tenant boundary is already applied by the model manager — this is the
-    branch layer on top of it.
+    branch layer on top of it. `branch_field` is a lookup path because not
+    every clinical model carries a branch of its own: a Prescription belongs
+    to the branch of the visit that issued it.
     """
     role = getattr(user, "role", None)
     if role and role.name == "Admin":
         return queryset
     if getattr(user, "branch_id", None):
-        return queryset.filter(branch=user.branch)
+        return queryset.filter(**{branch_field: user.branch})
     return queryset.none()

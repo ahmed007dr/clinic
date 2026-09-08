@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+  <h2>{% if is_new %}روشتة جديدة{% else %}تعديل الروشتة {{ prescription.serial_number }}{% endif %} - {{ patient.name }}</h2>
+
+  {% if allergies %}
+    <div class="alert alert-danger">
+      <strong>حساسية مسجلة لهذا المريض:</strong>
+      {% for allergy in allergies %}
+        {{ allergy.substance }} ({{ allergy.get_severity_display }}){% if not forloop.last %}، {% endif %}
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'warning' %}alert-warning{% else %}alert-info{% endif %}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="card">
+    <div class="card-body">
+      <form class="forms-sample" method="post">
+        {% csrf_token %}
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-4 col-form-label" for="{{ form.doctor.id_for_label }}">الطبيب</label>
+              <div class="col-sm-8">{{ form.doctor }}</div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group row">
+              <label class="col-sm-4 col-form-label" for="{{ form.issued_at.id_for_label }}">تاريخ الصرف</label>
+              <div class="col-sm-8">{{ form.issued_at }}</div>
+            </div>
+          </div>
+        </div>
+
+        <h4 class="card-title mt-4">الأدوية</h4>
+        {{ formset.management_form }}
+        {% if formset.non_form_errors %}
+          <div class="alert alert-danger">{{ formset.non_form_errors|join:", " }}</div>
+        {% endif %}
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>الدواء</th><th>الجرعة</th><th>التكرار</th><th>المدة</th><th>تعليمات</th>
+                {% if not is_new %}<th>حذف</th>{% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for item_form in formset %}
+              <tr>
+                {{ item_form.id }}
+                <td>{{ item_form.medication }}</td>
+                <td>{{ item_form.dosage }}</td>
+                <td>{{ item_form.frequency }}</td>
+                <td>{{ item_form.duration }}</td>
+                <td>{{ item_form.instructions }}</td>
+                {% if not is_new %}<td>{{ item_form.DELETE }}</td>{% endif %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="form-group">
+          <label for="{{ form.notes.id_for_label }}">ملاحظات</label>
+          {{ form.notes }}
+        </div>
+
+        <button type="submit" class="btn btn-primary me-2">حفظ الروشتة</button>
+        <a href="{% url 'medical:visit_detail' visit.uuid %}" class="btn btn-secondary">رجوع إلى الزيارة</a>
+      </form>
+    </div>
+  </div>
+</div>
+<script src="{% static 'vendors/select2/select2.min.js' %}"></script>
+<script src="{% static 'js/select2.js' %}"></script>
+<script>
+  $(document).ready(function() { $('.js-example-basic-single').select2(); });
+</script>
+{% endblock %}

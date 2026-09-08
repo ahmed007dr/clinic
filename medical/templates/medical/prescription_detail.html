@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block body %}
+<div class="container">
+  <h2>الروشتة {{ prescription.serial_number }} - {{ patient.name }}</h2>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert {% if message.tags == 'warning' %}alert-warning{% elif message.tags == 'error' %}alert-danger{% else %}alert-info{% endif %}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  {% if allergies %}
+    <div class="alert alert-danger">
+      <strong>حساسية مسجلة:</strong>
+      {% for allergy in allergies %}
+        {{ allergy.substance }} ({{ allergy.get_severity_display }}){% if not forloop.last %}، {% endif %}
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="card-body">
+      <table class="table">
+        <tr><th style="width:25%">التاريخ</th><td>{{ prescription.issued_at|date:"Y-m-d H:i" }}</td></tr>
+        <tr><th>الطبيب</th><td>{{ prescription.doctor.name|default:"غير محدد" }}</td></tr>
+        <tr><th>الزيارة</th><td><a href="{% url 'medical:visit_detail' prescription.visit.uuid %}">{{ prescription.visit.serial_number }}</a></td></tr>
+      </table>
+
+      <h4 class="card-title mt-4">الأدوية</h4>
+      <table class="table table-striped">
+        <thead>
+          <tr><th>الدواء</th><th>الجرعة</th><th>التكرار</th><th>المدة</th><th>تعليمات</th></tr>
+        </thead>
+        <tbody>
+          {% for item in prescription.items.all %}
+          <tr>
+            <td>{{ item.medication }}</td>
+            <td>{{ item.dosage|default:"—" }}</td>
+            <td>{{ item.frequency|default:"—" }}</td>
+            <td>{{ item.duration|default:"—" }}</td>
+            <td>{{ item.instructions|default:"—" }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5">لا توجد أدوية</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      {% if prescription.notes %}
+        <p><strong>ملاحظات:</strong> {{ prescription.notes|linebreaksbr }}</p>
+      {% endif %}
+
+      <a href="{% url 'medical:prescription_print' prescription.uuid %}" class="btn btn-success mt-3" target="_blank">طباعة</a>
+      <a href="{% url 'medical:prescription_update' prescription.uuid %}" class="btn btn-primary mt-3">تعديل</a>
+      <a href="{% url 'medical:visit_detail' prescription.visit.uuid %}" class="btn btn-secondary mt-3">رجوع إلى الزيارة</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

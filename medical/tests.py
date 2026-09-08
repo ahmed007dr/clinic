@@ -15,7 +15,9 @@ from patients.models import Patient
 from tenants.models import Tenant
 from tenants.provisioning import provision_tenant_defaults
 
-from .models import Allergy, Visit
+from tenants.context import tenant_context
+
+from .models import Allergy, Prescription, PrescriptionItem, Visit
 
 User = get_user_model()
 
@@ -171,3 +173,152 @@ class MedicalRetentionTests(ClinicalTestBase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(Patient.all_objects.filter(pk=self.patient.pk).exists())
         self.assertContains(response, 'سجلات طبية')
+
+
+def prescription_post(**overrides):
+    """Formsets need their management form; keep it in one place."""
+    data = {
+        'issued_at': '2026-09-08T12:00',
+        'items-TOTAL_FORMS': '1', 'items-INITIAL_FORMS': '0',
+        'items-MIN_NUM_FORMS': '1', 'items-MAX_NUM_FORMS': '1000',
+        'items-0-medication': 'Paracetamol', 'items-0-dosage': '500 مجم',
+        'items-0-frequency': 'مرتين يومياً', 'items-0-duration': '5 أيام',
+    }
+    data.update(overrides)
+    return data
+
+
+class PrescriptionTests(ClinicalTestBase):
+    def test_doctor_can_issue_a_prescription_with_medications(self):
+        self.client.login(email='doc@t.local', password='pass12345')
+        response = self.client.post(
+            reverse('medical:prescription_create', args=[self.visit.uuid]),
+            prescription_post(),
+        )
+        self.assertEqual(response.status_code, 302)
+        prescription = Prescription.all_objects.get()
+        self.assertEqual(prescription.patient, self.patient)
+        self.assertEqual(prescription.visit, self.visit)
+        self.assertTrue(prescription.serial_number)
+        # Reverse accessors (prescription.items) inherit the tenant-scoped
+        # manager, so outside a request they return nothing — query explicitly.
+        items = PrescriptionItem.all_objects.filter(prescription=prescription)
+        self.assertEqual(items.count(), 1)
+        self.assertEqual(items.first().tenant, self.tenant)
+
+    def test_reverse_accessors_are_tenant_scoped_too(self):
+        """Worth pinning because it surprises: prescription.items is filtered
+        by the current tenant, so code running outside a request must either
+        enter tenant_context or use all_objects."""
+        prescription = Prescription.all_objects.create(
+            tenant=self.tenant, visit=self.visit, patient=self.patient
+        )
+        PrescriptionItem.all_objects.create(
+            tenant=self.tenant, prescription=prescription, medication='X'
+        )
+        self.assertEqual(prescription.items.count(), 0)  # no tenant in context
+        with tenant_context(self.tenant):
+            self.assertEqual(prescription.items.count(), 1)
+
+    def test_a_prescription_needs_at_least_one_medication(self):
+        self.client.login(email='doc@t.local', password='pass12345')
+        response = self.client.post(
+            reverse('medical:prescription_create', args=[self.visit.uuid]),
+            prescription_post(**{'items-TOTAL_FORMS': '1', 'items-0-medication': ''}),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Prescription.all_objects.exists())
+
+    def test_reception_cannot_issue_a_prescription(self):
+        self.client.login(email='rec@t.local', password='pass12345')
+        response = self.client.post(
+            reverse('medical:prescription_create', args=[self.visit.uuid]),
+            prescription_post(),
+        )
+        self.assertNotEqual(response.status_code, 200)
+        self.assertFalse(Prescription.all_objects.exists())
+
+    def test_reception_cannot_read_a_prescription(self):
+        prescription = Prescription.all_objects.create(
+            tenant=self.tenant, visit=self.visit, patient=self.patient
+        )
+        self.client.login(email='rec@t.local', password='pass12345')
+        response = self.client.get(
+            reverse('medical:prescription_detail', args=[prescription.uuid])
+        )
+        self.assertNotEqual(response.status_code, 200)
+
+    def test_the_printable_sheet_lists_the_medications(self):
+        self.client.login(email='doc@t.local', password='pass12345')
+        self.client.post(
+            reverse('medical:prescription_create', args=[self.visit.uuid]), prescription_post()
+        )
+        prescription = Prescription.all_objects.get()
+        response = self.client.get(
+            reverse('medical:prescription_print', args=[prescription.uuid])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Paracetamol')
+        self.assertContains(response, prescription.serial_number)
+
+
+class AllergyWarningTests(ClinicalTestBase):
+    """doc §26: the system may surface a suggestion but never takes the
+    medical decision. So the warning must appear *and* must not block."""
+
+    def setUp(self):
+        super().setUp()
+        Allergy.all_objects.create(
+            tenant=self.tenant, patient=self.patient,
+            substance='Penicillin', severity=Allergy.Severity.SEVERE,
+        )
+        self.client.login(email='doc@t.local', password='pass12345')
+
+    def test_prescribing_a_recorded_allergen_still_saves(self):
+        response = self.client.post(
+            reverse('medical:prescription_create', args=[self.visit.uuid]),
+            prescription_post(**{'items-0-medication': 'Penicillin V'}),
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Prescription.all_objects.exists())
+
+    def test_prescribing_a_recorded_allergen_warns_the_doctor(self):
+        response = self.client.post(
+            reverse('medical:prescription_create', args=[self.visit.uuid]),
+            prescription_post(**{'items-0-medication': 'Penicillin V'}),
+            follow=True,
+        )
+        self.assertContains(response, 'Penicillin')
+        warnings = [m for m in response.context['messages'] if m.level_tag == 'warning']
+        self.assertEqual(len(warnings), 1)
+
+    def test_an_unrelated_medication_raises_no_warning(self):
+        response = self.client.post(
+            reverse('medical:prescription_create', args=[self.visit.uuid]),
+            prescription_post(**{'items-0-medication': 'Paracetamol'}),
+            follow=True,
+        )
+        warnings = [m for m in response.context['messages'] if m.level_tag == 'warning']
+        self.assertEqual(warnings, [])
+
+    def test_the_matching_is_case_insensitive(self):
+        from .models import allergy_conflicts
+        self.assertTrue(allergy_conflicts(self.patient, ['PENICILLIN injection']))
+
+    def test_the_prescription_form_shows_allergies_before_prescribing(self):
+        response = self.client.get(
+            reverse('medical:prescription_create', args=[self.visit.uuid])
+        )
+        self.assertContains(response, 'Penicillin')
+
+
+class PrescriptionIsolationTests(ClinicalIsolationTests):
+    def test_another_tenants_doctor_cannot_open_a_prescription(self):
+        prescription = Prescription.all_objects.create(
+            tenant=self.tenant, visit=self.visit, patient=self.patient
+        )
+        self.client.login(email='otherdoc@t.local', password='pass12345')
+        response = self.client.get(
+            reverse('medical:prescription_detail', args=[prescription.uuid])
+        )
+        self.assertEqual(response.status_code, 404)

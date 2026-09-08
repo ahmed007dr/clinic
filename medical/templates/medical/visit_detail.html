@@ -32,5 +32,32 @@
       <a href="{% url 'patients:patient_detail' patient.uuid %}" class="btn btn-secondary mt-3">رجوع إلى ملف المريض</a>
     </div>
   </div>
+
+  <div class="card mt-4">
+    <div class="card-body">
+      <h4 class="card-title">الروشتات</h4>
+      <table class="table table-striped">
+        <thead>
+          <tr><th>رقم الروشتة</th><th>التاريخ</th><th>الأدوية</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for prescription in visit.prescriptions.all %}
+          <tr>
+            <td>{{ prescription.serial_number }}</td>
+            <td>{{ prescription.issued_at|date:"Y-m-d" }}</td>
+            <td>{{ prescription.items.count }}</td>
+            <td>
+              <a href="{% url 'medical:prescription_detail' prescription.uuid %}" class="btn btn-sm btn-info">عرض</a>
+              <a href="{% url 'medical:prescription_print' prescription.uuid %}" class="btn btn-sm btn-success" target="_blank">طباعة</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4">لا توجد روشتات لهذه الزيارة</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <a href="{% url 'medical:prescription_create' visit.uuid %}" class="btn btn-primary">روشتة جديدة</a>
+    </div>
+  </div>
 </div>
 {% endblock %}

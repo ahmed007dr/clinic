@@ -1,6 +1,7 @@
 from django import forms
+from django.forms import inlineformset_factory
 
-from .models import Allergy, Visit
+from .models import Allergy, Prescription, PrescriptionItem, Visit
 from tenants.forms import TenantScopedFormMixin
 
 
@@ -39,3 +40,46 @@ class AllergyForm(TenantScopedFormMixin, forms.ModelForm):
             "severity": forms.Select(attrs={"class": "form-control js-example-basic-single"}),
             "notes": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
         }
+
+
+class PrescriptionForm(TenantScopedFormMixin, forms.ModelForm):
+    class Meta:
+        model = Prescription
+        fields = ["doctor", "issued_at", "notes"]
+        widgets = {
+            "doctor": forms.Select(attrs={"class": "form-control js-example-basic-single"}),
+            "issued_at": forms.DateTimeInput(
+                attrs={"type": "datetime-local", "class": "form-control"}, format="%Y-%m-%dT%H:%M"
+            ),
+            "notes": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["issued_at"].input_formats = ["%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S"]
+
+
+class PrescriptionItemForm(TenantScopedFormMixin, forms.ModelForm):
+    class Meta:
+        model = PrescriptionItem
+        fields = ["medication", "dosage", "frequency", "duration", "instructions"]
+        widgets = {
+            "medication": forms.TextInput(attrs={"class": "form-control", "placeholder": "اسم الدواء"}),
+            "dosage": forms.TextInput(attrs={"class": "form-control", "placeholder": "مثال: 500 مجم"}),
+            "frequency": forms.TextInput(attrs={"class": "form-control", "placeholder": "مثال: مرتين يومياً"}),
+            "duration": forms.TextInput(attrs={"class": "form-control", "placeholder": "مثال: 7 أيام"}),
+            "instructions": forms.TextInput(attrs={"class": "form-control", "placeholder": "مثال: بعد الأكل"}),
+        }
+
+
+# A prescription is meaningless without at least one medication, so validate_min
+# rather than letting an empty document be issued.
+PrescriptionItemFormSet = inlineformset_factory(
+    Prescription,
+    PrescriptionItem,
+    form=PrescriptionItemForm,
+    extra=3,
+    min_num=1,
+    validate_min=True,
+    can_delete=True,
+)

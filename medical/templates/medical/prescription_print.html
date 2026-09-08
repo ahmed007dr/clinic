@@ -1,0 +1,92 @@
+{% load static %}<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>روشتة {{ prescription.serial_number }} - {{ patient.name }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Tajawal', Arial, sans-serif; color: #111; margin: 0; padding: 32px; background: #fff; }
+    .sheet { max-width: 800px; margin: 0 auto; }
+    header { border-bottom: 3px solid #111; padding-bottom: 12px; margin-bottom: 20px;
+             display: flex; justify-content: space-between; align-items: flex-end; }
+    header h1 { font-size: 22px; margin: 0; }
+    header .meta { text-align: left; font-size: 13px; line-height: 1.7; }
+    .patient { display: flex; gap: 32px; flex-wrap: wrap; font-size: 15px;
+               background: #f4f6f7; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px; }
+    .patient div span { color: #555; }
+    .allergy { border: 2px solid #b3261e; color: #b3261e; padding: 10px 14px;
+               border-radius: 4px; margin-bottom: 20px; font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th, td { border-bottom: 1px solid #ccc; padding: 10px 8px; text-align: right; font-size: 15px; }
+    th { background: #f0f2f3; font-size: 13px; letter-spacing: .02em; }
+    .rx { font-size: 34px; font-weight: 700; margin: 0 0 8px; }
+    .notes { font-size: 14px; border-top: 1px dashed #999; padding-top: 12px; }
+    footer { margin-top: 48px; display: flex; justify-content: space-between;
+             font-size: 13px; color: #555; }
+    .sign { border-top: 1px solid #111; padding-top: 6px; min-width: 220px; text-align: center; color: #111; }
+    .print-btn { margin-bottom: 20px; }
+    @media print {
+      body { padding: 0; }
+      .print-btn { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <button class="print-btn" onclick="window.print()">طباعة</button>
+
+    <header>
+      <div>
+        <h1>{{ clinic_name|default:"عيادة" }}</h1>
+        <div style="font-size:13px;color:#555">{{ prescription.visit.branch.name|default:"" }}</div>
+      </div>
+      <div class="meta">
+        <div>روشتة رقم: <strong>{{ prescription.serial_number }}</strong></div>
+        <div>التاريخ: {{ prescription.issued_at|date:"Y-m-d" }}</div>
+      </div>
+    </header>
+
+    <div class="patient">
+      <div><span>المريض:</span> <strong>{{ patient.name }}</strong></div>
+      <div><span>رقم الملف:</span> {{ patient.serial_number }}</div>
+      {% if patient.birth_date %}<div><span>تاريخ الميلاد:</span> {{ patient.birth_date|date:"Y-m-d" }}</div>{% endif %}
+      <div><span>الطبيب:</span> {{ prescription.doctor.name|default:"—" }}</div>
+    </div>
+
+    {% if allergies %}
+      <div class="allergy">
+        حساسية:
+        {% for allergy in allergies %}{{ allergy.substance }} ({{ allergy.get_severity_display }}){% if not forloop.last %}، {% endif %}{% endfor %}
+      </div>
+    {% endif %}
+
+    <p class="rx">℞</p>
+    <table>
+      <thead>
+        <tr><th>#</th><th>الدواء</th><th>الجرعة</th><th>التكرار</th><th>المدة</th><th>تعليمات</th></tr>
+      </thead>
+      <tbody>
+        {% for item in prescription.items.all %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td><strong>{{ item.medication }}</strong></td>
+          <td>{{ item.dosage|default:"—" }}</td>
+          <td>{{ item.frequency|default:"—" }}</td>
+          <td>{{ item.duration|default:"—" }}</td>
+          <td>{{ item.instructions|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if prescription.notes %}
+      <div class="notes"><strong>ملاحظات:</strong> {{ prescription.notes|linebreaksbr }}</div>
+    {% endif %}
+
+    <footer>
+      <div>{{ footer_text|default:"" }}</div>
+      <div class="sign">توقيع الطبيب</div>
+    </footer>
+  </div>
+</body>
+</html>
