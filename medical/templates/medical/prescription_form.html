@@ -49,24 +49,49 @@
             <thead>
               <tr>
                 <th>الدواء</th><th>الجرعة</th><th>التكرار</th><th>المدة</th><th>تعليمات</th>
-                {% if not is_new %}<th>حذف</th>{% endif %}
+                <th></th>
               </tr>
             </thead>
-            <tbody>
+            <tbody id="medication-rows">
               {% for item_form in formset %}
-              <tr>
+              <tr class="medication-row">
                 {{ item_form.id }}
                 <td>{{ item_form.medication }}</td>
                 <td>{{ item_form.dosage }}</td>
                 <td>{{ item_form.frequency }}</td>
                 <td>{{ item_form.duration }}</td>
                 <td>{{ item_form.instructions }}</td>
-                {% if not is_new %}<td>{{ item_form.DELETE }}</td>{% endif %}
+                <td class="text-nowrap">
+                  <span class="d-none">{{ item_form.DELETE }}</span>
+                  <button type="button" class="btn btn-sm btn-outline-danger remove-medication"
+                          title="حذف هذا الدواء">&times;</button>
+                </td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
+
+        <button type="button" id="add-medication" class="btn btn-sm btn-outline-primary mb-3">
+          + إضافة دواء
+        </button>
+
+        {# Row template. __prefix__ is substituted with the real index on clone. #}
+        <template id="empty-medication-row">
+          <tr class="medication-row">
+            {{ formset.empty_form.id }}
+            <td>{{ formset.empty_form.medication }}</td>
+            <td>{{ formset.empty_form.dosage }}</td>
+            <td>{{ formset.empty_form.frequency }}</td>
+            <td>{{ formset.empty_form.duration }}</td>
+            <td>{{ formset.empty_form.instructions }}</td>
+            <td class="text-nowrap">
+              <span class="d-none">{{ formset.empty_form.DELETE }}</span>
+              <button type="button" class="btn btn-sm btn-outline-danger remove-medication"
+                      title="حذف هذا الدواء">&times;</button>
+            </td>
+          </tr>
+        </template>
 
         <div class="form-group">
           <label for="{{ form.notes.id_for_label }}">ملاحظات</label>
@@ -83,5 +108,69 @@
 <script src="{% static 'js/select2.js' %}"></script>
 <script>
   $(document).ready(function() { $('.js-example-basic-single').select2(); });
+</script>
+<script>
+// Medication lines. The Django formset stays authoritative — this only keeps
+// the management form honest about how many rows were submitted. Server-side
+// validation (validate_min) still decides what is acceptable.
+(function () {
+  var tbody = document.getElementById('medication-rows');
+  var template = document.getElementById('empty-medication-row');
+  var addButton = document.getElementById('add-medication');
+  var totalForms = document.getElementById('id_items-TOTAL_FORMS');
+  if (!tbody || !template || !addButton || !totalForms) { return; }
+
+  var INDEX = /items-(?:\d+|__prefix__)-/;
+
+  // Django assumes the first INITIAL_FORMS forms are the saved ones, so rows
+  // must stay in DOM order: saved first, new ones appended after. Saved rows
+  // are never removed from the DOM — only hidden and flagged for deletion —
+  // which keeps that invariant true.
+  function reindex() {
+    var rows = tbody.querySelectorAll('.medication-row');
+    rows.forEach(function (row, i) {
+      row.querySelectorAll('input, select, textarea').forEach(function (field) {
+        if (field.name) { field.name = field.name.replace(INDEX, 'items-' + i + '-'); }
+        if (field.id) { field.id = field.id.replace(INDEX, 'items-' + i + '-'); }
+      });
+    });
+    totalForms.value = rows.length;
+  }
+
+  function visibleRows() {
+    return Array.prototype.filter.call(
+      tbody.querySelectorAll('.medication-row'),
+      function (row) { return row.style.display !== 'none'; }
+    );
+  }
+
+  addButton.addEventListener('click', function () {
+    tbody.appendChild(template.content.cloneNode(true));
+    reindex();
+    var rows = tbody.querySelectorAll('.medication-row');
+    var input = rows[rows.length - 1].querySelector('input[name$="-medication"]');
+    if (input) { input.focus(); }
+  });
+
+  tbody.addEventListener('click', function (event) {
+    var button = event.target.closest('.remove-medication');
+    if (!button) { return; }
+    var row = button.closest('.medication-row');
+
+    // A prescription with no medication is meaningless; the server rejects it
+    // too, but stopping here avoids a pointless round trip.
+    if (visibleRows().length <= 1) { return; }
+
+    var pk = row.querySelector('input[name$="-id"]');
+    var del = row.querySelector('input[name$="-DELETE"]');
+    if (pk && pk.value && del) {
+      del.checked = true;      // saved line: let the formset delete it
+      row.style.display = 'none';
+    } else {
+      row.remove();            // never saved: drop it and close the index gap
+      reindex();
+    }
+  });
+})();
 </script>
 {% endblock %}

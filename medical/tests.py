@@ -322,3 +322,145 @@ class PrescriptionIsolationTests(ClinicalIsolationTests):
             reverse('medical:prescription_detail', args=[prescription.uuid])
         )
         self.assertEqual(response.status_code, 404)
+
+
+class PrescriptionFormsetTests(ClinicalTestBase):
+    """FE-015: medication lines are added and removed dynamically. The client
+    only maintains the management form; the server still decides validity."""
+
+    def setUp(self):
+        super().setUp()
+        self.client.login(email='doc@t.local', password='pass12345')
+
+    def _create(self, count):
+        data = {
+            'issued_at': '2026-09-08T12:00',
+            'items-TOTAL_FORMS': str(count), 'items-INITIAL_FORMS': '0',
+            'items-MIN_NUM_FORMS': '1', 'items-MAX_NUM_FORMS': '1000',
+        }
+        for i in range(count):
+            data[f'items-{i}-medication'] = f'Drug {i}'
+            data[f'items-{i}-dosage'] = f'{i + 1}00 mg'
+        return self.client.post(
+            reverse('medical:prescription_create', args=[self.visit.uuid]), data
+        )
+
+    def test_more_than_three_medications_can_be_submitted(self):
+        """The old form had three fixed rows — a fourth drug was impossible."""
+        self.assertEqual(self._create(6).status_code, 302)
+        prescription = Prescription.all_objects.get()
+        self.assertEqual(
+            PrescriptionItem.all_objects.filter(prescription=prescription).count(), 6
+        )
+
+    def test_a_single_medication_still_works(self):
+        self.assertEqual(self._create(1).status_code, 302)
+        self.assertEqual(PrescriptionItem.all_objects.count(), 1)
+
+    def test_blank_trailing_rows_are_ignored(self):
+        """Extra empty rows must not become empty medication lines."""
+        data = {
+            'issued_at': '2026-09-08T12:00',
+            'items-TOTAL_FORMS': '4', 'items-INITIAL_FORMS': '0',
+            'items-MIN_NUM_FORMS': '1', 'items-MAX_NUM_FORMS': '1000',
+            'items-0-medication': 'Only one',
+        }
+        for i in (1, 2, 3):
+            data[f'items-{i}-medication'] = ''
+        self.assertEqual(self.client.post(
+            reverse('medical:prescription_create', args=[self.visit.uuid]), data
+        ).status_code, 302)
+        self.assertEqual(PrescriptionItem.all_objects.count(), 1)
+
+    def test_removing_every_line_is_refused_server_side(self):
+        """Client-side guards are convenience; this is the actual rule."""
+        data = {
+            'issued_at': '2026-09-08T12:00',
+            'items-TOTAL_FORMS': '0', 'items-INITIAL_FORMS': '0',
+            'items-MIN_NUM_FORMS': '1', 'items-MAX_NUM_FORMS': '1000',
+        }
+        response = self.client.post(
+            reverse('medical:prescription_create', args=[self.visit.uuid]), data
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Prescription.all_objects.exists())
+
+    def test_a_saved_line_can_be_deleted_on_update(self):
+        self._create(3)
+        prescription = Prescription.all_objects.get()
+        items = list(PrescriptionItem.all_objects.filter(prescription=prescription).order_by('id'))
+
+        data = {
+            'issued_at': '2026-09-08T12:00',
+            'items-TOTAL_FORMS': '3', 'items-INITIAL_FORMS': '3',
+            'items-MIN_NUM_FORMS': '1', 'items-MAX_NUM_FORMS': '1000',
+        }
+        for i, item in enumerate(items):
+            data[f'items-{i}-id'] = str(item.pk)
+            data[f'items-{i}-medication'] = item.medication
+        data['items-1-DELETE'] = 'on'          # remove the middle line
+
+        response = self.client.post(
+            reverse('medical:prescription_update', args=[prescription.uuid]), data
+        )
+        self.assertEqual(response.status_code, 302)
+        remaining = PrescriptionItem.all_objects.filter(prescription=prescription)
+        self.assertEqual(remaining.count(), 2)
+        self.assertNotIn(items[1].pk, [r.pk for r in remaining])
+
+    def test_a_line_can_be_appended_on_update(self):
+        self._create(1)
+        prescription = Prescription.all_objects.get()
+        existing = PrescriptionItem.all_objects.get(prescription=prescription)
+        data = {
+            'issued_at': '2026-09-08T12:00',
+            'items-TOTAL_FORMS': '2', 'items-INITIAL_FORMS': '1',
+            'items-MIN_NUM_FORMS': '1', 'items-MAX_NUM_FORMS': '1000',
+            'items-0-id': str(existing.pk), 'items-0-medication': existing.medication,
+            'items-1-medication': 'Added later',
+        }
+        self.assertEqual(self.client.post(
+            reverse('medical:prescription_update', args=[prescription.uuid]), data
+        ).status_code, 302)
+        added = PrescriptionItem.all_objects.get(medication='Added later')
+        self.assertEqual(added.tenant, self.tenant)
+
+    def test_the_form_ships_a_row_template_and_an_add_control(self):
+        """The add button is inert without an empty_form to clone."""
+        response = self.client.get(
+            reverse('medical:prescription_create', args=[self.visit.uuid])
+        )
+        self.assertContains(response, 'id="add-medication"')
+        self.assertContains(response, 'id="empty-medication-row"')
+        self.assertContains(response, '__prefix__')
+
+
+class PrescriptionUrlAccessTests(ClinicalTestBase):
+    """Closing a coverage gap found while analysing FE-015: update and print
+    had no Reception test at all — believed safe, never demonstrated."""
+
+    def setUp(self):
+        super().setUp()
+        self.prescription = Prescription.all_objects.create(
+            tenant=self.tenant, visit=self.visit, patient=self.patient
+        )
+
+    def test_reception_is_blocked_on_every_prescription_url(self):
+        self.client.login(email='rec@t.local', password='pass12345')
+        urls = [
+            reverse('medical:prescription_create', args=[self.visit.uuid]),
+            reverse('medical:prescription_detail', args=[self.prescription.uuid]),
+            reverse('medical:prescription_update', args=[self.prescription.uuid]),
+            reverse('medical:prescription_print', args=[self.prescription.uuid]),
+        ]
+        for url in urls:
+            with self.subTest(url=url):
+                self.assertNotEqual(self.client.get(url).status_code, 200)
+                self.assertNotEqual(self.client.post(url, {}).status_code, 200)
+
+    def test_doctor_reaches_every_prescription_url(self):
+        self.client.login(email='doc@t.local', password='pass12345')
+        for name in ('prescription_detail', 'prescription_update', 'prescription_print'):
+            with self.subTest(view=name):
+                url = reverse(f'medical:{name}', args=[self.prescription.uuid])
+                self.assertEqual(self.client.get(url).status_code, 200)

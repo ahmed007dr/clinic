@@ -113,13 +113,13 @@ Cross-cutting work already applied:
 | FE-012 | **Error states** | Django's default 404/500 pages; no branded error templates |
 | FE-013 | **Mobile / responsive verification** | The theme is responsive in principle; never verified on a real device. doc §72 wants doctor screens mobile-friendly |
 | FE-014 | **Accessibility** | No keyboard-focus styling, landmarks or ARIA review |
-| FE-015 | **Add/remove medication lines on the prescription formset** | See the analysis below — this is P1 |
+| FE-015 | **Add/remove medication lines on the prescription formset** | **Done** — see below |
 | FE-016 | **Client-side validation and inline field errors** | Errors are dumped as a block at the top of the form |
 | FE-017 | **Dashboard** | Single page of counters; doc §47 wants revenue/expense/doctor/service breakdowns |
 | FE-018 | **Search and filtering** | Only appointments have a search box; no debouncing anywhere |
 | FE-019 | **Print styles beyond the prescription** | The prescription sheet is the only print-designed page |
 
-### FE-015 analysis (2026-09-08) — P1
+### FE-015 (2026-09-08) — **Done**
 
 Current state: `inlineformset_factory(extra=3, min_num=1, validate_min=True, can_delete=True)`, rendered as fixed table rows with **no JavaScript at all** on the page.
 
@@ -137,12 +137,11 @@ Approach (no React, no AJAX, formset stays authoritative):
 - `TenantScopedFormMixin` runs when `empty_form` is instantiated, so relation querysets stay request-time evaluated. `PrescriptionItem` has no relation fields today, but the row template must not bypass the form.
 - RTL: the add/remove controls sit inside the existing RTL table; no direction-specific CSS needed.
 
-**Test coverage gap found while analysing.** Reception access is asserted for `prescription_create` and `prescription_detail`, but there is **no test for `prescription_update` or `prescription_print`**. Both are `@clinical_required`, so they are believed safe — but that is currently belief, not evidence. Regression tests to add alongside the fix:
+**Implemented as analysed.** `formset.empty_form` is rendered once inside a `<template>`; "إضافة دواء" clones it and re-indexes, "×" removes an unsaved row (re-indexing to close the gap) or ticks `DELETE` and hides a saved one. Rows never reorder, so Django's assumption that the first `INITIAL_FORMS` forms are the saved ones continues to hold. No React, no AJAX, no new dependency.
 
-- multiple medication lines submit and persist correctly (3, and more than 3)
-- removing a line on create, and on update
-- `validate_min` still rejects a prescription with every line blank
-- Reception blocked on all four prescription URLs, by direct URL
+**Coverage gap closed.** Reception access had been asserted for `prescription_create` and `prescription_detail` only — `prescription_update` and `prescription_print` had no test at all. They were believed safe because both are `@clinical_required`; they are now demonstrated safe, on GET and POST, for all four URLs.
+
+9 tests added: more than three medications, a single medication, blank trailing rows ignored, all-lines-removed refused server-side, deleting a saved line on update, appending a line on update, the row template and add control being present, and the access matrix above.
 
 ---
 
