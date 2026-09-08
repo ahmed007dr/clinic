@@ -23,7 +23,15 @@
           </td>
         </tr>
         <tr><th>تاريخ البدء</th><td>{{ plan.start_date|date:"Y-m-d" }}</td></tr>
-        <tr><th>عدد الجلسات المخططة</th><td>{{ plan.planned_sessions }}</td></tr>
+        <tr>
+          <th>الجلسات</th>
+          <td>
+            {{ plan.completed_sessions }} مكتملة من {{ plan.planned_sessions }} مخططة
+            {% if plan.remaining_sessions %}
+              <span class="text-muted">(متبقي {{ plan.remaining_sessions }})</span>
+            {% endif %}
+          </td>
+        </tr>
         <tr><th>الخدمة</th><td>{{ plan.service.name|default:"غير محددة" }}</td></tr>
         <tr><th>الطبيب</th><td>{{ plan.doctor.name|default:"غير محدد" }}</td></tr>
         <tr><th>الفرع</th><td>{{ plan.branch.name|default:"غير محدد" }}</td></tr>
@@ -41,6 +49,40 @@
 
       <a href="{% url 'medical:treatment_plan_update' plan.uuid %}" class="btn btn-primary mt-3">تعديل</a>
       <a href="{% url 'patients:patient_detail' patient.uuid %}" class="btn btn-secondary mt-3">رجوع إلى ملف المريض</a>
+    </div>
+  </div>
+
+  <div class="card mt-4">
+    <div class="card-body">
+      <h4 class="card-title">الجلسات</h4>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>#</th><th>الموعد</th><th>الطبيب</th><th>الكمية</th>
+            <th>الصافي</th><th>الحالة</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for session in sessions %}
+          <tr>
+            <td>{{ session.sequence }}</td>
+            <td>{{ session.scheduled_date|date:"Y-m-d H:i" }}</td>
+            <td>{{ session.doctor.name|default:"—" }}</td>
+            <td>{{ session.quantity }}</td>
+            <td>{{ session.total_amount }}</td>
+            <td>
+              <span class="badge {% if session.status == 'completed' %}bg-success{% elif session.status == 'scheduled' %}bg-primary{% else %}bg-secondary{% endif %}">
+                {{ session.get_status_display }}
+              </span>
+            </td>
+            <td><a href="{% url 'medical:session_detail' session.uuid %}" class="btn btn-sm btn-info">تفاصيل</a></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7">لا توجد جلسات مسجلة</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <a href="{% url 'medical:session_create' plan.uuid %}" class="btn btn-primary">تسجيل جلسة</a>
     </div>
   </div>
 </div>

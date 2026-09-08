@@ -4,7 +4,10 @@ The access rule is the point of these tests: Reception books, registers and
 bills, but must never see a diagnosis.
 """
 
+from decimal import Decimal
+
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 from django.test import TestCase
 from django.urls import reverse
@@ -12,13 +15,21 @@ from django.urls import reverse
 from accounts.models import ClinicRole
 from branches.models import Branch
 from patients.models import Patient
+from services.models import Service
 from tenants.models import Tenant
 from tenants.provisioning import provision_tenant_defaults
 
 from tenants.context import tenant_context
 from tenants.testing import act_as_tenant
 
-from .models import Allergy, Prescription, PrescriptionItem, TreatmentPlan, Visit
+from .models import (
+    Allergy,
+    Prescription,
+    PrescriptionItem,
+    TreatmentPlan,
+    TreatmentSession,
+    Visit,
+)
 
 User = get_user_model()
 
@@ -627,3 +638,215 @@ class TreatmentPlanIsolationTests(ClinicalIsolationTests):
             reverse('medical:treatment_plan_create', args=[self.patient.uuid])
         )
         self.assertEqual(response.status_code, 404)
+
+
+class TreatmentSessionTests(ClinicalTestBase):
+    """P3 — the sessions a plan is delivered in (doc §28), including the
+    quantity-priced services of §29 where 25 pulses cost 25 times the unit."""
+
+    def setUp(self):
+        super().setUp()
+        self.service = Service.all_objects.create(
+            tenant=self.tenant, name='ليزر', base_price=Decimal('100.00')
+        )
+        self.plan = TreatmentPlan.all_objects.create(
+            tenant=self.tenant, patient=self.patient, branch=self.branch,
+            service=self.service, title='علاج بالليزر', planned_sessions=3,
+        )
+        self.client.login(email='doc@t.local', password='pass12345')
+
+    def _post(self, **overrides):
+        data = {
+            'scheduled_date': '2026-09-08T10:00',
+            'status': TreatmentSession.Status.SCHEDULED,
+            'quantity': '1',
+            'unit_price': '100.00',
+            'discount': '0',
+        }
+        data.update(overrides)
+        return self.client.post(
+            reverse('medical:session_create', args=[self.plan.uuid]), data
+        )
+
+    def test_doctor_can_record_a_session(self):
+        self.assertEqual(self._post().status_code, 302)
+        session = TreatmentSession.all_objects.get()
+        self.assertEqual(session.plan, self.plan)
+        self.assertEqual(session.patient, self.patient)
+        self.assertEqual(session.tenant, self.tenant)
+        self.assertEqual(session.created_by, self.doctor_user)
+
+    def test_sessions_are_numbered_within_the_plan(self):
+        for _ in range(3):
+            self._post()
+        sequences = list(
+            TreatmentSession.all_objects.filter(plan=self.plan)
+            .order_by('sequence').values_list('sequence', flat=True)
+        )
+        self.assertEqual(sequences, [1, 2, 3])
+
+    def test_numbering_restarts_for_a_different_plan(self):
+        """Sequence is a position in a course — session 1 of 6 — not a global
+        identifier, so a second plan starts at 1 again."""
+        self._post()
+        other = TreatmentPlan.all_objects.create(
+            tenant=self.tenant, patient=self.patient, branch=self.branch,
+            title='خطة أخرى', planned_sessions=2,
+        )
+        self.client.post(
+            reverse('medical:session_create', args=[other.uuid]),
+            {
+                'scheduled_date': '2026-09-08T11:00',
+                'status': TreatmentSession.Status.SCHEDULED,
+                'quantity': '1', 'unit_price': '50', 'discount': '0',
+            },
+        )
+        self.assertEqual(TreatmentSession.all_objects.get(plan=other).sequence, 1)
+
+    def test_quantity_priced_services_multiply(self):
+        """doc §29: 25 pulses at 100 each is 2500, not 100."""
+        self._post(quantity='25', unit_price='100.00')
+        session = TreatmentSession.all_objects.get()
+        self.assertEqual(session.gross_amount, Decimal('2500.00'))
+        self.assertEqual(session.total_amount, Decimal('2500.00'))
+
+    def test_a_discount_reduces_the_total(self):
+        self._post(quantity='10', unit_price='100.00', discount='250.00')
+        self.assertEqual(
+            TreatmentSession.all_objects.get().total_amount, Decimal('750.00')
+        )
+
+    def test_a_discount_larger_than_the_line_is_refused(self):
+        """Otherwise the session contributes negative revenue, and every total
+        downstream of it is wrong."""
+        response = self._post(quantity='1', unit_price='100.00', discount='500.00')
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(TreatmentSession.all_objects.exists())
+
+    def test_the_database_refuses_an_over_discount_too(self):
+        """The form check is a courtesy; this is the actual rule. A background
+        job or a future API bypassing the form must not be able to write it."""
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                TreatmentSession.all_objects.create(
+                    tenant=self.tenant, plan=self.plan, patient=self.patient,
+                    sequence=99, quantity=1,
+                    unit_price=Decimal('100.00'), discount=Decimal('500.00'),
+                )
+
+    def test_negative_money_is_refused(self):
+        self.assertEqual(self._post(unit_price='-10').status_code, 200)
+        self.assertFalse(TreatmentSession.all_objects.exists())
+
+    def test_zero_quantity_is_refused(self):
+        self.assertEqual(self._post(quantity='0').status_code, 200)
+        self.assertFalse(TreatmentSession.all_objects.exists())
+
+    def test_the_price_is_seeded_from_the_plans_service(self):
+        """§29 wants the price to come from a pricing engine. There is none
+        yet, so it comes from the service — the seam is the same either way."""
+        form = self.client.get(
+            reverse('medical:session_create', args=[self.plan.uuid])
+        ).context['form']
+        self.assertEqual(form.initial['unit_price'], Decimal('100.00'))
+        self.assertEqual(form.initial['service'], self.service)
+
+    def test_the_plan_counts_completed_sessions_rather_than_storing_them(self):
+        self._post(status=TreatmentSession.Status.COMPLETED)
+        self._post(status=TreatmentSession.Status.COMPLETED)
+        self._post(status=TreatmentSession.Status.CANCELLED)
+        with tenant_context(self.tenant):
+            plan = TreatmentPlan.all_objects.get(pk=self.plan.pk)
+            self.assertEqual(plan.completed_sessions, 2)
+            self.assertEqual(plan.remaining_sessions, 1)
+
+    def test_sessions_appear_on_the_plan_page(self):
+        self._post(unit_price='125.00')
+        response = self.client.get(
+            reverse('medical:treatment_plan_detail', args=[self.plan.uuid])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '125.00')
+
+    def test_doctor_can_read_and_update_a_session(self):
+        self._post()
+        session = TreatmentSession.all_objects.get()
+        self.assertEqual(
+            self.client.get(
+                reverse('medical:session_detail', args=[session.uuid])
+            ).status_code,
+            200,
+        )
+        response = self.client.post(
+            reverse('medical:session_update', args=[session.uuid]),
+            {
+                'scheduled_date': '2026-09-08T10:00',
+                'status': TreatmentSession.Status.COMPLETED,
+                'quantity': '2', 'unit_price': '100.00', 'discount': '0',
+                'result': 'تحسن ملحوظ',
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        session.refresh_from_db()
+        self.assertEqual(session.status, TreatmentSession.Status.COMPLETED)
+        self.assertEqual(session.result, 'تحسن ملحوظ')
+
+
+class TreatmentSessionAccessTests(ClinicalTestBase):
+    """A session records what was done to a patient and what it cost — the
+    same wall as the rest of the clinical record."""
+
+    def setUp(self):
+        super().setUp()
+        self.plan = TreatmentPlan.all_objects.create(
+            tenant=self.tenant, patient=self.patient, branch=self.branch,
+            title='CONFIDENTIAL COURSE', planned_sessions=2,
+        )
+        self.session = TreatmentSession.all_objects.create(
+            tenant=self.tenant, plan=self.plan, patient=self.patient,
+            branch=self.branch, sequence=1, result='CONFIDENTIAL RESULT',
+        )
+
+    def test_reception_is_blocked_on_every_session_url(self):
+        self.client.login(email='rec@t.local', password='pass12345')
+        urls = [
+            reverse('medical:session_create', args=[self.plan.uuid]),
+            reverse('medical:session_detail', args=[self.session.uuid]),
+            reverse('medical:session_update', args=[self.session.uuid]),
+        ]
+        for url in urls:
+            with self.subTest(url=url):
+                self.assertNotEqual(self.client.get(url).status_code, 200)
+                self.assertNotEqual(self.client.post(url, {}).status_code, 200)
+
+    def test_a_user_with_no_role_gets_nothing(self):
+        User.objects.create_user(
+            username='norole3', email='norole3@t.local', password='pass12345',
+            tenant=self.tenant, branch=self.branch,
+        )
+        self.client.login(email='norole3@t.local', password='pass12345')
+        self.assertNotEqual(
+            self.client.get(
+                reverse('medical:session_detail', args=[self.session.uuid])
+            ).status_code,
+            200,
+        )
+
+
+class TreatmentSessionIsolationTests(ClinicalIsolationTests):
+    def test_another_tenants_doctor_cannot_open_a_session(self):
+        plan = TreatmentPlan.all_objects.create(
+            tenant=self.tenant, patient=self.patient, branch=self.branch,
+            title='Ours', planned_sessions=1,
+        )
+        session = TreatmentSession.all_objects.create(
+            tenant=self.tenant, plan=plan, patient=self.patient,
+            branch=self.branch, sequence=1,
+        )
+        self.client.login(email='otherdoc@t.local', password='pass12345')
+        self.assertEqual(
+            self.client.get(
+                reverse('medical:session_detail', args=[session.uuid])
+            ).status_code,
+            404,
+        )

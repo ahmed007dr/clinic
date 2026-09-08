@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+  <h2>
+    {% if is_new %}جلسة جديدة{% else %}تعديل الجلسة رقم {{ session.sequence }}{% endif %}
+    - {{ plan.title }} ({{ patient.name }})
+  </h2>
+  {% if messages %}
+    <div class="alert alert-info">
+      {% for message in messages %}{{ message }}{% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">بيانات الجلسة</h4>
+      <form class="forms-sample" method="post">
+        {% csrf_token %}
+        <div class="row">
+          <div class="col-md-4">
+            <div class="form-group row">
+              <label class="col-sm-4 col-form-label" for="{{ form.service.id_for_label }}">الخدمة</label>
+              <div class="col-sm-8">{{ form.service }}</div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="form-group row">
+              <label class="col-sm-4 col-form-label" for="{{ form.doctor.id_for_label }}">الطبيب</label>
+              <div class="col-sm-8">{{ form.doctor }}</div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="form-group row">
+              <label class="col-sm-4 col-form-label" for="{{ form.branch.id_for_label }}">الفرع</label>
+              <div class="col-sm-8">{{ form.branch }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-4">
+            <div class="form-group row">
+              <label class="col-sm-4 col-form-label" for="{{ form.scheduled_date.id_for_label }}">موعد الجلسة</label>
+              <div class="col-sm-8">{{ form.scheduled_date }}</div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="form-group row">
+              <label class="col-sm-4 col-form-label" for="{{ form.performed_at.id_for_label }}">تاريخ التنفيذ</label>
+              <div class="col-sm-8">{{ form.performed_at }}</div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="form-group row">
+              <label class="col-sm-4 col-form-label" for="{{ form.status.id_for_label }}">الحالة</label>
+              <div class="col-sm-8">{{ form.status }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-3">
+            <div class="form-group row">
+              <label class="col-sm-5 col-form-label" for="{{ form.quantity.id_for_label }}">الكمية</label>
+              <div class="col-sm-7">{{ form.quantity }}</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="form-group row">
+              <label class="col-sm-5 col-form-label" for="{{ form.unit_price.id_for_label }}">سعر الوحدة</label>
+              <div class="col-sm-7">{{ form.unit_price }}</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="form-group row">
+              <label class="col-sm-5 col-form-label" for="{{ form.discount.id_for_label }}">الخصم</label>
+              <div class="col-sm-7">{{ form.discount }}</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="form-group row">
+              <label class="col-sm-5 col-form-label" for="{{ form.payment.id_for_label }}">الدفعة</label>
+              <div class="col-sm-7">{{ form.payment }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="{{ form.result.id_for_label }}">النتيجة</label>
+          {{ form.result }}
+        </div>
+        <div class="form-group">
+          <label for="{{ form.notes.id_for_label }}">ملاحظات</label>
+          {{ form.notes }}
+        </div>
+
+        {% if form.errors %}
+          <div class="alert alert-danger">
+            {% for field, errors in form.errors.items %}{{ field }}: {{ errors|join:", " }}<br>{% endfor %}
+          </div>
+        {% endif %}
+
+        <button type="submit" class="btn btn-primary me-2">حفظ</button>
+        <a href="{% url 'medical:treatment_plan_detail' plan.uuid %}" class="btn btn-secondary">رجوع إلى الخطة</a>
+      </form>
+    </div>
+  </div>
+</div>
+<script src="{% static 'vendors/select2/select2.min.js' %}"></script>
+<script src="{% static 'js/select2.js' %}"></script>
+<script>
+  $(document).ready(function() { $('.js-example-basic-single').select2(); });
+</script>
+{% endblock %}

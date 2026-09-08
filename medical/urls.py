@@ -6,6 +6,9 @@ from .views import (
     prescription_detail,
     prescription_print,
     prescription_update,
+    session_create,
+    session_detail,
+    session_update,
     treatment_plan_create,
     treatment_plan_detail,
     treatment_plan_update,
@@ -28,4 +31,7 @@ urlpatterns = [
     path("patient/<uuid:patient_uuid>/plan/new/", treatment_plan_create, name="treatment_plan_create"),
     path("plan/<uuid:uuid>/", treatment_plan_detail, name="treatment_plan_detail"),
     path("plan/<uuid:uuid>/update/", treatment_plan_update, name="treatment_plan_update"),
+    path("plan/<uuid:plan_uuid>/session/new/", session_create, name="session_create"),
+    path("session/<uuid:uuid>/", session_detail, name="session_detail"),
+    path("session/<uuid:uuid>/update/", session_update, name="session_update"),
 ]

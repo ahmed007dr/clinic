@@ -9,6 +9,7 @@ services and revenue are genuinely unreachable.
 """
 
 import random
+from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
@@ -24,7 +25,14 @@ from billing.models import Expense, ExpenseCategory, Payment, PaymentMethod
 from branches.models import Branch
 from employees.models import Employee, EmployeeType, SalaryType, Specialization
 from notifications.models import Notification
-from medical.models import Allergy, Prescription, PrescriptionItem, Visit
+from medical.models import (
+    Allergy,
+    Prescription,
+    PrescriptionItem,
+    TreatmentPlan,
+    TreatmentSession,
+    Visit,
+)
 from patients.models import Patient
 from services.models import Service
 from tenants.context import tenant_context
@@ -132,8 +140,12 @@ class Command(BaseCommand):
         # Order matters: dependants before the rows they point at.
         Payment.all_objects.all().delete()
         Expense.all_objects.all().delete()
-        # Clinical records first: Visit.patient and Allergy.patient are
-        # PROTECT, so patients cannot be cleared while these exist.
+        # Clinical records first: Visit.patient, Allergy.patient,
+        # TreatmentPlan.patient and TreatmentSession.patient are all PROTECT,
+        # so patients cannot be cleared while any of these exist. Sessions
+        # before plans, for the same reason.
+        TreatmentSession.all_objects.all().delete()
+        TreatmentPlan.all_objects.all().delete()
         PrescriptionItem.all_objects.all().delete()
         Prescription.all_objects.all().delete()
         Visit.all_objects.all().delete()
@@ -352,6 +364,57 @@ class Command(BaseCommand):
                         )
                     )
 
+            # Treatment plans, with a partly-delivered course each — so the
+            # "3 مكتملة من 6" progress on the plan page shows something real,
+            # and so a quantity-priced session (doc §29) exists to look at.
+            plans, sessions = [], []
+            for visit in visits[:3]:
+                service = random.choice(services)
+                plan = TreatmentPlan.objects.create(
+                    tenant=tenant,
+                    patient=visit.patient,
+                    visit=visit,
+                    doctor=visit.doctor,
+                    branch=visit.branch,
+                    service=service,
+                    title=f"{service.name} - برنامج علاجي",
+                    planned_sessions=random.randint(4, 8),
+                    start_date=visit.visit_date.date(),
+                    created_by=users[2],
+                )
+                plans.append(plan)
+
+                delivered = random.randint(1, plan.planned_sessions - 1)
+                for index in range(delivered + 1):
+                    done = index < delivered
+                    quantity = random.choice([1, 1, 1, 25])  # occasional pulse count
+                    sessions.append(
+                        TreatmentSession.objects.create(
+                            tenant=tenant,
+                            plan=plan,
+                            patient=plan.patient,
+                            doctor=plan.doctor,
+                            branch=plan.branch,
+                            service=service,
+                            scheduled_date=visit.visit_date + timedelta(days=7 * index),
+                            performed_at=(
+                                visit.visit_date + timedelta(days=7 * index) if done else None
+                            ),
+                            status=(
+                                TreatmentSession.Status.COMPLETED
+                                if done
+                                else TreatmentSession.Status.SCHEDULED
+                            ),
+                            quantity=quantity,
+                            unit_price=service.base_price,
+                            # Kept well inside the line total — the database
+                            # constraint refuses a discount larger than it.
+                            discount=Decimal(random.choice([0, 0, 50])),
+                            result=fake.sentence() if done else "",
+                            created_by=users[2],
+                        )
+                    )
+
             expenses = [
                 Expense.objects.create(
                     tenant=tenant,
@@ -379,6 +442,8 @@ class Command(BaseCommand):
             "visits": len(visits),
             "allergies": len(allergies),
             "prescriptions": len(prescriptions),
+            "plans": len(plans),
+            "sessions": len(sessions),
         }
 
     def _user(self, tenant, email, username, role, branch):
@@ -415,6 +480,9 @@ class Command(BaseCommand):
             self.stdout.write(
                 f"    {s['visits']} clinical visits  {s['prescriptions']} prescriptions  "
                 f"{s['allergies']} recorded allergies"
+            )
+            self.stdout.write(
+                f"    {s['plans']} treatment plans  {s['sessions']} sessions"
             )
             self.stdout.write(f"    admin@{s['slug']}.local      (Admin)")
             self.stdout.write(f"    reception@{s['slug']}.local  (Reception)")

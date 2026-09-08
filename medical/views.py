@@ -10,9 +10,17 @@ from .forms import (
     PrescriptionForm,
     PrescriptionItemFormSet,
     TreatmentPlanForm,
+    TreatmentSessionForm,
     VisitForm,
 )
-from .models import Allergy, Prescription, TreatmentPlan, Visit, allergy_conflicts
+from .models import (
+    Allergy,
+    Prescription,
+    TreatmentPlan,
+    TreatmentSession,
+    Visit,
+    allergy_conflicts,
+)
 from .permissions import can_view_clinical, scoped_to_user
 
 clinical_required = user_passes_test(can_view_clinical)
@@ -161,6 +169,7 @@ def treatment_plan_detail(request, uuid):
     return render(request, "medical/treatment_plan_detail.html", {
         "plan": plan,
         "patient": plan.patient,
+        "sessions": plan.sessions.all(),
     })
 
 
@@ -183,6 +192,87 @@ def treatment_plan_update(request, uuid):
         "form": form,
         "patient": plan.patient,
         "plan": plan,
+        "is_new": False,
+    })
+
+
+def _get_session(request, uuid):
+    # A session has no branch requirement of its own to fall back on — it is
+    # reached through its plan, so scope on the plan's branch.
+    return get_object_or_404(
+        scoped_to_user(TreatmentSession.objects.all(), request.user, "plan__branch"),
+        uuid=uuid,
+    )
+
+
+@login_required
+@clinical_required
+def session_create(request, plan_uuid):
+    plan = _get_treatment_plan(request, plan_uuid)
+
+    if request.method == "POST":
+        form = TreatmentSessionForm(request.POST)
+        if form.is_valid():
+            session = form.save(commit=False)
+            session.tenant = request.user.tenant
+            session.plan = plan
+            session.patient = plan.patient
+            session.created_by = request.user
+            if not session.branch_id:
+                session.branch = plan.branch or request.user.branch
+            session.save()
+            messages.success(request, f"تم تسجيل الجلسة رقم {session.sequence}")
+            return redirect("medical:treatment_plan_detail", uuid=plan.uuid)
+        messages.error(request, "خطأ في إدخال البيانات")
+    else:
+        # Seeded from the plan so the common case is one click. §29's pricing
+        # engine will replace how this number is worked out, not where it goes.
+        form = TreatmentSessionForm(initial={
+            "service": plan.service,
+            "doctor": plan.doctor,
+            "branch": plan.branch or request.user.branch,
+            "unit_price": plan.service.base_price if plan.service else 0,
+        })
+
+    return render(request, "medical/treatment_session_form.html", {
+        "form": form,
+        "plan": plan,
+        "patient": plan.patient,
+        "is_new": True,
+    })
+
+
+@login_required
+@clinical_required
+def session_detail(request, uuid):
+    session = _get_session(request, uuid)
+    return render(request, "medical/treatment_session_detail.html", {
+        "session": session,
+        "plan": session.plan,
+        "patient": session.patient,
+    })
+
+
+@login_required
+@clinical_required
+def session_update(request, uuid):
+    session = _get_session(request, uuid)
+
+    if request.method == "POST":
+        form = TreatmentSessionForm(request.POST, instance=session)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "تم تعديل الجلسة بنجاح")
+            return redirect("medical:session_detail", uuid=session.uuid)
+        messages.error(request, "خطأ في إدخال البيانات")
+    else:
+        form = TreatmentSessionForm(instance=session)
+
+    return render(request, "medical/treatment_session_form.html", {
+        "form": form,
+        "plan": session.plan,
+        "patient": session.patient,
+        "session": session,
         "is_new": False,
     })
 

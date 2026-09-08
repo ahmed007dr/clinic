@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block body %}
+<div class="container">
+  <h2>الجلسة رقم {{ session.sequence }} - {{ plan.title }} ({{ patient.name }})</h2>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert {% if message.tags == 'warning' %}alert-warning{% elif message.tags == 'error' %}alert-danger{% else %}alert-info{% endif %}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="card">
+    <div class="card-body">
+      <table class="table">
+        <tr>
+          <th style="width:25%">الحالة</th>
+          <td>
+            <span class="badge {% if session.status == 'completed' %}bg-success{% elif session.status == 'scheduled' %}bg-primary{% else %}bg-secondary{% endif %}">
+              {{ session.get_status_display }}
+            </span>
+          </td>
+        </tr>
+        <tr><th>موعد الجلسة</th><td>{{ session.scheduled_date|date:"Y-m-d H:i" }}</td></tr>
+        <tr><th>تاريخ التنفيذ</th><td>{{ session.performed_at|date:"Y-m-d H:i"|default:"—" }}</td></tr>
+        <tr><th>الخدمة</th><td>{{ session.service.name|default:"غير محددة" }}</td></tr>
+        <tr><th>الطبيب</th><td>{{ session.doctor.name|default:"غير محدد" }}</td></tr>
+        <tr><th>الفرع</th><td>{{ session.branch.name|default:"غير محدد" }}</td></tr>
+      </table>
+
+      <h4 class="card-title mt-4">الحساب</h4>
+      <table class="table">
+        <tr><th style="width:25%">الكمية</th><td>{{ session.quantity }}</td></tr>
+        <tr><th>سعر الوحدة</th><td>{{ session.unit_price }}</td></tr>
+        <tr><th>الإجمالي قبل الخصم</th><td>{{ session.gross_amount }}</td></tr>
+        <tr><th>الخصم</th><td>{{ session.discount }}</td></tr>
+        <tr><th>الصافي</th><td><strong>{{ session.total_amount }}</strong></td></tr>
+        <tr>
+          <th>الدفعة</th>
+          <td>
+            {% if session.payment %}
+              <a href="{% url 'billing:payment_detail' session.payment.uuid %}">{{ session.payment.receipt_number }}</a>
+            {% else %}
+              غير مرتبطة بدفعة
+            {% endif %}
+          </td>
+        </tr>
+      </table>
+
+      {% if session.result %}
+        <p><strong>النتيجة:</strong> {{ session.result|linebreaksbr }}</p>
+      {% endif %}
+      {% if session.notes %}
+        <p><strong>ملاحظات:</strong> {{ session.notes|linebreaksbr }}</p>
+      {% endif %}
+
+      <a href="{% url 'medical:session_update' session.uuid %}" class="btn btn-primary mt-3">تعديل</a>
+      <a href="{% url 'medical:treatment_plan_detail' plan.uuid %}" class="btn btn-secondary mt-3">رجوع إلى الخطة</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

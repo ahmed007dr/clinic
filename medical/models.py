@@ -243,6 +243,153 @@ class TreatmentPlan(TenantOwnedModel):
     def is_open(self):
         return self.status in {self.Status.DRAFT, self.Status.ACTIVE}
 
+    @property
+    def completed_sessions(self):
+        """Counted, never stored. A cached total drifts the moment a session is
+        cancelled or added, and the sessions are the record of what happened.
+
+        `self.sessions` is the tenant-scoped reverse accessor, so outside a
+        request — a management command, a scheduled report — this returns 0
+        rather than raising. Callers running outside a request must enter
+        `tenant_context` first; the views and templates are inside one.
+        """
+        return self.sessions.filter(status=TreatmentSession.Status.COMPLETED).count()
+
+    @property
+    def remaining_sessions(self):
+        return max(self.planned_sessions - self.completed_sessions, 0)
+
+
+class TreatmentSession(TenantOwnedModel):
+    """One delivered session of a treatment plan — doc/readme.md §28.
+
+    Carries its own money rather than deferring to the plan, because §29's
+    quantity-priced services (laser pulses, where 25 pulses is 25 x the unit
+    price) are decided per session: the doctor sees the skin on the day.
+
+    `unit_price` is seeded from the service when the session is created and
+    then stands on its own. Packages and promotions (§40, §41) will change how
+    the *initial* figure is worked out, not where it is kept — so a later
+    pricing engine fills this field instead of replacing it.
+    """
+
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "مجدولة"
+        COMPLETED = "completed", "مكتملة"
+        CANCELLED = "cancelled", "ملغاة"
+        NO_SHOW = "no_show", "لم يحضر"
+
+    plan = models.ForeignKey(
+        TreatmentPlan, on_delete=models.PROTECT, related_name="sessions"
+    )
+    # Denormalised from plan.patient, for the same reason Prescription does it:
+    # a patient's session history stays a single-table query.
+    patient = models.ForeignKey(
+        "patients.Patient", on_delete=models.PROTECT, related_name="treatment_sessions"
+    )
+    doctor = models.ForeignKey(
+        "employees.Employee", on_delete=models.SET_NULL,
+        null=True, blank=True,
+        limit_choices_to={"employee_type__name": "Doctor"},
+        related_name="treatment_sessions",
+    )
+    branch = models.ForeignKey(
+        "branches.Branch", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    service = models.ForeignKey(
+        "services.Service", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="treatment_sessions",
+    )
+    # The receipt covering this session. SET_NULL, not PROTECT: billing owns
+    # its own retention rules, and a session must not become undeletable
+    # because of how it was paid for.
+    payment = models.ForeignKey(
+        "billing.Payment", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="treatment_sessions",
+    )
+
+    sequence = models.PositiveIntegerField(verbose_name="رقم الجلسة")
+    scheduled_date = models.DateTimeField(default=timezone.now, verbose_name="موعد الجلسة")
+    performed_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ التنفيذ")
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.SCHEDULED,
+        verbose_name="الحالة",
+    )
+
+    quantity = models.PositiveIntegerField(
+        default=1, validators=[MinValueValidator(1)], verbose_name="الكمية"
+    )
+    unit_price = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        validators=[MinValueValidator(0)], verbose_name="سعر الوحدة",
+    )
+    discount = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        validators=[MinValueValidator(0)], verbose_name="الخصم",
+    )
+
+    result = models.TextField(blank=True, verbose_name="النتيجة")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta(TenantOwnedModel.Meta):
+        ordering = ["plan_id", "sequence"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "plan", "sequence"],
+                name="uniq_session_sequence_per_plan",
+            ),
+            # Enforced by the database, not only the form: a discount larger
+            # than the line it discounts turns revenue negative, and every
+            # total downstream with it. BE-005 put a floor under the individual
+            # amounts; this is the relationship between them.
+            models.CheckConstraint(
+                check=models.Q(discount__lte=models.F("unit_price") * models.F("quantity")),
+                name="session_discount_within_total",
+            ),
+        ]
+        verbose_name = "جلسة علاج"
+        verbose_name_plural = "جلسات العلاج"
+
+    def __str__(self):
+        return f"{self.plan.serial_number} - جلسة {self.sequence}"
+
+    @property
+    def gross_amount(self):
+        return self.unit_price * self.quantity
+
+    @property
+    def total_amount(self):
+        return self.gross_amount - self.discount
+
+    def save(self, *args, **kwargs):
+        if not self.sequence:
+            self.sequence = self._next_sequence()
+        super().save(*args, **kwargs)
+
+    def _next_sequence(self):
+        """Next free number within this plan.
+
+        Not SerialCounter: that issues per-tenant-per-day identifiers, and this
+        is a position in a course — session 3 of 6. Two sessions added for the
+        same plan at the same instant can still collide, and the unique
+        constraint above turns that into an error rather than a duplicate
+        number. Acceptable: sessions are added one at a time by a clinician.
+        """
+        last = (
+            TreatmentSession.all_objects.filter(tenant_id=self.tenant_id, plan=self.plan)
+            .order_by("-sequence")
+            .values_list("sequence", flat=True)
+            .first()
+        )
+        return (last or 0) + 1
+
 
 def allergy_conflicts(patient, medications):
     """Flag prescribed medications that mention a recorded allergen.
