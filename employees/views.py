@@ -14,7 +14,10 @@ def employee_create(request):
     if request.method == 'POST':
         form = EmployeeForm(request.POST)
         if form.is_valid():
-            employee = form.save()
+            employee = form.save(commit=False)
+            employee.tenant = request.user.tenant
+            employee.save()
+            form.save_m2m()  # specializations — dropped silently without this
             messages.success(request, f'تم إنشاء الموظف {employee.name} بنجاح')
             return redirect('employees:employee_list')
         else:
@@ -80,7 +83,9 @@ def employee_type_create(request):
     if request.method == 'POST':
         form = EmployeeTypeForm(request.POST)
         if form.is_valid():
-            employee_type = form.save()
+            employee_type = form.save(commit=False)
+            employee_type.tenant = request.user.tenant
+            employee_type.save()
             messages.success(request, f'تم إنشاء نوع الموظف {employee_type.name} بنجاح')
             return redirect('employees:employee_type_list')
         else:
@@ -139,7 +144,9 @@ def specialization_create(request):
     if request.method == 'POST':
         form = SpecializationForm(request.POST)
         if form.is_valid():
-            specialization = form.save()
+            specialization = form.save(commit=False)
+            specialization.tenant = request.user.tenant
+            specialization.save()
             messages.success(request, f'تم إنشاء التخصص {specialization.name} بنجاح')
             return redirect('employees:specialization_list')
         else:

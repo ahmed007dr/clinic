@@ -20,7 +20,9 @@ def payment_create(request):
     if request.method == 'POST':
         form = PaymentForm(request.POST)
         if form.is_valid():
-            payment = form.save()
+            payment = form.save(commit=False)
+            payment.tenant = request.user.tenant
+            payment.save()
             messages.success(request, f'تم تسجيل الدفعة {payment.receipt_number} بنجاح')
             return redirect('billing:payment_list')  # تغيير التوجيه إلى قائمة الدفعات
         else:
@@ -108,6 +110,7 @@ def expense_create(request):
         form = ExpenseForm(request.POST)
         if form.is_valid():
             expense = form.save(commit=False)
+            expense.tenant = request.user.tenant
             expense.created_by = request.user
             expense.save()
             messages.success(request, f'تم تسجيل المصروف بنجاح')
@@ -167,7 +170,9 @@ def expense_category_create(request):
     if request.method == 'POST':
         form = ExpenseCategoryForm(request.POST)
         if form.is_valid():
-            category = form.save()
+            category = form.save(commit=False)
+            category.tenant = request.user.tenant
+            category.save()
             messages.success(request, f'تم إنشاء فئة المصروف {category.name} بنجاح')
             return redirect('billing:expense_category_list')
         else:

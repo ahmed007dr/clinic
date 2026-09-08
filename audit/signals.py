@@ -31,6 +31,7 @@ def create_audit_log(user, action, instance, description=""):
 
     try:
         AuditLog.objects.create(
+            tenant=getattr(instance, "tenant", None),
             user=user if user and getattr(user, "is_authenticated", False) else None,
             action=action,
             model_name=model_name,

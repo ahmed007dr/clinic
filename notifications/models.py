@@ -1,8 +1,9 @@
 from django.db import models, transaction
 from django.conf import settings
 from django.utils import timezone
+from tenants.models import TenantOwnedModel
 
-class Notification(models.Model):
+class Notification(TenantOwnedModel):
     NOTIFY_TYPE = (
         ("system", "نظام"),
         ("reminder", "تذكير"),

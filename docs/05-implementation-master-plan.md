@@ -43,7 +43,7 @@ Steps 0–5 (INFRA-002 → SEC-010) are **invisible to the current clinic** — 
 | INFRA-002 | Move to PostgreSQL — env-driven `DATABASES`, dump/load the live SQLite data, re-verify the 23 existing tests | 0 | Prerequisite for RLS. Also makes BE-003's `select_for_update()` real — it is silently ignored by SQLite today |
 | INFRA-003 | Move hosting off cPanel/Passenger to a managed host; provision a non-superuser, non-`BYPASSRLS` app DB role plus a separate privileged migration role | 0 | The role split is what makes Layer 1 trustworthy |
 | TENANT-001 | New `tenants` app; `Tenant` model (uuid, name, slug, status); create Tenant #1 = current clinic | 1 | Nothing references it yet — zero risk |
-| TENANT-002 | `TenantOwnedModel` base + `tenant` FK on all 16 models + data migration backfilling every row to Tenant #1 | 2 | Largest schema change in the batch; still single-tenant so behaviour is unchanged |
+| TENANT-002 | `TenantOwnedModel` base + `tenant` FK on all 17 models + data migration backfilling every row to Tenant #1 | 2 | Largest schema change in the batch; still single-tenant so behaviour is unchanged |
 | TENANT-003 | Convert 9 global unique constraints to per-tenant `UniqueConstraint`s | 3 | Closes the uniqueness-probing information leak |
 | TENANT-004 | `SerialCounter` model; replace count-based `serial_number` generation in 4 models | 3 | Fixes a cross-tenant metrics leak, a real race, and an O(n)-per-insert cost at once |
 | TENANT-005 | `contextvars`-based current-tenant + middleware resolving tenant from `request.user` only | 4 | Must not repeat BUG-002's stale thread-local; never trust client-supplied tenant |

@@ -2,8 +2,9 @@
 from django.db import models, transaction
 from branches.models import Branch
 from django.utils import timezone
+from tenants.models import TenantOwnedModel
 
-class Patient(models.Model):   
+class Patient(TenantOwnedModel):   
 
 
     GENDER_CHOICES = (

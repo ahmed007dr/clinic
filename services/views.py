@@ -15,7 +15,9 @@ def service_create(request):
     if request.method == 'POST':
         form = ServiceForm(request.POST)
         if form.is_valid():
-            service = form.save()
+            service = form.save(commit=False)
+            service.tenant = request.user.tenant
+            service.save()
             messages.success(request, f'تم إنشاء الخدمة {service.name} بنجاح')
             return redirect('services:service_list')
         else:

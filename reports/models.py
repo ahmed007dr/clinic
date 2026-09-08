@@ -1,6 +1,7 @@
 from django.db import models
+from tenants.models import TenantOwnedModel
 
-class ReportRecipient(models.Model):
+class ReportRecipient(TenantOwnedModel):
     email = models.EmailField(unique=True, verbose_name="عنوان الإيميل")
     name = models.CharField(max_length=100, blank=True, null=True, verbose_name="الاسم")
     is_active = models.BooleanField(default=True, verbose_name="نشط")

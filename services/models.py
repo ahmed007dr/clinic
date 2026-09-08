@@ -2,8 +2,9 @@
 from django.db import models
 from django.core.validators import MinValueValidator
 from employees.models import Specialization
+from tenants.models import TenantOwnedModel
 
-class Service(models.Model):
+class Service(TenantOwnedModel):
     name = models.CharField(max_length=150, unique=True)
     description = models.TextField(blank=True, null=True)
     specialization = models.ForeignKey(Specialization, on_delete=models.SET_NULL, null=True, blank=True)

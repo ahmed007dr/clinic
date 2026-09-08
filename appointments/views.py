@@ -19,6 +19,7 @@ def appointment_create(request):
         form = AppointmentForm(request.POST)
         if form.is_valid():
             appointment = form.save(commit=False)
+            appointment.tenant = request.user.tenant
             appointment.created_by = request.user
             appointment.save()  # serial_number يُولد تلقائيًا في save
             messages.success(request, f'تم حجز الموعد بنجاح (رقم التذكرة: {appointment.serial_number})')

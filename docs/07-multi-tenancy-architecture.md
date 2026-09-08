@@ -35,7 +35,7 @@ class Tenant(models.Model):
 
 ## Which models get a `tenant` FK
 
-All 16 non-`Tenant` models are tenant-owned. **None are legitimately global.** Today only 6 have any scoping at all:
+All 17 non-`Tenant` models are tenant-owned. **None are legitimately global.** Today only 6 have any scoping at all:
 
 | Model | Scoping today | Notes for the migration |
 |---|---|---|
@@ -73,6 +73,8 @@ class TenantOwnedModel(models.Model):
 ```
 
 `PROTECT`, not `CASCADE`: deleting a tenant must never silently cascade away medical and financial records. Tenant offboarding is a deliberate, audited, export-then-delete process (doc §87).
+
+15 models inherit this base. Two carry the FK directly because theirs must stay **nullable**: `User` (null = platform staff, who legitimately span tenants) and `AuditLog` (null = a platform-level event belonging to no tenant, such as creating a Tenant itself).
 
 The cost is redundancy — `obj.tenant` must always equal `obj.branch.tenant`. Enforce with a `save()`/`clean()` guard on the base class plus a test; a DB trigger is available later if that proves insufficient.
 

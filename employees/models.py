@@ -2,28 +2,29 @@ from django.db import models, transaction
 from django.core.validators import MinValueValidator
 from branches.models import Branch
 from django.utils import timezone
+from tenants.models import TenantOwnedModel
 
-class EmployeeType(models.Model):
+class EmployeeType(TenantOwnedModel):
     name = models.CharField(max_length=50)
     description = models.TextField(blank=True)
 
     def __str__(self):
         return self.name
 
-class Specialization(models.Model):
+class Specialization(TenantOwnedModel):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
 
     def __str__(self):
         return self.name
 
-class SalaryType(models.Model):
+class SalaryType(TenantOwnedModel):
     name = models.CharField(max_length=50)
 
     def __str__(self):
         return self.name
 
-class Employee(models.Model):
+class Employee(TenantOwnedModel):
     name = models.CharField(max_length=100)
     employee_type = models.ForeignKey(EmployeeType, on_delete=models.SET_NULL, null=True, blank=True)
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE)

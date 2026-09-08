@@ -6,10 +6,11 @@ from appointments.models import Appointment
 from branches.models import Branch
 from employees.models import Employee  
 from django.conf import settings
+from tenants.models import TenantOwnedModel
 
 
 
-class PaymentMethod(models.Model):
+class PaymentMethod(TenantOwnedModel):
     name = models.CharField(max_length=50, unique=True)  # Cash, Visa, Insurance, etc
     description = models.TextField(blank=True, null=True)
 
@@ -17,7 +18,7 @@ class PaymentMethod(models.Model):
         return self.name
 
 
-class Payment(models.Model):
+class Payment(TenantOwnedModel):
     appointment = models.ForeignKey(Appointment, on_delete=models.CASCADE, related_name="payments")
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
     method = models.ForeignKey(PaymentMethod, on_delete=models.SET_NULL, null=True)
@@ -31,7 +32,7 @@ class Payment(models.Model):
         return f"Payment {self.receipt_number} - {self.amount} EGP"
 
 
-class ExpenseCategory(models.Model):
+class ExpenseCategory(TenantOwnedModel):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True, null=True)
 
@@ -39,7 +40,7 @@ class ExpenseCategory(models.Model):
         return self.name
 
 
-class Expense(models.Model):
+class Expense(TenantOwnedModel):
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name="expenses")
     category = models.ForeignKey(ExpenseCategory, on_delete=models.SET_NULL, null=True, blank=True)
 

@@ -28,10 +28,10 @@ Chosen 2026-09-08. Design: [07-multi-tenancy-architecture.md](07-multi-tenancy-a
 
 | ID | Task | Status | Notes |
 |---|---|---|---|
-| INFRA-002 | Move to PostgreSQL | TODO | Start here — prerequisite for everything else in this batch |
-| INFRA-003 | Managed hosting + split DB roles | TODO | Needs a hosting decision (Railway / Render / DigitalOcean / RDS) and a budget |
-| TENANT-001 | `tenants` app + `Tenant` model | TODO | |
-| TENANT-002 | `tenant` FK on all 16 models + backfill | TODO | Largest schema change in the batch |
+| INFRA-002 | Move to PostgreSQL | NEEDS_REVIEW | Code done: `psycopg2-binary` added, `DATABASES` now driven by `DATABASE_URL` via `env.db()` (SQLite default only so a fresh checkout runs unconfigured), `.env.example` documents the DigitalOcean URL form including the required `?sslmode=require`. **Verified on SQLite only** — no DigitalOcean instance exists yet, and the local PostgreSQL 16/17 servers are password-protected, so nothing has been run against real PostgreSQL |
+| INFRA-003 | Managed hosting + split DB roles | TODO | DigitalOcean Managed PostgreSQL chosen. Still needs the instance provisioned, the app/migration role split created, and the live data moved |
+| TENANT-001 | `tenants` app + `Tenant` model | DONE | `Tenant` (uuid, name, slug, status, created_at) + `TenantOwnedModel` base; `tenants.0002` creates Tenant #1 from `settings.CLINIC_NAME` → "Dr-ahmed" / `dr-ahmed`, status active |
+| TENANT-002 | `tenant` FK on all 17 models + backfill | DONE | 15 models via the base, `User` and `AuditLog` with nullable FKs. 10 hand-written `0002_add_tenant` migrations (add nullable → backfill → enforce NOT NULL), verified with `makemigrations --check` reporting no drift. **Upgrade path tested by simulation**: built the pre-tenant schema, inserted legacy rows, migrated forward — all rows backfilled to Tenant #1, zero orphans |
 | TENANT-003 | Per-tenant unique constraints | TODO | |
 | TENANT-004 | `SerialCounter` replaces count-based serials | TODO | |
 | TENANT-005 | contextvar + tenant middleware | TODO | |
@@ -42,6 +42,17 @@ Chosen 2026-09-08. Design: [07-multi-tenancy-architecture.md](07-multi-tenancy-a
 | SEC-010 | Per-tenant role seeding | TODO | |
 | SEC-011 | UUID/slug public identifiers | TODO | |
 | TENANT-008 | Tenant onboarding + second tenant | TODO | First live proof isolation holds |
+
+### Found while implementing TENANT-002
+
+Making `tenant` required surfaced four write paths that would otherwise have broken at runtime rather than at review:
+
+1. **Two `post_migrate` seeding hooks** create tenant-owned rows — `accounts/apps.py` (Admin/Reception roles) and a second one in `employees/apps.py` seeding the "Doctor" `EmployeeType` that `Appointment.doctor` depends on via `limit_choices_to`. Both would have broken `migrate` itself. Now seed per tenant; they move into tenant provisioning at TENANT-008.
+2. **`notifications/signals.py`** creates a `Notification` per user on every appointment and payment — needed the tenant threading through.
+3. **11 create views** had to set `tenant` explicitly before saving. Interim by design: TENANT-005/006 will assign it automatically from request context, and these lines then get deleted.
+4. **`employee_create` needed `form.save_m2m()`** once it switched to `commit=False` — without it the employee's specializations would have been silently dropped on every create.
+
+Two constraints to keep in mind until TENANT-003 lands: `ClinicRole.name` and `EmployeeType.name` are still globally unique, so the per-tenant seeding above only works while exactly one tenant exists. TENANT-003 is what makes a second tenant possible at all.
 
 ## Production-deploy caveat for INFRA-001 (read before running `migrate` on the live server)
 

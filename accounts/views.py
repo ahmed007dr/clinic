@@ -24,6 +24,7 @@ def user_login(request):
             if user is not None:
                 login(request, user)
                 AuditLog.objects.create(
+                    tenant=user.tenant,
                     user=user,
                     action="login",
                     description="User logged in",
@@ -50,6 +51,7 @@ def user_login(request):
 @login_required
 def user_logout(request):
     AuditLog.objects.create(
+        tenant=request.user.tenant,
         user=request.user,
         action="logout",
         description="User logged out",
@@ -66,7 +68,9 @@ def user_create(request):
     if request.method == 'POST':
         form = UserForm(request.POST)
         if form.is_valid():
-            user = form.save()
+            user = form.save(commit=False)
+            user.tenant = request.user.tenant
+            user.save()
             messages.success(request, f'تم إنشاء المستخدم {user.username} بنجاح')
             return redirect('accounts:user_list')
         else:

@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    "tenants",
     "accounts",
     "employees",
     "patients",
@@ -109,11 +110,11 @@ WSGI_APPLICATION = 'project.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+# DATABASE_URL drives this. PostgreSQL in every real environment; the SQLite
+# default only exists so a fresh checkout runs without configuration.
+# DigitalOcean Managed PostgreSQL requires SSL, so its URL ends in ?sslmode=require
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': env.db('DATABASE_URL', default=f'sqlite:///{BASE_DIR / "db.sqlite3"}')
 }
 
 

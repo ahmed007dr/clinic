@@ -2,6 +2,8 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 
+from tenants.models import Tenant
+
 
 class AuditLog(models.Model):
     ACTION_TYPES = (
@@ -12,6 +14,10 @@ class AuditLog(models.Model):
         ("logout", "Logout"),
         ("custom", "Custom"),
     )
+
+    # Null for platform-level events that belong to no tenant — creating a
+    # Tenant itself, or an action taken by platform staff.
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, related_name="+", null=True, blank=True)
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

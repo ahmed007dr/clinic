@@ -1,8 +1,9 @@
 from django.db import models, transaction
 from django.core.validators import MinValueValidator
 from django.utils import timezone
+from tenants.models import TenantOwnedModel
 
-class Appointment(models.Model):
+class Appointment(TenantOwnedModel):
     STATUS_CHOICES = [
         ("entered", "تم الدخول"),
         ("waiting", "الانتظار"),

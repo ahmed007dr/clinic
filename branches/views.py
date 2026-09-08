@@ -14,7 +14,9 @@ def branch_create(request):
     if request.method == 'POST':
         form = BranchForm(request.POST, request.FILES)
         if form.is_valid():
-            branch = form.save()
+            branch = form.save(commit=False)
+            branch.tenant = request.user.tenant
+            branch.save()
             messages.success(request, f'تم إنشاء الفرع {branch.name} بنجاح')
             return redirect('branches:branch_list')
         else:

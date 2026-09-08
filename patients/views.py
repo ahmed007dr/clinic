@@ -19,7 +19,9 @@ def patient_create(request):
     if request.method == 'POST':
         form = PatientForm(request.POST, request.FILES)
         if form.is_valid():
-            patient = form.save()
+            patient = form.save(commit=False)
+            patient.tenant = request.user.tenant
+            patient.save()
             messages.success(request, f'تم تسجيل المريض {patient.name} بنجاح')
             return redirect('patients:patient_list')
         else:

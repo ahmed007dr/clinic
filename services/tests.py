@@ -3,6 +3,7 @@ from django.urls import reverse
 from django.contrib.auth import get_user_model
 from accounts.models import ClinicRole
 from branches.models import Branch
+from tenants.models import Tenant
 from .forms import ServiceForm
 
 User = get_user_model()
@@ -13,14 +14,15 @@ class ServiceAuthorizationTests(TestCase):
     role-based authorization as every other app, not is_superuser."""
 
     def setUp(self):
-        self.branch = Branch.objects.create(name='Branch A', code='A')
-        self.admin_role, _ = ClinicRole.objects.get_or_create(name='Admin')
-        self.reception_role, _ = ClinicRole.objects.get_or_create(name='Reception')
+        self.tenant = Tenant.objects.first()  # created by tenants.0002 data migration
+        self.branch = Branch.objects.create(tenant=self.tenant, name='Branch A', code='A')
+        self.admin_role, _ = ClinicRole.objects.get_or_create(tenant=self.tenant, name='Admin')
+        self.reception_role, _ = ClinicRole.objects.get_or_create(tenant=self.tenant, name='Reception')
 
         # role='Admin' but NOT a Django is_superuser — this is the case that
         # was broken before BE-002 (previously blocked by the is_superuser check).
-        self.branch_admin = User.objects.create_user(username='admin', password='pass12345', role=self.admin_role, branch=self.branch)
-        self.reception = User.objects.create_user(username='rec', password='pass12345', role=self.reception_role, branch=self.branch)
+        self.branch_admin = User.objects.create_user(username='admin', password='pass12345', tenant=self.tenant, role=self.admin_role, branch=self.branch)
+        self.reception = User.objects.create_user(username='rec', password='pass12345', tenant=self.tenant, role=self.reception_role, branch=self.branch)
 
     def test_role_admin_without_superuser_can_create_service(self):
         self.client.login(username='admin', password='pass12345')
