@@ -1,5 +1,7 @@
 # 05 — Implementation Master Plan
 
+> Split by discipline: [08-backend-plan.md](08-backend-plan.md) and [09-frontend-plan.md](09-frontend-plan.md) show what is Done and what remains on each side. This file remains the batch-by-batch task history.
+
 Task IDs per doc/readme.md §4 convention. This batch covers **only** the audit-derived fixes (Option A from [04-target-architecture-options.md](04-target-architecture-options.md)) — these are the concrete, unambiguous tasks regardless of which longer-term option gets chosen next. Further batches (BE-1xx for Option B domains, or the full phase list for Option C) get appended here once a direction is confirmed, not written speculatively now.
 
 | ID | Task | Source finding | Notes |
