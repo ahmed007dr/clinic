@@ -5,7 +5,15 @@ db.sqlite3
 *.sqlite3
 *.log
 # Static and media files
-static/
+# static/ IS tracked — the theme is part of the application. Without it a fresh
+# clone renders unstyled, CI cannot check anything visual, and deployment
+# depends on one machine. Only genuinely disposable artifacts are excluded.
+static/docs/
+static/css/maps/
+*.map
+.DS_Store
+# collectstatic output — generated, never edited
+staticfiles/
 media/
 # IDE and environment
 .idea/

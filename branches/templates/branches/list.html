@@ -47,13 +47,13 @@
     </div>
   </div>
 </div>
-<script src="{% static 'vendors/datatables.net/jquery.dataTables.js' %}"></script>
-<script src="{% static 'vendors/datatables.net-bs4/dataTables.bootstrap4.js' %}"></script>
+<script src="{% static 'vendors/datatables/jquery.dataTables.min.js' %}"></script>
+<script src="{% static 'vendors/datatables/dataTables.bootstrap5.min.js' %}"></script>
 <script>
   $(document).ready(function() {
     $('#branchesTable').DataTable({
       "language": {
-        "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Arabic.json"
+        "url": "{% static 'vendors/datatables/i18n-ar.json' %}"
       }
     });
   });

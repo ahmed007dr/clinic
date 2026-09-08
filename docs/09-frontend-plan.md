@@ -55,17 +55,22 @@ Adding files to satisfy these would be exactly the duplicated-vendor mistake to 
 
 **Archive hygiene:** 138 of its 184 entries are referenced by nothing — theme demo docs, jvectormap, justgage, typeahead, raphael, progressbar, `.DS_Store` files and source maps. Committing the archive wholesale would add ~5 MB of dead weight; the authoritative set is closer to 20 files plus the MDI webfonts.
 
+### Resolution — **Done**
+
 | ID | Item | Status |
 |---|---|---|
-| FE-001 | Commit the authoritative set only — the 14 satisfied assets plus MDI fonts — from the recovered archive | **Not started** |
-| FE-001b | Add DataTables (Bootstrap **5** build) and collapse its three reference paths to one | **Not started** |
-| FE-001c | Remove the four redundant references above; normalise `expense_update.html` onto the shared stack | **Not started** |
-| FE-002 | Make `STATICFILES_DIRS` resolve so `manage.py check` is clean | **Not started** |
-| FE-003 | `STATIC_ROOT` + verify `collectstatic` from a clean clone (currently commented out in settings) | **Not started** |
-| FE-004 | Verify rendering with `DEBUG=False` and staticfiles serving | **Not started** |
-| FE-005 | A test asserting every `{% static %}` reference resolves, so this cannot silently regress | **Not started** |
+| FE-001 | `static/` removed from `.gitignore`; **135 files / 9.0 MB now tracked**. Excluded as disposable: `static/docs/` (theme demo), `static/css/maps/` (2.5 MB of source maps), `.DS_Store`, and the generated `staticfiles/` | **Done** |
+| FE-001b | DataTables **1.13.8, Bootstrap 5 build** vendored into one path (`vendors/datatables/`); the three reference paths collapsed to one across 10 templates | **Done** |
+| FE-001c | Four redundant references removed (6 tags): jQuery and Bootstrap are inside `vendor.bundle.base.js`, Chart.js has no stylesheet, jquery-cookie was never used. `expense_update.html` normalised onto the shared stack | **Done** |
+| FE-002 | `manage.py check` reports **no issues (0 silenced)** — the `staticfiles.W004` warning that appeared on every command is gone | **Done** |
+| FE-003 | `STATIC_ROOT` set; `collectstatic` copies **267 files** successfully | **Done** |
+| FE-005 | 5 tests in `dashboard/tests.py` assert every `{% static %}` reference resolves, that duplicate jQuery/Bootstrap are never reintroduced, and that no template calls a CDN | **Done** |
 
-Nothing else on this page can be verified visually until these are resolved.
+Reference count fell from **24 to 18, and all 18 resolve.**
+
+**Also fixed while here:** the Arabic DataTables translation was being fetched from `cdn.datatables.net` at runtime on nine pages — the interface degraded to English whenever the clinic's connection did. Now served locally, and a test prevents a CDN call returning.
+
+**And a regression from SEC-011:** `financial_report.html` still carried 30 `branch_id` references in hidden inputs and pagination links after the UUID migration renamed the variable, so the branch filter was silently lost on every page change and tab search. Fixed.
 
 ---
 

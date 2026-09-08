@@ -88,7 +88,7 @@
             </div>
             <input type="hidden" name="start_date" value="{{ start_date }}">
             <input type="hidden" name="end_date" value="{{ end_date }}">
-            <input type="hidden" name="branch_id" value="{{ branch_id }}">
+            <input type="hidden" name="branch" value="{{ branch_uuid }}">
           </form>
           {% endif %}
           <table class="table table-striped">
@@ -116,15 +116,15 @@
           {% if payments.has_other_pages %}
           <nav>
             <ul class="pagination">
-              <li class="page-item"><a class="page-link" href="?page_payments=1&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&payments_search={{ payments_search }}&payments_start_date={{ payments_start_date }}&payments_end_date={{ payments_end_date }}">الأولى</a></li>
+              <li class="page-item"><a class="page-link" href="?page_payments=1&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&payments_search={{ payments_search }}&payments_start_date={{ payments_start_date }}&payments_end_date={{ payments_end_date }}">الأولى</a></li>
               {% if payments.has_previous %}
-              <li class="page-item"><a class="page-link" href="?page_payments={{ payments.previous_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&payments_search={{ payments_search }}&payments_start_date={{ payments_start_date }}&payments_end_date={{ payments_end_date }}">السابقة</a></li>
+              <li class="page-item"><a class="page-link" href="?page_payments={{ payments.previous_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&payments_search={{ payments_search }}&payments_start_date={{ payments_start_date }}&payments_end_date={{ payments_end_date }}">السابقة</a></li>
               {% endif %}
               <li class="page-item active"><a class="page-link">{{ payments.number }}</a></li>
               {% if payments.has_next %}
-              <li class="page-item"><a class="page-link" href="?page_payments={{ payments.next_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&payments_search={{ payments_search }}&payments_start_date={{ payments_start_date }}&payments_end_date={{ payments_end_date }}">التالية</a></li>
+              <li class="page-item"><a class="page-link" href="?page_payments={{ payments.next_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&payments_search={{ payments_search }}&payments_start_date={{ payments_start_date }}&payments_end_date={{ payments_end_date }}">التالية</a></li>
               {% endif %}
-              <li class="page-item"><a class="page-link" href="?page_payments={{ payments.paginator.num_pages }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&payments_search={{ payments_search }}&payments_start_date={{ payments_start_date }}&payments_end_date={{ payments_end_date }}">الأخيرة</a></li>
+              <li class="page-item"><a class="page-link" href="?page_payments={{ payments.paginator.num_pages }}&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&payments_search={{ payments_search }}&payments_start_date={{ payments_start_date }}&payments_end_date={{ payments_end_date }}">الأخيرة</a></li>
             </ul>
           </nav>
           {% endif %}
@@ -154,7 +154,7 @@
             </div>
             <input type="hidden" name="start_date" value="{{ start_date }}">
             <input type="hidden" name="end_date" value="{{ end_date }}">
-            <input type="hidden" name="branch_id" value="{{ branch_id }}">
+            <input type="hidden" name="branch" value="{{ branch_uuid }}">
           </form>
           {% endif %}
           <table class="table table-striped">
@@ -182,15 +182,15 @@
           {% if expenses.has_other_pages %}
           <nav>
             <ul class="pagination">
-              <li class="page-item"><a class="page-link" href="?page_expenses=1&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&expenses_search={{ expenses_search }}&expenses_start_date={{ expenses_start_date }}&expenses_end_date={{ expenses_end_date }}">الأولى</a></li>
+              <li class="page-item"><a class="page-link" href="?page_expenses=1&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&expenses_search={{ expenses_search }}&expenses_start_date={{ expenses_start_date }}&expenses_end_date={{ expenses_end_date }}">الأولى</a></li>
               {% if expenses.has_previous %}
-              <li class="page-item"><a class="page-link" href="?page_expenses={{ expenses.previous_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&expenses_search={{ expenses_search }}&expenses_start_date={{ expenses_start_date }}&expenses_end_date={{ expenses_end_date }}">السابقة</a></li>
+              <li class="page-item"><a class="page-link" href="?page_expenses={{ expenses.previous_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&expenses_search={{ expenses_search }}&expenses_start_date={{ expenses_start_date }}&expenses_end_date={{ expenses_end_date }}">السابقة</a></li>
               {% endif %}
               <li class="page-item active"><a class="page-link">{{ expenses.number }}</a></li>
               {% if expenses.has_next %}
-              <li class="page-item"><a class="page-link" href="?page_expenses={{ expenses.next_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&expenses_search={{ expenses_search }}&expenses_start_date={{ expenses_start_date }}&expenses_end_date={{ expenses_end_date }}">التالية</a></li>
+              <li class="page-item"><a class="page-link" href="?page_expenses={{ expenses.next_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&expenses_search={{ expenses_search }}&expenses_start_date={{ expenses_start_date }}&expenses_end_date={{ expenses_end_date }}">التالية</a></li>
               {% endif %}
-              <li class="page-item"><a class="page-link" href="?page_expenses={{ expenses.paginator.num_pages }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&expenses_search={{ expenses_search }}&expenses_start_date={{ expenses_start_date }}&expenses_end_date={{ expenses_end_date }}">الأخيرة</a></li>
+              <li class="page-item"><a class="page-link" href="?page_expenses={{ expenses.paginator.num_pages }}&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&expenses_search={{ expenses_search }}&expenses_start_date={{ expenses_start_date }}&expenses_end_date={{ expenses_end_date }}">الأخيرة</a></li>
             </ul>
           </nav>
           {% endif %}
@@ -220,7 +220,7 @@
             </div>
             <input type="hidden" name="start_date" value="{{ start_date }}">
             <input type="hidden" name="end_date" value="{{ end_date }}">
-            <input type="hidden" name="branch_id" value="{{ branch_id }}">
+            <input type="hidden" name="branch" value="{{ branch_uuid }}">
           </form>
           {% endif %}
           <table class="table table-striped">
@@ -250,15 +250,15 @@
           {% if doctor_revenue.has_other_pages %}
           <nav>
             <ul class="pagination">
-              <li class="page-item"><a class="page-link" href="?page_doctor_revenue=1&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&doctor_revenue_search={{ doctor_revenue_search }}&doctor_revenue_start_date={{ doctor_revenue_start_date }}&doctor_revenue_end_date={{ doctor_revenue_end_date }}">الأولى</a></li>
+              <li class="page-item"><a class="page-link" href="?page_doctor_revenue=1&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&doctor_revenue_search={{ doctor_revenue_search }}&doctor_revenue_start_date={{ doctor_revenue_start_date }}&doctor_revenue_end_date={{ doctor_revenue_end_date }}">الأولى</a></li>
               {% if doctor_revenue.has_previous %}
-              <li class="page-item"><a class="page-link" href="?page_doctor_revenue={{ doctor_revenue.previous_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&doctor_revenue_search={{ doctor_revenue_search }}&doctor_revenue_start_date={{ doctor_revenue_start_date }}&doctor_revenue_end_date={{ doctor_revenue_end_date }}">السابقة</a></li>
+              <li class="page-item"><a class="page-link" href="?page_doctor_revenue={{ doctor_revenue.previous_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&doctor_revenue_search={{ doctor_revenue_search }}&doctor_revenue_start_date={{ doctor_revenue_start_date }}&doctor_revenue_end_date={{ doctor_revenue_end_date }}">السابقة</a></li>
               {% endif %}
               <li class="page-item active"><a class="page-link">{{ doctor_revenue.number }}</a></li>
               {% if doctor_revenue.has_next %}
-              <li class="page-item"><a class="page-link" href="?page_doctor_revenue={{ doctor_revenue.next_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&doctor_revenue_search={{ doctor_revenue_search }}&doctor_revenue_start_date={{ doctor_revenue_start_date }}&doctor_revenue_end_date={{ doctor_revenue_end_date }}">التالية</a></li>
+              <li class="page-item"><a class="page-link" href="?page_doctor_revenue={{ doctor_revenue.next_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&doctor_revenue_search={{ doctor_revenue_search }}&doctor_revenue_start_date={{ doctor_revenue_start_date }}&doctor_revenue_end_date={{ doctor_revenue_end_date }}">التالية</a></li>
               {% endif %}
-              <li class="page-item"><a class="page-link" href="?page_doctor_revenue={{ doctor_revenue.paginator.num_pages }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&doctor_revenue_search={{ doctor_revenue_search }}&doctor_revenue_start_date={{ doctor_revenue_start_date }}&doctor_revenue_end_date={{ doctor_revenue_end_date }}">الأخيرة</a></li>
+              <li class="page-item"><a class="page-link" href="?page_doctor_revenue={{ doctor_revenue.paginator.num_pages }}&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&doctor_revenue_search={{ doctor_revenue_search }}&doctor_revenue_start_date={{ doctor_revenue_start_date }}&doctor_revenue_end_date={{ doctor_revenue_end_date }}">الأخيرة</a></li>
             </ul>
           </nav>
           {% endif %}
@@ -288,7 +288,7 @@
             </div>
             <input type="hidden" name="start_date" value="{{ start_date }}">
             <input type="hidden" name="end_date" value="{{ end_date }}">
-            <input type="hidden" name="branch_id" value="{{ branch_id }}">
+            <input type="hidden" name="branch" value="{{ branch_uuid }}">
           </form>
           {% endif %}
           <table class="table table-striped">
@@ -316,15 +316,15 @@
           {% if non_employee_revenue.has_other_pages %}
           <nav>
             <ul class="pagination">
-              <li class="page-item"><a class="page-link" href="?page_non_employee=1&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&non_employee_search={{ non_employee_search }}&non_employee_start_date={{ non_employee_start_date }}&non_employee_end_date={{ non_employee_end_date }}">الأولى</a></li>
+              <li class="page-item"><a class="page-link" href="?page_non_employee=1&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&non_employee_search={{ non_employee_search }}&non_employee_start_date={{ non_employee_start_date }}&non_employee_end_date={{ non_employee_end_date }}">الأولى</a></li>
               {% if non_employee_revenue.has_previous %}
-              <li class="page-item"><a class="page-link" href="?page_non_employee={{ non_employee_revenue.previous_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&non_employee_search={{ non_employee_search }}&non_employee_start_date={{ non_employee_start_date }}&non_employee_end_date={{ non_employee_end_date }}">السابقة</a></li>
+              <li class="page-item"><a class="page-link" href="?page_non_employee={{ non_employee_revenue.previous_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&non_employee_search={{ non_employee_search }}&non_employee_start_date={{ non_employee_start_date }}&non_employee_end_date={{ non_employee_end_date }}">السابقة</a></li>
               {% endif %}
               <li class="page-item active"><a class="page-link">{{ non_employee_revenue.number }}</a></li>
               {% if non_employee_revenue.has_next %}
-              <li class="page-item"><a class="page-link" href="?page_non_employee={{ non_employee_revenue.next_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&non_employee_search={{ non_employee_search }}&non_employee_start_date={{ non_employee_start_date }}&non_employee_end_date={{ non_employee_end_date }}">التالية</a></li>
+              <li class="page-item"><a class="page-link" href="?page_non_employee={{ non_employee_revenue.next_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&non_employee_search={{ non_employee_search }}&non_employee_start_date={{ non_employee_start_date }}&non_employee_end_date={{ non_employee_end_date }}">التالية</a></li>
               {% endif %}
-              <li class="page-item"><a class="page-link" href="?page_non_employee={{ non_employee_revenue.paginator.num_pages }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&non_employee_search={{ non_employee_search }}&non_employee_start_date={{ non_employee_start_date }}&non_employee_end_date={{ non_employee_end_date }}">الأخيرة</a></li>
+              <li class="page-item"><a class="page-link" href="?page_non_employee={{ non_employee_revenue.paginator.num_pages }}&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&non_employee_search={{ non_employee_search }}&non_employee_start_date={{ non_employee_start_date }}&non_employee_end_date={{ non_employee_end_date }}">الأخيرة</a></li>
             </ul>
           </nav>
           {% endif %}
@@ -354,7 +354,7 @@
             </div>
             <input type="hidden" name="start_date" value="{{ start_date }}">
             <input type="hidden" name="end_date" value="{{ end_date }}">
-            <input type="hidden" name="branch_id" value="{{ branch_id }}">
+            <input type="hidden" name="branch" value="{{ branch_uuid }}">
           </form>
           {% endif %}
           <table class="table table-striped">
@@ -380,15 +380,15 @@
           {% if doctor_summary.has_other_pages %}
           <nav>
             <ul class="pagination">
-              <li class="page-item"><a class="page-link" href="?page_doctor_summary=1&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&doctor_summary_search={{ doctor_summary_search }}&doctor_summary_start_date={{ doctor_summary_start_date }}&doctor_summary_end_date={{ doctor_summary_end_date }}">الأولى</a></li>
+              <li class="page-item"><a class="page-link" href="?page_doctor_summary=1&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&doctor_summary_search={{ doctor_summary_search }}&doctor_summary_start_date={{ doctor_summary_start_date }}&doctor_summary_end_date={{ doctor_summary_end_date }}">الأولى</a></li>
               {% if doctor_summary.has_previous %}
-              <li class="page-item"><a class="page-link" href="?page_doctor_summary={{ doctor_summary.previous_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&doctor_summary_search={{ doctor_summary_search }}&doctor_summary_start_date={{ doctor_summary_start_date }}&doctor_summary_end_date={{ doctor_summary_end_date }}">السابقة</a></li>
+              <li class="page-item"><a class="page-link" href="?page_doctor_summary={{ doctor_summary.previous_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&doctor_summary_search={{ doctor_summary_search }}&doctor_summary_start_date={{ doctor_summary_start_date }}&doctor_summary_end_date={{ doctor_summary_end_date }}">السابقة</a></li>
               {% endif %}
               <li class="page-item active"><a class="page-link">{{ doctor_summary.number }}</a></li>
               {% if doctor_summary.has_next %}
-              <li class="page-item"><a class="page-link" href="?page_doctor_summary={{ doctor_summary.next_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&doctor_summary_search={{ doctor_summary_search }}&doctor_summary_start_date={{ doctor_summary_start_date }}&doctor_summary_end_date={{ doctor_summary_end_date }}">التالية</a></li>
+              <li class="page-item"><a class="page-link" href="?page_doctor_summary={{ doctor_summary.next_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&doctor_summary_search={{ doctor_summary_search }}&doctor_summary_start_date={{ doctor_summary_start_date }}&doctor_summary_end_date={{ doctor_summary_end_date }}">التالية</a></li>
               {% endif %}
-              <li class="page-item"><a class="page-link" href="?page_doctor_summary={{ doctor_summary.paginator.num_pages }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&doctor_summary_search={{ doctor_summary_search }}&doctor_summary_start_date={{ doctor_summary_start_date }}&doctor_summary_end_date={{ doctor_summary_end_date }}">الأخيرة</a></li>
+              <li class="page-item"><a class="page-link" href="?page_doctor_summary={{ doctor_summary.paginator.num_pages }}&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&doctor_summary_search={{ doctor_summary_search }}&doctor_summary_start_date={{ doctor_summary_start_date }}&doctor_summary_end_date={{ doctor_summary_end_date }}">الأخيرة</a></li>
             </ul>
           </nav>
           {% endif %}
@@ -418,7 +418,7 @@
             </div>
             <input type="hidden" name="start_date" value="{{ start_date }}">
             <input type="hidden" name="end_date" value="{{ end_date }}">
-            <input type="hidden" name="branch_id" value="{{ branch_id }}">
+            <input type="hidden" name="branch" value="{{ branch_uuid }}">
           </form>
           {% endif %}
           <table class="table table-striped">
@@ -444,15 +444,15 @@
           {% if branches_summary.has_other_pages %}
           <nav>
             <ul class="pagination">
-              <li class="page-item"><a class="page-link" href="?page_branches=1&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&branches_search={{ branches_search }}&branches_start_date={{ branches_start_date }}&branches_end_date={{ branches_end_date }}">الأولى</a></li>
+              <li class="page-item"><a class="page-link" href="?page_branches=1&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&branches_search={{ branches_search }}&branches_start_date={{ branches_start_date }}&branches_end_date={{ branches_end_date }}">الأولى</a></li>
               {% if branches_summary.has_previous %}
-              <li class="page-item"><a class="page-link" href="?page_branches={{ branches_summary.previous_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&branches_search={{ branches_search }}&branches_start_date={{ branches_start_date }}&branches_end_date={{ branches_end_date }}">السابقة</a></li>
+              <li class="page-item"><a class="page-link" href="?page_branches={{ branches_summary.previous_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&branches_search={{ branches_search }}&branches_start_date={{ branches_start_date }}&branches_end_date={{ branches_end_date }}">السابقة</a></li>
               {% endif %}
               <li class="page-item active"><a class="page-link">{{ branches_summary.number }}</a></li>
               {% if branches_summary.has_next %}
-              <li class="page-item"><a class="page-link" href="?page_branches={{ branches_summary.next_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&branches_search={{ branches_search }}&branches_start_date={{ branches_start_date }}&branches_end_date={{ branches_end_date }}">التالية</a></li>
+              <li class="page-item"><a class="page-link" href="?page_branches={{ branches_summary.next_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&branches_search={{ branches_search }}&branches_start_date={{ branches_start_date }}&branches_end_date={{ branches_end_date }}">التالية</a></li>
               {% endif %}
-              <li class="page-item"><a class="page-link" href="?page_branches={{ branches_summary.paginator.num_pages }}&start_date={{ start_date }}&end_date={{ end_date }}&branch_id={{ branch_id }}&branches_search={{ branches_search }}&branches_start_date={{ branches_start_date }}&branches_end_date={{ branches_end_date }}">الأخيرة</a></li>
+              <li class="page-item"><a class="page-link" href="?page_branches={{ branches_summary.paginator.num_pages }}&start_date={{ start_date }}&end_date={{ end_date }}&branch={{ branch_uuid }}&branches_search={{ branches_search }}&branches_start_date={{ branches_start_date }}&branches_end_date={{ branches_end_date }}">الأخيرة</a></li>
             </ul>
           </nav>
           {% endif %}
@@ -471,7 +471,6 @@
   .table { font-size: 1rem; }
   .pagination { justify-content: center; }
 </style>
-<script src="{% static 'vendors/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     var triggerTabList = [].slice.call(document.querySelectorAll('#financialTabs a'));

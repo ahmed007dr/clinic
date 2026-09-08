@@ -146,8 +146,8 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
-#add   path for url static & media
-#STATIC_ROOT = BASE_DIR / "staticfiles"  
+# collectstatic target for deployment. Generated output — gitignored.
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 MEDIA_URL='media/'
 MEDIA_ROOT=BASE_DIR / "media"
