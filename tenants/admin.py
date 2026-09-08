@@ -24,3 +24,16 @@ class TenantAdmin(admin.ModelAdmin):
     list_filter = ("status",)
     search_fields = ("name", "slug")
     readonly_fields = ("uuid", "created_at")
+
+    def save_model(self, request, obj, form, change):
+        """Seed a tenant created here, so it isn't born unusable.
+
+        Without this, an admin-created tenant has no roles and no Doctor type
+        until the next migrate happens to run the backstop. It still has no
+        branch or user — `manage.py create_tenant` is the complete path.
+        """
+        super().save_model(request, obj, form, change)
+        if not change:
+            from .provisioning import provision_tenant_defaults
+
+            provision_tenant_defaults(obj)

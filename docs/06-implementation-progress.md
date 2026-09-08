@@ -43,7 +43,13 @@ Chosen 2026-09-08. Design: [07-multi-tenancy-architecture.md](07-multi-tenancy-a
 | SEC-010 | Per-tenant role seeding | DONE | `tenants/provisioning.py` is now the single source of truth (`provision_tenant_defaults`, `create_tenant`), called by the post_migrate backstop, the demo seeder, and — later — tenant onboarding. The two app-level `post_migrate` hooks in `accounts` and `employees` are gone |
 | DEMO-001 | Demo data for local testing | DONE | `python manage.py seed_demo [--reset]` seeds **two** tenants with Arabic Faker data — one tenant proves nothing about isolation. Replaces the old `dummy_data.py`, which had been broken for some time (it imported an `AppointmentStatus` model that does not exist) |
 | SEC-011 | UUID public identifiers | DONE | `uuid` on `TenantOwnedModel` (15 models) + `User`; 26 routes moved to `<uuid:uuid>`, 25 view lookups, 32 template `{% url %}` args, 3 `.values('id', …)`, and the `?branch_id=` filter. **No slugs**: 10 of the 12 routed models are about a person, money or clinical activity, where a readable slug would leak exactly what UUIDs hide. **No redirect shim** — a compatibility route from `/patients/12/` would have preserved the very enumeration surface this removes. Verified end-to-end on seeded data: every page 200, zero integer links rendered, stale integer URLs redirect to login. Note UUIDs are not the access control — tenant scoping is; this removes enumeration and volume disclosure |
-| TENANT-008 | Tenant onboarding + second tenant | TODO | First live proof isolation holds |
+| TENANT-008 | Tenant onboarding + second tenant | DONE | `python manage.py create_tenant "Name" --admin-email …` provisions a tenant that is usable immediately: roles, Doctor type, first branch, first admin, all in one transaction — a half-built tenant nobody can log into is worse than none. Password is generated and shown once. `TenantAdmin.save_model` now seeds admin-created tenants too, which were previously born with no roles at all. **Proved live**: onboarded a third clinic against the seeded database — it logged in, started at 0 patients, got 404 on another clinic's patient, and the existing 40/15 were untouched |
+
+### Found while implementing TENANT-008
+
+**Onboarding a clinic with an Arabic branch name lost the admin password.** The command committed the transaction, then crashed printing the branch name — Windows consoles default to cp1252, which cannot encode Arabic. The generated password was printed *after* that line, so it was never shown, and it is not recoverable. In an Arabic-first app that is the ordinary case, not an edge case.
+
+Fixed two ways, because either alone would be fragile: the command forces its output stream to UTF-8, **and** credentials are now printed before any user-supplied text, so an unrecoverable secret never sits behind something that might fail to render. Both are covered by regression tests.
 
 ### Found while implementing SEC-011
 
