@@ -35,3 +35,9 @@
 ## Recommendation
 
 Independent of which of A/B/C is chosen, the CRITICAL and HIGH items in [01-system-audit.md](01-system-audit.md) (leaked secrets, the unauthenticated financial report, the cross-branch IDOR, the branch-management auth gap) affect real patient/financial data *today* and should be fixed first as their own small, fast batch — this is Option A's task list, and it's a strict subset of what B and C need anyway. Which of A/B/C to pursue afterward is a business decision (is this becoming a multi-clinic product, or does it stay this one organization's internal system?) that should be made explicitly rather than defaulted into.
+
+## Decision — 2026-09-08
+
+**Option C (full SaaS transformation) was chosen.** The Option A hardening batch it depends on is complete (all audit findings fixed, tested, committed — see [06-implementation-progress.md](06-implementation-progress.md)).
+
+Three architecture decisions were taken alongside it: PostgreSQL on a managed host (leaving cPanel), the live clinic migrating in place as Tenant #1, and one-tenant-per-user with email as the login. The design that follows from those is in [07-multi-tenancy-architecture.md](07-multi-tenancy-architecture.md), and the task breakdown is in [05-implementation-master-plan.md](05-implementation-master-plan.md).

@@ -22,6 +22,27 @@ Status values: `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `NEEDS_REVIEW`.
 | BE-005 | Reject negative money values | DONE | The `forms.py` validation sweep from the original audit plan found no custom `clean()` anywhere and, more importantly, no floor on any monetary field: `Payment.amount`, `Expense.amount`, `Service.base_price`, `Employee.salary_value`, `Appointment.price` all accepted negatives, which would silently skew every total in `financial_report` and the daily/monthly report emails. Added `MinValueValidator(0)` to all five (0 still allowed — free/waived services are legitimate). No migration needed: `validators` are form/`full_clean()`-level, not schema (verified with `makemigrations --check`). 3 tests added |
 | BUG-002 | Thread-local `request` never cleared → misattributed audit entries | DONE | Found via test isolation failures: `audit/middleware.py`'s `ThreadLocalMiddleware` set `_thread_locals.request` on every request but never cleared it, so on a reused worker thread (this is exactly the Passenger/cPanel deployment model) any model save happening outside a real request on that thread — a later test, a management command, a background job sharing the thread — could get attributed in `AuditLog` to whichever user's request that thread handled *last*, including a request whose user object no longer exists. Rewrote `ThreadLocalMiddleware` as modern callable middleware that clears the thread-local in a `finally` block after every request |
 
+## Batch 2 — Multi-tenancy foundation (Option C)
+
+Chosen 2026-09-08. Design: [07-multi-tenancy-architecture.md](07-multi-tenancy-architecture.md). Task detail: [05-implementation-master-plan.md](05-implementation-master-plan.md). Nothing started yet — no code written for this batch.
+
+| ID | Task | Status | Notes |
+|---|---|---|---|
+| INFRA-002 | Move to PostgreSQL | TODO | Start here — prerequisite for everything else in this batch |
+| INFRA-003 | Managed hosting + split DB roles | TODO | Needs a hosting decision (Railway / Render / DigitalOcean / RDS) and a budget |
+| TENANT-001 | `tenants` app + `Tenant` model | TODO | |
+| TENANT-002 | `tenant` FK on all 16 models + backfill | TODO | Largest schema change in the batch |
+| TENANT-003 | Per-tenant unique constraints | TODO | |
+| TENANT-004 | `SerialCounter` replaces count-based serials | TODO | |
+| TENANT-005 | contextvar + tenant middleware | TODO | |
+| TENANT-006 | `TenantManager` (fails closed) | TODO | |
+| TENANT-007 | PostgreSQL RLS policies | TODO | |
+| TEST-002 | Cross-tenant isolation suite | TODO | |
+| SEC-009 | Email login + `User.tenant` + platform staff | TODO | |
+| SEC-010 | Per-tenant role seeding | TODO | |
+| SEC-011 | UUID/slug public identifiers | TODO | |
+| TENANT-008 | Tenant onboarding + second tenant | TODO | First live proof isolation holds |
+
 ## Production-deploy caveat for INFRA-001 (read before running `migrate` on the live server)
 
 These `0001_initial.py` migrations were generated from the **current** `models.py` files, not from whatever schema history actually produced the live production database (which had no tracked migrations at all until now). If the production DB's real schema exactly matches what's in `models.py` today, running `python manage.py migrate --fake-initial` on production will mark these as applied without re-running the `CREATE TABLE` statements, which is the correct move. If the production schema has drifted from `models.py` in any way not visible in this repo, that mismatch needs to be resolved (compare schemas, or hand-adjust the generated migration) before running `migrate` there — running a plain `migrate` on a database that already has these tables will fail with "table already exists" without `--fake-initial`.
