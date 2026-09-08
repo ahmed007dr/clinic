@@ -1,7 +1,7 @@
-from django.db import models, transaction
+from django.db import models
 from django.core.validators import MinValueValidator
 from django.utils import timezone
-from tenants.models import TenantOwnedModel
+from tenants.models import SerialCounter, TenantOwnedModel
 
 class Appointment(TenantOwnedModel):
     STATUS_CHOICES = [
@@ -28,25 +28,19 @@ class Appointment(TenantOwnedModel):
     created_by = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True, null=True)
-    serial_number = models.CharField(max_length=20, unique=True, blank=True)
+    serial_number = models.CharField(max_length=20, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["tenant", "serial_number"], name="uniq_appointment_serial_per_tenant")
+        ]
 
     def save(self, *args, **kwargs):
         if not self.serial_number:
-            with transaction.atomic():
-                date = self.scheduled_date.date()
-                base_serial = f"{date.strftime('%Y%m%d')}-"
-                existing_count = Appointment.objects.select_for_update().filter(
-                    scheduled_date__date=date,
-                    serial_number__startswith=base_serial
-                ).count()
-                serial = f"{base_serial}{existing_count + 1:03d}"
-                while Appointment.objects.filter(serial_number=serial).exists():
-                    existing_count += 1
-                    serial = f"{base_serial}{existing_count + 1:03d}"
-                self.serial_number = serial
-                super().save(*args, **kwargs)
-        else:
-            super().save(*args, **kwargs)
+            self.serial_number = SerialCounter.next_serial(
+                self.tenant_id, "appointment", self.scheduled_date.date()
+            )
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.serial_number} - {self.patient.name}"

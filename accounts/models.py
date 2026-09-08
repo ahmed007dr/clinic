@@ -5,8 +5,14 @@ from branches.models import Branch
 from tenants.models import Tenant, TenantOwnedModel
 
 class ClinicRole(TenantOwnedModel):
-    name = models.CharField(max_length=50, unique=True)
+    name = models.CharField(max_length=50)
     description = models.TextField(blank=True, null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["tenant", "name"], name="uniq_clinicrole_name_per_tenant")
+        ]
+
     def __str__(self):
         return self.name
 

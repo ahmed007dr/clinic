@@ -11,8 +11,13 @@ from tenants.models import TenantOwnedModel
 
 
 class PaymentMethod(TenantOwnedModel):
-    name = models.CharField(max_length=50, unique=True)  # Cash, Visa, Insurance, etc
+    name = models.CharField(max_length=50)  # Cash, Visa, Insurance, etc
     description = models.TextField(blank=True, null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["tenant", "name"], name="uniq_paymentmethod_name_per_tenant")
+        ]
 
     def __str__(self):
         return self.name
@@ -22,19 +27,29 @@ class Payment(TenantOwnedModel):
     appointment = models.ForeignKey(Appointment, on_delete=models.CASCADE, related_name="payments")
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
     method = models.ForeignKey(PaymentMethod, on_delete=models.SET_NULL, null=True)
-    receipt_number = models.CharField(max_length=50, unique=True)
+    receipt_number = models.CharField(max_length=50)
     amount = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     branch = models.ForeignKey(Branch, on_delete=models.SET_NULL, null=True, blank=True)
     date = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True, null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["tenant", "receipt_number"], name="uniq_payment_receipt_per_tenant")
+        ]
 
     def __str__(self):
         return f"Payment {self.receipt_number} - {self.amount} EGP"
 
 
 class ExpenseCategory(TenantOwnedModel):
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["tenant", "name"], name="uniq_expensecategory_name_per_tenant")
+        ]
 
     def __str__(self):
         return self.name

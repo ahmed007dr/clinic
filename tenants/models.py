@@ -1,6 +1,6 @@
 import uuid
 
-from django.db import models
+from django.db import models, transaction
 
 
 class Tenant(models.Model):
@@ -43,3 +43,44 @@ class TenantOwnedModel(models.Model):
 
     class Meta:
         abstract = True
+
+
+class SerialCounter(models.Model):
+    """Per-tenant, per-day sequence behind the YYYYMMDD-NNN serial numbers.
+
+    Replaces counting matching rows on every insert, which was O(n) and grew
+    permanently slower, raced under concurrency, and — once more than one
+    tenant shares a table — handed each tenant numbers that disclosed the
+    others' daily volume.
+    """
+
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, related_name="+")
+    scope = models.CharField(max_length=40)
+    date = models.DateField()
+    last_value = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "scope", "date"], name="uniq_serial_counter_per_scope_day"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.scope} {self.date} -> {self.last_value}"
+
+    @classmethod
+    def next_serial(cls, tenant_id, scope, date):
+        """Reserve and format the next serial for this tenant/scope/day.
+
+        select_for_update makes this genuinely atomic on PostgreSQL; SQLite
+        serialises writers anyway. A failed insert afterwards leaves a gap,
+        which is fine — these are display identifiers, not a ledger sequence.
+        """
+        with transaction.atomic():
+            counter, _ = cls.objects.select_for_update().get_or_create(
+                tenant_id=tenant_id, scope=scope, date=date
+            )
+            counter.last_value += 1
+            counter.save(update_fields=["last_value"])
+        return f"{date.strftime('%Y%m%d')}-{counter.last_value:03d}"

@@ -1,7 +1,7 @@
-from django.db import models, transaction
+from django.db import models
 from django.conf import settings
 from django.utils import timezone
-from tenants.models import TenantOwnedModel
+from tenants.models import SerialCounter, TenantOwnedModel
 
 class Notification(TenantOwnedModel):
     NOTIFY_TYPE = (
@@ -18,25 +18,18 @@ class Notification(TenantOwnedModel):
     message = models.TextField()
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-    serial_number = models.CharField(max_length=20, unique=True, blank=True)
+    serial_number = models.CharField(max_length=20, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["tenant", "serial_number"], name="uniq_notification_serial_per_tenant")
+        ]
 
     def save(self, *args, **kwargs):
         if not self.serial_number:
-            with transaction.atomic():
-                date = self.created_at.date() if self.created_at else timezone.now().date()
-                base_serial = f"{date.strftime('%Y%m%d')}-"
-                existing_count = Notification.objects.select_for_update().filter(
-                    created_at__date=date,
-                    serial_number__startswith=base_serial
-                ).count()
-                serial = f"{base_serial}{existing_count + 1:03d}"
-                while Notification.objects.filter(serial_number=serial).exists():
-                    existing_count += 1
-                    serial = f"{base_serial}{existing_count + 1:03d}"
-                self.serial_number = serial
-                super().save(*args, **kwargs)
-        else:
-            super().save(*args, **kwargs)
+            date = self.created_at.date() if self.created_at else timezone.now().date()
+            self.serial_number = SerialCounter.next_serial(self.tenant_id, "notification", date)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.serial_number} - {self.title}"

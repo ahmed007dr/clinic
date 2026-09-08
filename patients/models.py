@@ -1,8 +1,8 @@
 # patients/models.py
-from django.db import models, transaction
+from django.db import models
 from branches.models import Branch
 from django.utils import timezone
-from tenants.models import TenantOwnedModel
+from tenants.models import SerialCounter, TenantOwnedModel
 
 class Patient(TenantOwnedModel):   
 
@@ -29,27 +29,19 @@ class Patient(TenantOwnedModel):
     photo = models.ImageField(upload_to='patients/', blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
     branch = models.ForeignKey(Branch, on_delete=models.SET_NULL, null=True, blank=True) 
-    serial_number = models.CharField(max_length=20, unique=True, blank=True)
+    serial_number = models.CharField(max_length=20, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)  # تاريخ الإنشاء أول مرة
     updated_at = models.DateTimeField(auto_now=True)      # آخر تعديل
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["tenant", "serial_number"], name="uniq_patient_serial_per_tenant")
+        ]
+
     def save(self, *args, **kwargs):
         if not self.serial_number:
-            with transaction.atomic():
-                date = timezone.now().date()
-                base_serial = f"{date.strftime('%Y%m%d')}-"
-                existing_count = Patient.objects.select_for_update().filter(
-                    created_at__date=date,
-                    serial_number__startswith=base_serial
-                ).count()
-                serial = f"{base_serial}{existing_count + 1:03d}"
-                while Patient.objects.filter(serial_number=serial).exists():
-                    existing_count += 1
-                    serial = f"{base_serial}{existing_count + 1:03d}"
-                self.serial_number = serial
-                super().save(*args, **kwargs)
-        else:
-            super().save(*args, **kwargs)
+            self.serial_number = SerialCounter.next_serial(self.tenant_id, "patient", timezone.now().date())
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.serial_number} - {self.name}"
