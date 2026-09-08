@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import get_user_model
+from tenants.forms import TenantScopedFormMixin
 
 User = get_user_model()
 
@@ -18,7 +19,7 @@ class LoginForm(AuthenticationForm):
     )
 
 
-class UserForm(forms.ModelForm):
+class UserForm(TenantScopedFormMixin, forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}))
     confirm_password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}))
 
@@ -52,7 +53,7 @@ class UserForm(forms.ModelForm):
         return user
 
 
-class UserSettingsForm(forms.ModelForm):
+class UserSettingsForm(TenantScopedFormMixin, forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}), required=False)
     confirm_password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}), required=False)
 

@@ -24,6 +24,7 @@ from billing.models import Expense, ExpenseCategory, Payment, PaymentMethod
 from branches.models import Branch
 from employees.models import Employee, EmployeeType, SalaryType, Specialization
 from notifications.models import Notification
+from medical.models import Allergy, Visit
 from patients.models import Patient
 from services.models import Service
 from tenants.context import tenant_context
@@ -33,6 +34,11 @@ from tenants.provisioning import provision_tenant_defaults
 User = get_user_model()
 
 DEMO_PASSWORD = "demo-clinic-2026"
+
+COMPLAINTS = ["حكة وطفح جلدي", "تساقط الشعر", "بقع داكنة بالوجه", "حب الشباب", "جفاف الجلد"]
+DIAGNOSES = ["التهاب جلدي تحسسي", "أكزيما", "حب شباب متوسط", "تصبغات جلدية", "صدفية خفيفة"]
+ALLERGENS = ["البنسلين", "الأسبرين", "اليود", "اللاتكس", "السلفا"]
+REACTIONS = ["طفح جلدي", "تورم", "ضيق تنفس", "حكة شديدة"]
 
 TENANTS = [
     {
@@ -101,6 +107,10 @@ class Command(BaseCommand):
             # Order matters: dependants before the rows they point at.
             Payment.all_objects.all().delete()
             Expense.all_objects.all().delete()
+            # Clinical records first: Visit.patient and Allergy.patient are
+            # PROTECT, so patients cannot be cleared while these exist.
+            Visit.all_objects.all().delete()
+            Allergy.all_objects.all().delete()
             Appointment.all_objects.all().delete()
             Notification.all_objects.all().delete()
             Patient.all_objects.all().delete()
@@ -145,6 +155,7 @@ class Command(BaseCommand):
 
             admin_role = ClinicRole.objects.get(name="Admin")
             reception_role = ClinicRole.objects.get(name="Reception")
+            doctor_role = ClinicRole.objects.get(name="Doctor")
             doctor_type = EmployeeType.objects.get(name="Doctor")
             nurse_type = EmployeeType.objects.get_or_create(
                 tenant=tenant, name="Nurse", defaults={"description": "Nursing staff"}
@@ -153,6 +164,9 @@ class Command(BaseCommand):
             users = [
                 self._user(tenant, f"admin@{spec['slug']}.local", "admin", admin_role, branches[0]),
                 self._user(tenant, f"reception@{spec['slug']}.local", "reception", reception_role, branches[0]),
+                # Log in as this one to see the clinical screens; the reception
+                # account is the one to log in as to confirm it cannot.
+                self._user(tenant, f"doctor@{spec['slug']}.local", "doctor", doctor_role, branches[0]),
             ]
 
             salary_types = [
@@ -266,6 +280,38 @@ class Command(BaseCommand):
                         )
                     )
 
+            # Clinical records for roughly a third of the visits that happened.
+            visits = []
+            for appointment in appointments[: max(3, len(appointments) // 3)]:
+                visits.append(
+                    Visit.objects.create(
+                        tenant=tenant,
+                        patient=appointment.patient,
+                        appointment=appointment,
+                        doctor=appointment.doctor,
+                        branch=appointment.branch,
+                        visit_date=appointment.scheduled_date,
+                        chief_complaint=random.choice(COMPLAINTS),
+                        examination=fake.sentence(),
+                        diagnosis=random.choice(DIAGNOSES),
+                        treatment_plan=fake.sentence(),
+                        created_by=users[2],
+                    )
+                )
+
+            allergies = []
+            for patient in patients[:5]:
+                substance = random.choice(ALLERGENS)
+                if not Allergy.objects.filter(patient=patient, substance=substance).exists():
+                    allergies.append(
+                        Allergy.objects.create(
+                            tenant=tenant, patient=patient, substance=substance,
+                            reaction=random.choice(REACTIONS),
+                            severity=random.choice([s[0] for s in Allergy.Severity.choices]),
+                            recorded_by=users[2],
+                        )
+                    )
+
             expenses = [
                 Expense.objects.create(
                     tenant=tenant,
@@ -290,6 +336,8 @@ class Command(BaseCommand):
             "appointments": len(appointments),
             "payments": len(payments),
             "expenses": len(expenses),
+            "visits": len(visits),
+            "allergies": len(allergies),
         }
 
     def _user(self, tenant, email, username, role, branch):
@@ -323,8 +371,12 @@ class Command(BaseCommand):
                 f"    {s['services']} services  {s['appointments']} appointments  "
                 f"{s['payments']} payments  {s['expenses']} expenses"
             )
+            self.stdout.write(
+                f"    {s['visits']} clinical visits  {s['allergies']} recorded allergies"
+            )
             self.stdout.write(f"    admin@{s['slug']}.local      (Admin)")
             self.stdout.write(f"    reception@{s['slug']}.local  (Reception)")
+            self.stdout.write(f"    doctor@{s['slug']}.local     (Doctor)")
 
         self.stdout.write("")
         self.stdout.write(f"  Password for every demo account: {DEMO_PASSWORD}")

@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+  <h2>{% if is_new %}تسجيل زيارة جديدة{% else %}تعديل الزيارة {{ visit.serial_number }}{% endif %} - {{ patient.name }}</h2>
+  {% if messages %}
+    <div class="alert alert-info">
+      {% for message in messages %}{{ message }}{% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">بيانات الزيارة</h4>
+      <form class="forms-sample" method="post">
+        {% csrf_token %}
+        <div class="row">
+          <div class="col-md-4">
+            <div class="form-group row">
+              <label class="col-sm-4 col-form-label" for="{{ form.doctor.id_for_label }}">الطبيب</label>
+              <div class="col-sm-8">{{ form.doctor }}</div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="form-group row">
+              <label class="col-sm-4 col-form-label" for="{{ form.branch.id_for_label }}">الفرع</label>
+              <div class="col-sm-8">{{ form.branch }}</div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="form-group row">
+              <label class="col-sm-4 col-form-label" for="{{ form.visit_date.id_for_label }}">تاريخ الزيارة</label>
+              <div class="col-sm-8">{{ form.visit_date }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="{{ form.chief_complaint.id_for_label }}">الشكوى</label>
+          {{ form.chief_complaint }}
+        </div>
+        <div class="form-group">
+          <label for="{{ form.examination.id_for_label }}">الفحص</label>
+          {{ form.examination }}
+        </div>
+        <div class="form-group">
+          <label for="{{ form.diagnosis.id_for_label }}">التشخيص</label>
+          {{ form.diagnosis }}
+        </div>
+        <div class="form-group">
+          <label for="{{ form.treatment_plan.id_for_label }}">خطة العلاج</label>
+          {{ form.treatment_plan }}
+        </div>
+        <div class="row">
+          <div class="col-md-4">
+            <div class="form-group row">
+              <label class="col-sm-4 col-form-label" for="{{ form.follow_up_date.id_for_label }}">موعد المتابعة</label>
+              <div class="col-sm-8">{{ form.follow_up_date }}</div>
+            </div>
+          </div>
+        </div>
+
+        {% if form.errors %}
+          <div class="alert alert-danger">
+            {% for field, errors in form.errors.items %}{{ field }}: {{ errors|join:", " }}<br>{% endfor %}
+          </div>
+        {% endif %}
+
+        <button type="submit" class="btn btn-primary me-2">حفظ</button>
+        <a href="{% url 'patients:patient_detail' patient.uuid %}" class="btn btn-secondary">رجوع إلى ملف المريض</a>
+      </form>
+    </div>
+  </div>
+</div>
+<script src="{% static 'vendors/select2/select2.min.js' %}"></script>
+<script src="{% static 'js/select2.js' %}"></script>
+<script>
+  $(document).ready(function() { $('.js-example-basic-single').select2(); });
+</script>
+{% endblock %}

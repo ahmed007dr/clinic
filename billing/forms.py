@@ -1,7 +1,8 @@
 from django import forms
 from .models import Payment, Expense, ExpenseCategory
+from tenants.forms import TenantScopedFormMixin
 
-class PaymentForm(forms.ModelForm):
+class PaymentForm(TenantScopedFormMixin, forms.ModelForm):
     class Meta:
         model = Payment
         fields = ['appointment', 'patient', 'method', 'receipt_number', 'amount', 'branch', 'notes']
@@ -15,7 +16,7 @@ class PaymentForm(forms.ModelForm):
             'notes': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
         }
 
-class ExpenseForm(forms.ModelForm):
+class ExpenseForm(TenantScopedFormMixin, forms.ModelForm):
     class Meta:
         model = Expense
         fields = ['branch', 'category', 'employee', 'amount', 'date', 'notes']
@@ -28,7 +29,7 @@ class ExpenseForm(forms.ModelForm):
             'notes': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
         }
 
-class ExpenseCategoryForm(forms.ModelForm):
+class ExpenseCategoryForm(TenantScopedFormMixin, forms.ModelForm):
     class Meta:
         model = ExpenseCategory
         fields = ['name', 'description']

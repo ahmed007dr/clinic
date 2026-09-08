@@ -102,6 +102,48 @@ class CrossTenantIsolationTests(TestCase):
         self.assertNotContains(response, 'B Service')
 
 
+class FormChoiceTests(TestCase):
+    """Regression: ModelChoiceField querysets are built when the form class is
+    imported, so the tenant-scoped manager resolved with no tenant in context
+    and baked in .none(). Every dropdown on every form was empty — nobody could
+    create an appointment, payment or employee — and it was invisible because
+    the tests that touched forms only ever asserted they were *invalid*."""
+
+    def setUp(self):
+        self.a = Tenant.objects.first()
+        self.b = Tenant.objects.create(name='Rival', slug='rival', status=Tenant.Status.ACTIVE)
+        role, _ = ClinicRole.all_objects.get_or_create(tenant=self.a, name='Admin')
+        self.branch = Branch.all_objects.create(tenant=self.a, name='Main', code='MN')
+        Branch.all_objects.create(tenant=self.b, name='Theirs', code='TH')
+        Patient.all_objects.create(tenant=self.a, name='Ours', branch=self.branch)
+        Patient.all_objects.create(tenant=self.b, name='Theirs', branch=None)
+        User.objects.create_user(
+            username='admin', email='admin@t.local', password='pass12345',
+            tenant=self.a, role=role, branch=self.branch,
+        )
+        self.client.login(email='admin@t.local', password='pass12345')
+
+    def test_appointment_form_offers_this_tenants_records(self):
+        form = self.client.get(reverse('appointments:appointment_create')).context['form']
+        self.assertEqual(form.fields['patient'].queryset.count(), 1)
+        self.assertEqual(form.fields['branch'].queryset.count(), 1)
+
+    def test_form_choices_exclude_other_tenants(self):
+        form = self.client.get(reverse('appointments:appointment_create')).context['form']
+        self.assertNotIn('Theirs', [str(p) for p in form.fields['patient'].queryset])
+        self.assertNotIn('Theirs', [str(b) for b in form.fields['branch'].queryset])
+
+    def test_payment_form_offers_choices(self):
+        form = self.client.get(reverse('billing:payment_create')).context['form']
+        self.assertEqual(form.fields['patient'].queryset.count(), 1)
+
+    def test_limit_choices_to_is_preserved(self):
+        """Appointment.doctor restricts to the Doctor employee type — rebinding
+        the queryset must not drop that filter."""
+        form = self.client.get(reverse('appointments:appointment_create')).context['form']
+        self.assertIn('employee_type', str(form.fields['doctor'].queryset.query))
+
+
 class ManagerScopingTests(TestCase):
     """The manager is the layer that makes the above hold, so pin its
     behaviour directly — including that absence of context yields nothing."""

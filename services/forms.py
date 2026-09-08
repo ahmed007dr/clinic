@@ -1,7 +1,8 @@
 from django import forms
 from .models import Service
+from tenants.forms import TenantScopedFormMixin
 
-class ServiceForm(forms.ModelForm):
+class ServiceForm(TenantScopedFormMixin, forms.ModelForm):
     class Meta:
         model = Service
         fields = ['name', 'description', 'specialization', 'base_price']

@@ -1,7 +1,8 @@
 from django import forms
 from .models import Branch
+from tenants.forms import TenantScopedFormMixin
 
-class BranchForm(forms.ModelForm):
+class BranchForm(TenantScopedFormMixin, forms.ModelForm):
     class Meta:
         model = Branch
         fields = ['name', 'code', 'address', 'phone', 'email', 'logo', 'footer_text']

@@ -1,9 +1,12 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.db.models import ProtectedError
 from django.http import Http404
 from .forms import PatientForm
 from .models import Patient
 from appointments.models import Appointment
 from billing.models import Payment
+from medical.models import Allergy, Visit
+from medical.permissions import can_view_clinical
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator
@@ -12,6 +15,11 @@ from datetime import datetime
 
 def is_reception_or_admin(user):
     return user.role.name in ['Reception', 'Admin'] if user.role else False
+
+def can_view_patients(user):
+    """Doctors need the patient file to reach the clinical record — but they
+    do not register patients, which stays with Reception and Admin."""
+    return user.role.name in ['Reception', 'Admin', 'Doctor'] if user.role else False
 
 @login_required
 @user_passes_test(is_reception_or_admin)
@@ -34,7 +42,7 @@ def patient_create(request):
     return render(request, 'patients/create.html', context)
 
 @login_required
-@user_passes_test(is_reception_or_admin)
+@user_passes_test(can_view_patients)
 def patient_list(request):
     patients = Patient.objects.all().order_by('-created_at', '-serial_number')
     if request.user.role.name == 'Reception' and request.user.branch:
@@ -50,20 +58,28 @@ def patient_list(request):
     return render(request, 'patients/list.html', context)
 
 @login_required
-@user_passes_test(is_reception_or_admin)
+@user_passes_test(can_view_patients)
 def patient_detail(request, uuid):
     patient = get_object_or_404(Patient, uuid=uuid)
-    if request.user.role.name == 'Reception' and request.user.branch and patient.branch_id != request.user.branch_id:
+    # Admin is org-wide by design; everyone else is held to their own branch.
+    if request.user.role.name != 'Admin' and request.user.branch and patient.branch_id != request.user.branch_id:
         raise Http404
     appointments = Appointment.objects.filter(patient=patient).order_by('-scheduled_date', '-serial_number')
     if request.user.role.name == 'Reception':
         appointments = appointments.values('uuid', 'serial_number', 'doctor__name', 'service__name')
     payments = Payment.objects.filter(patient=patient).order_by('date') if request.user.role.name == 'Admin' else []
 
+    # Reception books and bills but never sees a diagnosis — the queries are
+    # skipped entirely rather than filtered in the template.
+    show_clinical = can_view_clinical(request.user)
+
     context = {
         'patient': patient,
         'appointments': appointments,
         'payments': payments,
+        'show_clinical': show_clinical,
+        'visits': Visit.objects.filter(patient=patient) if show_clinical else [],
+        'allergies': Allergy.objects.filter(patient=patient) if show_clinical else [],
     }
     return render(request, 'patients/detail.html', context)
 
@@ -91,7 +107,17 @@ def patient_update(request, uuid):
 def patient_delete(request, uuid):
     patient = get_object_or_404(Patient, uuid=uuid)
     if request.method == 'POST':
-        patient.delete()
+        try:
+            patient.delete()
+        except ProtectedError:
+            # Medical records are PROTECT-ed: a patient with clinical history
+            # must not be erasable, and failing loudly beats deleting quietly.
+            messages.error(
+                request,
+                'لا يمكن حذف هذا المريض لوجود سجلات طبية مرتبطة به. '
+                'السجلات الطبية يجب الاحتفاظ بها.',
+            )
+            return redirect('patients:patient_detail', uuid=patient.uuid)
         messages.success(request, 'تم حذف المريض بنجاح')
         return redirect('patients:patient_list')
     context = {

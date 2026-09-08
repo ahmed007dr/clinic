@@ -1,7 +1,8 @@
 from django import forms
 from .models import Patient
+from tenants.forms import TenantScopedFormMixin
 
-class PatientForm(forms.ModelForm):
+class PatientForm(TenantScopedFormMixin, forms.ModelForm):
     class Meta:
         model = Patient
         fields = ['name', 'phone1', 'phone2', 'birth_date', 'national_id', 'gender', 'marital_status', 'email', 'address', 'photo', 'notes']

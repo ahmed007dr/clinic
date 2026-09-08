@@ -1,7 +1,8 @@
 from django import forms
 from .models import Employee, EmployeeType, Specialization
+from tenants.forms import TenantScopedFormMixin
 
-class EmployeeForm(forms.ModelForm):
+class EmployeeForm(TenantScopedFormMixin, forms.ModelForm):
     class Meta:
         model = Employee
         fields = ['name', 'employee_type', 'specializations', 'national_id', 'branch', 'phone1', 'phone2', 'email', 'salary_type', 'salary_value']
@@ -18,7 +19,7 @@ class EmployeeForm(forms.ModelForm):
             'salary_value': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
-class EmployeeTypeForm(forms.ModelForm):
+class EmployeeTypeForm(TenantScopedFormMixin, forms.ModelForm):
     class Meta:
         model = EmployeeType
         fields = ['name', 'description']
@@ -27,7 +28,7 @@ class EmployeeTypeForm(forms.ModelForm):
             'description': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
         }
 
-class SpecializationForm(forms.ModelForm):
+class SpecializationForm(TenantScopedFormMixin, forms.ModelForm):
     class Meta:
         model = Specialization
         fields = ['name', 'description']

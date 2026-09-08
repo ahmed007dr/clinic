@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block body %}
+<div class="container">
+  <h2>الزيارة {{ visit.serial_number }} - {{ patient.name }}</h2>
+
+  {% if allergies %}
+    <div class="alert alert-danger">
+      <strong>تنبيه — حساسية مسجلة:</strong>
+      {% for allergy in allergies %}
+        {{ allergy.substance }} ({{ allergy.get_severity_display }}){% if not forloop.last %}، {% endif %}
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">تفاصيل الزيارة</h4>
+      <table class="table table-striped">
+        <tr><th style="width:25%">التاريخ</th><td>{{ visit.visit_date|date:"Y-m-d H:i" }}</td></tr>
+        <tr><th>الطبيب</th><td>{{ visit.doctor.name|default:"غير محدد" }}</td></tr>
+        <tr><th>الفرع</th><td>{{ visit.branch.name|default:"غير محدد" }}</td></tr>
+        <tr><th>الشكوى</th><td>{{ visit.chief_complaint|linebreaksbr|default:"—" }}</td></tr>
+        <tr><th>الفحص</th><td>{{ visit.examination|linebreaksbr|default:"—" }}</td></tr>
+        <tr><th>التشخيص</th><td>{{ visit.diagnosis|linebreaksbr|default:"—" }}</td></tr>
+        <tr><th>خطة العلاج</th><td>{{ visit.treatment_plan|linebreaksbr|default:"—" }}</td></tr>
+        <tr><th>موعد المتابعة</th><td>{{ visit.follow_up_date|date:"Y-m-d"|default:"—" }}</td></tr>
+        <tr><th>سجّلها</th><td>{{ visit.created_by.username|default:"—" }} — {{ visit.created_at|date:"Y-m-d H:i" }}</td></tr>
+      </table>
+
+      <a href="{% url 'medical:visit_update' visit.uuid %}" class="btn btn-primary mt-3">تعديل</a>
+      <a href="{% url 'patients:patient_detail' patient.uuid %}" class="btn btn-secondary mt-3">رجوع إلى ملف المريض</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

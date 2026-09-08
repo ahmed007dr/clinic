@@ -27,7 +27,7 @@ class DefaultTenantMigrationTests(TestCase):
     def test_default_roles_are_seeded_for_the_tenant(self):
         tenant = Tenant.objects.get()
         names = set(ClinicRole.all_objects.filter(tenant=tenant).values_list('name', flat=True))
-        self.assertEqual(names, {'Admin', 'Reception'})
+        self.assertEqual(names, {'Admin', 'Reception', 'Doctor'})
 
 
 class TenantOwnershipTests(TestCase):

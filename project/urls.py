@@ -25,6 +25,7 @@ urlpatterns = [
     path('notifications/', include(('notifications.urls', 'notifications'), namespace="notifications")),
     path('audit/', include(('audit.urls', 'audit'), namespace="audit")),
     path('services/', include(('services.urls', 'services'), namespace='services')),
+    path('medical/', include(('medical.urls', 'medical'), namespace='medical')),
     path('dashboard/', include(('dashboard.urls', 'dashboard'), namespace="dashboard")),
 
     #path('', lambda request: redirect('login')),

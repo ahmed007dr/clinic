@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "patients",
     "services",
     "appointments",
+    "medical",
     "billing",
     "reports",
     "branches",

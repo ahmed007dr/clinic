@@ -107,14 +107,14 @@ class ProvisioningTests(TestCase):
         tenant = create_tenant('Fresh Clinic', slug='fresh-clinic')
         roles = set(ClinicRole.all_objects.filter(tenant=tenant).values_list('name', flat=True))
         types = set(EmployeeType.all_objects.filter(tenant=tenant).values_list('name', flat=True))
-        self.assertEqual(roles, {'Admin', 'Reception'})
+        self.assertEqual(roles, {'Admin', 'Reception', 'Doctor'})
         self.assertIn('Doctor', types)
 
     def test_provisioning_is_idempotent(self):
         tenant = create_tenant('Fresh Clinic', slug='fresh-clinic')
         provision_tenant_defaults(tenant)
         provision_tenant_defaults(tenant)
-        self.assertEqual(ClinicRole.all_objects.filter(tenant=tenant).count(), 2)
+        self.assertEqual(ClinicRole.all_objects.filter(tenant=tenant).count(), 3)
 
     def test_a_new_tenant_does_not_inherit_another_tenants_roles(self):
         first = Tenant.objects.first()

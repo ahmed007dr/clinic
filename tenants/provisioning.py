@@ -14,6 +14,9 @@ PASSWORD_ALPHABET = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 DEFAULT_ROLES = [
     ("Admin", "System administrator"),
     ("Reception", "Reception staff"),
+    # Clinical access is granted by role. Without this, a clinic has no account
+    # that can record a diagnosis — see medical/permissions.py.
+    ("Doctor", "Clinician — may read and write medical records"),
 ]
 
 # Appointment.doctor filters on employee_type__name="Doctor" via

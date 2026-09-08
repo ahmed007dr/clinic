@@ -36,7 +36,7 @@ class CreateTenantCommandTests(TestCase):
         tenant, _ = onboard()
 
         roles = set(ClinicRole.all_objects.filter(tenant=tenant).values_list("name", flat=True))
-        self.assertEqual(roles, {"Admin", "Reception"})
+        self.assertEqual(roles, {"Admin", "Reception", "Doctor"})
         self.assertTrue(EmployeeType.all_objects.filter(tenant=tenant, name="Doctor").exists())
         self.assertEqual(Branch.all_objects.filter(tenant=tenant).count(), 1)
 

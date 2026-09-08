@@ -1,7 +1,8 @@
 from django import forms
 from .models import Appointment
+from tenants.forms import TenantScopedFormMixin
 
-class AppointmentForm(forms.ModelForm):
+class AppointmentForm(TenantScopedFormMixin, forms.ModelForm):
     class Meta:
         model = Appointment
         fields = ['patient', 'doctor', 'service', 'scheduled_date', 'status', 'branch', 'price', 'notes']

@@ -4,6 +4,11 @@
 {% block body %}
 <div class="container" dir="rtl">
   <h2>تفاصيل المريض - {{ clinic_name|default:"عيادة" }}</h2>
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-info{% endif %}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
   <div class="card">
     <div class="card-body">
       <h4 class="card-title">تفاصيل المريض: {{ patient.name }}</h4>
@@ -90,6 +95,49 @@
       {% endif %}
     </div>
   </div>
+
+  {% if show_clinical %}
+  <div class="card mt-4">
+    <div class="card-body">
+      <h4 class="card-title">الحساسية</h4>
+      {% if allergies %}
+        <div class="alert alert-danger">
+          {% for allergy in allergies %}
+            <strong>{{ allergy.substance }}</strong> ({{ allergy.get_severity_display }}){% if allergy.reaction %} — {{ allergy.reaction }}{% endif %}{% if not forloop.last %}<br>{% endif %}
+          {% endfor %}
+        </div>
+      {% else %}
+        <p>لا توجد حساسية مسجلة</p>
+      {% endif %}
+      <a href="{% url 'medical:allergy_create' patient.uuid %}" class="btn btn-sm btn-outline-danger">تسجيل حساسية</a>
+    </div>
+  </div>
+
+  <div class="card mt-4">
+    <div class="card-body">
+      <h4 class="card-title">السجل الطبي</h4>
+      <table class="table table-striped">
+        <thead>
+          <tr><th>رقم الزيارة</th><th>التاريخ</th><th>الطبيب</th><th>التشخيص</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for visit in visits %}
+          <tr>
+            <td>{{ visit.serial_number }}</td>
+            <td>{{ visit.visit_date|date:"Y-m-d" }}</td>
+            <td>{{ visit.doctor.name|default:"—" }}</td>
+            <td>{{ visit.diagnosis|truncatechars:60|default:"—" }}</td>
+            <td><a href="{% url 'medical:visit_detail' visit.uuid %}" class="btn btn-sm btn-info">تفاصيل</a></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5">لا توجد زيارات مسجلة</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <a href="{% url 'medical:visit_create' patient.uuid %}" class="btn btn-primary">تسجيل زيارة جديدة</a>
+    </div>
+  </div>
+  {% endif %}
 </div>
 <style>
   table { width: 100%; border-collapse: collapse; font-family: 'Cairo', sans-serif; }

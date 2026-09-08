@@ -79,6 +79,23 @@ Making `tenant` required surfaced four write paths that would otherwise have bro
 
 *(Superseded by TENANT-003 below, which removed the global unique constraints that made those seeding hooks single-tenant-only. One correction to an earlier note here: `EmployeeType.name` was never globally unique — only `ClinicRole.name` was.)*
 
+## Batch 3 — Clinical domain (doc §23, Phase 12)
+
+The system could schedule and bill, but a doctor had nowhere to record what happened. This is slice 1.
+
+| ID | Task | Status | Notes |
+|---|---|---|---|
+| MED-001 | `Visit` + `Allergy` models | DONE | New `medical` app. `Visit` is the encounter (complaint, examination, diagnosis, plan, follow-up), optionally linked to an Appointment — walk-ins have none, and a booking nobody attended produces no visit. Serial numbers reuse `SerialCounter`. `Allergy` is deliberately patient-level, not buried in the visit that recorded it, so it shows on every future encounter |
+| MED-002 | Clinical access control | DONE | **Reception never sees a diagnosis.** New `Doctor` role in provisioning; `medical/permissions.py` gates read/write to Doctor + Admin and fails closed for users with no role. Non-admins are branch-scoped on top of the tenant boundary. On the patient page the clinical queries are *skipped* for Reception, not filtered in the template. Doctors also gained access to the patient list/detail, which their role previously excluded them from entirely |
+| MED-003 | Medical retention | DONE | `Visit.patient`/`Allergy.patient` are `PROTECT` — a patient with clinical history cannot be deleted. `patient_delete` catches `ProtectedError` and explains itself instead of 500ing, and `patients/detail.html` now renders messages at all, which it never did |
+| MED-004 | Clinical demo data | DONE | `seed_demo` now seeds a `doctor@<slug>.local` account per tenant plus visits and allergies, so the confidentiality boundary can be seen rather than taken on trust: log in as the doctor, then as reception |
+
+### Found while implementing the clinical domain
+
+**Every dropdown on every form had been empty since TENANT-006.** `ModelChoiceField` builds its queryset when the form *class is imported* — long before any request — so the tenant-scoped manager resolved with no tenant in context, failed closed, and baked `.none()` into the field permanently. Nobody could create an appointment, payment, expense or employee through the UI.
+
+It was invisible because the only tests touching those forms asserted they were *invalid* — `test_payment_form_rejects_negative_amount` was passing for entirely the wrong reason. Fixed with `TenantScopedFormMixin` (`tenants/forms.py`), which rebinds relation querysets per instance at request time, reconstructing them the way `ForeignKey.formfield()` does so `limit_choices_to` survives. Applied to all 14 ModelForms, with regression tests asserting choices are actually *populated* and still tenant-scoped.
+
 ## Deploy note for SEC-009 — existing staff log in differently afterwards
 
 `accounts.0005_email_login` makes email the login credential. Accounts created under the old username-based login may have a blank or duplicated email, so the migration backfills before applying the unique constraint:
