@@ -110,35 +110,48 @@ class Command(BaseCommand):
     def _reset(self):
         self.stdout.write("Clearing existing data...")
         with transaction.atomic():
-            # Order matters: dependants before the rows they point at.
-            Payment.all_objects.all().delete()
-            Expense.all_objects.all().delete()
-            # Clinical records first: Visit.patient and Allergy.patient are
-            # PROTECT, so patients cannot be cleared while these exist.
-            PrescriptionItem.all_objects.all().delete()
-            Prescription.all_objects.all().delete()
-            Visit.all_objects.all().delete()
-            Allergy.all_objects.all().delete()
-            Appointment.all_objects.all().delete()
-            Notification.all_objects.all().delete()
-            Patient.all_objects.all().delete()
-            Employee.all_objects.all().delete()
-            Service.all_objects.all().delete()
-            ExpenseCategory.all_objects.all().delete()
-            PaymentMethod.all_objects.all().delete()
-            Specialization.all_objects.all().delete()
-            SalaryType.all_objects.all().delete()
+            # Tenant-owned tables are cleared one tenant at a time. Under
+            # PostgreSQL RLS an unbound DELETE matches nothing and reports
+            # success, so a blanket .all().delete() would quietly clear no rows
+            # and leave the seeder to collide with the data it thought it had
+            # removed. `all_objects` is not an escape hatch at this layer.
+            for tenant in Tenant.objects.all():
+                with tenant_context(tenant):
+                    self._clear_rows_for_current_tenant()
+
             SerialCounter.objects.all().delete()
             User.objects.filter(is_superuser=False).delete()
-            EmployeeType.all_objects.all().delete()
-            ClinicRole.all_objects.all().delete()
-            Branch.all_objects.all().delete()
 
             # Last: every delete above fires the audit signal and writes new
             # AuditLog rows pointing at the tenant, and AuditLog.tenant is
             # PROTECT — so clearing it any earlier just leaves fresh rows behind.
             AuditLog.objects.all().delete()
             Tenant.objects.exclude(slug="dr-ahmed").delete()
+
+    def _clear_rows_for_current_tenant(self):
+        # Order matters: dependants before the rows they point at.
+        Payment.all_objects.all().delete()
+        Expense.all_objects.all().delete()
+        # Clinical records first: Visit.patient and Allergy.patient are
+        # PROTECT, so patients cannot be cleared while these exist.
+        PrescriptionItem.all_objects.all().delete()
+        Prescription.all_objects.all().delete()
+        Visit.all_objects.all().delete()
+        Allergy.all_objects.all().delete()
+        Appointment.all_objects.all().delete()
+        Notification.all_objects.all().delete()
+        Patient.all_objects.all().delete()
+        Employee.all_objects.all().delete()
+        Service.all_objects.all().delete()
+        ExpenseCategory.all_objects.all().delete()
+        PaymentMethod.all_objects.all().delete()
+        Specialization.all_objects.all().delete()
+        SalaryType.all_objects.all().delete()
+        # User.role and User.branch are SET_NULL, so the users these rows
+        # belong to survive this and are removed by the caller.
+        EmployeeType.all_objects.all().delete()
+        ClinicRole.all_objects.all().delete()
+        Branch.all_objects.all().delete()
 
     # ------------------------------------------------------------------- seed
 
@@ -156,7 +169,7 @@ class Command(BaseCommand):
             branches = [
                 Branch.objects.get_or_create(
                     tenant=tenant, code=code,
-                    defaults={"name": name, "address": fake.address(), "phone": fake.phone_number()},
+                    defaults={"name": name, "address": fake.address(), "phone": fake.phone_number()[:20]},
                 )[0]
                 for name, code in spec["branches"]
             ]
@@ -221,7 +234,7 @@ class Command(BaseCommand):
                     employee_type=doctor_type if i < max(2, spec["employees"] // 2) else nurse_type,
                     branch=random.choice(branches),
                     national_id=fake.unique.numerify(text="##############"),
-                    phone1=fake.phone_number(),
+                    phone1=fake.phone_number()[:20],
                     email=fake.unique.email(),
                     hire_date=fake.date_between(start_date="-3y", end_date="today"),
                     salary_type=random.choice(salary_types),
@@ -239,7 +252,7 @@ class Command(BaseCommand):
                     national_id=fake.unique.numerify(text="##############"),
                     gender=random.choice(["male", "female"]),
                     birth_date=fake.date_of_birth(minimum_age=18, maximum_age=80),
-                    phone1=fake.phone_number(),
+                    phone1=fake.phone_number()[:20],
                     email=fake.unique.email(),
                     marital_status=random.choice(["single", "married"]),
                     address=fake.address(),

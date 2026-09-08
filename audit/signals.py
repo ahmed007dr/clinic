@@ -1,9 +1,10 @@
+from django.db import transaction
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.utils import timezone
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ImproperlyConfigured
-from django.db.utils import OperationalError, ProgrammingError, IntegrityError
+from django.db.utils import DatabaseError, OperationalError, ProgrammingError, IntegrityError
 from .models import AuditLog
 from .middleware import get_current_request
 
@@ -17,11 +18,22 @@ EXCLUDED_MODELS = {"AuditLog", "Session", "ContentType", "Migration"}
 
 
 def create_audit_log(user, action, instance, description=""):
-    """Helper لإنشاء AuditLog"""
+    """Write one audit row, and never break the caller's transaction.
+
+    Every risky statement runs inside its own savepoint. On PostgreSQL a failed
+    statement poisons the entire transaction — every later statement raises
+    "current transaction is aborted" — so catching the error is not enough on
+    its own: without a savepoint to roll back to, swallowing it leaves the
+    connection unusable and the *caller* dies instead.
+
+    That is not hypothetical. It made `manage.py test` fail outright on
+    PostgreSQL while passing on SQLite, which tolerates the same mistake.
+    """
     try:
-        model_name = ContentType.objects.get_for_model(instance).model
+        with transaction.atomic():
+            model_name = ContentType.objects.get_for_model(instance).model
     except (OperationalError, ProgrammingError, ImproperlyConfigured, IntegrityError):
-        # قاعدة البيانات لسه ما خلصتش إعدادها (أثناء migrate/loaddata)
+        # Schema not settled yet — during migrate or loaddata.
         return
 
     object_id = instance.pk
@@ -30,19 +42,20 @@ def create_audit_log(user, action, instance, description=""):
     agent = request.META.get("HTTP_USER_AGENT") if request else None
 
     try:
-        AuditLog.objects.create(
-            tenant=getattr(instance, "tenant", None),
-            user=user if user and getattr(user, "is_authenticated", False) else None,
-            action=action,
-            model_name=model_name,
-            object_id=str(object_id),
-            description=description,
-            ip_address=ip,
-            user_agent=agent,
-            created_at=timezone.now(),
-        )
-    except (OperationalError, ProgrammingError):
-        # نفس الفكرة: لسه الجداول ما خلصتش
+        with transaction.atomic():
+            AuditLog.objects.create(
+                tenant=getattr(instance, "tenant", None),
+                user=user if user and getattr(user, "is_authenticated", False) else None,
+                action=action,
+                model_name=model_name,
+                object_id=str(object_id),
+                description=description,
+                ip_address=ip,
+                user_agent=agent,
+                created_at=timezone.now(),
+            )
+    except DatabaseError:
+        # Auditing must never be the reason a real operation fails.
         return
 
 

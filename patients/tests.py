@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from accounts.models import ClinicRole
 from branches.models import Branch
 from tenants.models import Tenant
+from tenants.testing import act_as_tenant
 from .models import Patient
 
 User = get_user_model()
@@ -14,6 +15,7 @@ class PatientBranchScopingTests(TestCase):
 
     def setUp(self):
         self.tenant = Tenant.objects.first()  # created by tenants.0002 data migration
+        act_as_tenant(self, self.tenant)
         self.branch_a = Branch.all_objects.create(tenant=self.tenant, name='Branch A', code='A')
         self.branch_b = Branch.all_objects.create(tenant=self.tenant, name='Branch B', code='B')
         self.admin_role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Admin')

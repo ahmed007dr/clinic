@@ -8,6 +8,15 @@ class TenantOwnedAdmin(admin.ModelAdmin):
 
     The default manager is tenant-scoped and fails closed, which would leave
     every changelist empty here, so read through the unfiltered manager.
+
+    Known limitation under PostgreSQL row-level security (tenants.0005):
+    `all_objects` bypasses the manager but not the policies, and platform staff
+    carry no tenant, so these changelists come back empty rather than
+    cross-tenant. That fails closed — it is a loss of function, not a leak —
+    and it is why cross-tenant platform administration is scheduled with the
+    platform-admin work in P4, where it can be built on a deliberate second
+    connection using a BYPASSRLS role. Widening the policies to accommodate the
+    admin would give that reach to every query in the application.
     """
 
     def get_queryset(self, request):

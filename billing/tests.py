@@ -7,6 +7,7 @@ from branches.models import Branch
 from patients.models import Patient
 from appointments.models import Appointment
 from tenants.models import Tenant
+from tenants.testing import act_as_tenant
 from .models import Payment
 from .forms import PaymentForm, ExpenseForm
 
@@ -16,6 +17,7 @@ User = get_user_model()
 class BillingTestBase(TestCase):
     def setUp(self):
         self.tenant = Tenant.objects.first()  # created by tenants.0002 data migration
+        act_as_tenant(self, self.tenant)
         self.branch_a = Branch.all_objects.create(tenant=self.tenant, name='Branch A', code='A')
         self.branch_b = Branch.all_objects.create(tenant=self.tenant, name='Branch B', code='B')
         self.admin_role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Admin')

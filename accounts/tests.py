@@ -5,6 +5,7 @@ from django.urls import reverse
 
 from employees.models import EmployeeType
 from patients.models import Patient
+from tenants.context import tenant_context
 from tenants.models import Tenant
 from tenants.provisioning import create_tenant, provision_tenant_defaults
 
@@ -19,7 +20,11 @@ class EmailLoginTests(TestCase):
 
     def setUp(self):
         self.tenant = Tenant.objects.first()
-        self.role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Admin')
+        # tenant_context, not bare all_objects: under PostgreSQL RLS a row can
+        # only be written by a connection that has declared which tenant it is
+        # acting for. Production does this in middleware; tests must be explicit.
+        with tenant_context(self.tenant):
+            self.role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Admin')
         self.user = User.objects.create_user(
             username='admin', email='doctor@clinic.test', password='pass12345',
             tenant=self.tenant, role=self.role,
@@ -77,7 +82,8 @@ class PlatformStaffTests(TestCase):
 
     def setUp(self):
         self.tenant = Tenant.objects.first()
-        Patient.all_objects.create(tenant=self.tenant, name='Someone')
+        with tenant_context(self.tenant):
+            Patient.all_objects.create(tenant=self.tenant, name='Someone')
         self.operator = User.objects.create_user(
             username='operator', email='ops@platform.test', password='pass12345',
             tenant=None, is_platform_staff=True,
@@ -101,12 +107,17 @@ class PlatformStaffTests(TestCase):
 
 
 class ProvisioningTests(TestCase):
-    """SEC-010: seeding a tenant belongs to tenant setup, not to migrate."""
+    """SEC-010: seeding a tenant belongs to tenant setup, not to migrate.
+
+    Reads here are wrapped too, not just writes: `all_objects` bypasses the
+    application-layer manager but not RLS, so an unbound read returns nothing.
+    """
 
     def test_create_tenant_seeds_roles_and_doctor_type(self):
         tenant = create_tenant('Fresh Clinic', slug='fresh-clinic')
-        roles = set(ClinicRole.all_objects.filter(tenant=tenant).values_list('name', flat=True))
-        types = set(EmployeeType.all_objects.filter(tenant=tenant).values_list('name', flat=True))
+        with tenant_context(tenant):
+            roles = set(ClinicRole.all_objects.filter(tenant=tenant).values_list('name', flat=True))
+            types = set(EmployeeType.all_objects.filter(tenant=tenant).values_list('name', flat=True))
         self.assertEqual(roles, {'Admin', 'Reception', 'Doctor'})
         self.assertIn('Doctor', types)
 
@@ -114,12 +125,14 @@ class ProvisioningTests(TestCase):
         tenant = create_tenant('Fresh Clinic', slug='fresh-clinic')
         provision_tenant_defaults(tenant)
         provision_tenant_defaults(tenant)
-        self.assertEqual(ClinicRole.all_objects.filter(tenant=tenant).count(), 3)
+        with tenant_context(tenant):
+            self.assertEqual(ClinicRole.all_objects.filter(tenant=tenant).count(), 3)
 
     def test_a_new_tenant_does_not_inherit_another_tenants_roles(self):
         first = Tenant.objects.first()
         tenant = create_tenant('Fresh Clinic', slug='fresh-clinic')
-        self.assertNotEqual(
-            set(ClinicRole.all_objects.filter(tenant=first).values_list('id', flat=True)),
-            set(ClinicRole.all_objects.filter(tenant=tenant).values_list('id', flat=True)),
-        )
+        with tenant_context(first):
+            first_roles = set(ClinicRole.all_objects.filter(tenant=first).values_list('id', flat=True))
+        with tenant_context(tenant):
+            new_roles = set(ClinicRole.all_objects.filter(tenant=tenant).values_list('id', flat=True))
+        self.assertNotEqual(first_roles, new_roles)

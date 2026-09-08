@@ -11,6 +11,7 @@ another clinic's records is the tenant scoping itself.
 """
 
 from django.contrib.auth import get_user_model
+from django.db import connection
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -25,6 +26,7 @@ from services.models import Service
 
 from .context import get_current_tenant, tenant_context
 from .models import Tenant
+from .testing import act_as_tenant
 
 User = get_user_model()
 
@@ -34,29 +36,31 @@ class CrossTenantIsolationTests(TestCase):
         self.a = Tenant.objects.first()
         self.b = Tenant.objects.create(name='Rival Clinic', slug='rival-clinic', status=Tenant.Status.ACTIVE)
 
-        role_a, _ = ClinicRole.all_objects.get_or_create(tenant=self.a, name='Admin')
-        branch_a = Branch.all_objects.create(tenant=self.a, name='A Main', code='AM')
+        with tenant_context(self.a):
+            role_a, _ = ClinicRole.all_objects.get_or_create(tenant=self.a, name='Admin')
+            branch_a = Branch.all_objects.create(tenant=self.a, name='A Main', code='AM')
         self.user_a = User.objects.create_user(
             username='a-admin', email='aadmin@t.local', password='pass12345',
             tenant=self.a, role=role_a, branch=branch_a,
         )
 
         # Everything below belongs to tenant B and must stay unreachable.
-        self.branch_b = Branch.all_objects.create(tenant=self.b, name='B Main', code='BM')
-        self.patient_b = Patient.all_objects.create(tenant=self.b, name='B Patient', branch=self.branch_b)
-        self.appointment_b = Appointment.all_objects.create(
-            tenant=self.b, patient=self.patient_b,
-            scheduled_date=timezone.now(), branch=self.branch_b,
-        )
-        self.payment_b = Payment.all_objects.create(
-            tenant=self.b, appointment=self.appointment_b, patient=self.patient_b,
-            receipt_number='B-1', amount=50, branch=self.branch_b,
-        )
-        self.employee_b = Employee.all_objects.create(
-            tenant=self.b, name='B Doctor', branch=self.branch_b,
-            national_id='B123456', salary_value=1000,
-        )
-        self.service_b = Service.all_objects.create(tenant=self.b, name='B Service', base_price=10)
+        with tenant_context(self.b):
+            self.branch_b = Branch.all_objects.create(tenant=self.b, name='B Main', code='BM')
+            self.patient_b = Patient.all_objects.create(tenant=self.b, name='B Patient', branch=self.branch_b)
+            self.appointment_b = Appointment.all_objects.create(
+                tenant=self.b, patient=self.patient_b,
+                scheduled_date=timezone.now(), branch=self.branch_b,
+            )
+            self.payment_b = Payment.all_objects.create(
+                tenant=self.b, appointment=self.appointment_b, patient=self.patient_b,
+                receipt_number='B-1', amount=50, branch=self.branch_b,
+            )
+            self.employee_b = Employee.all_objects.create(
+                tenant=self.b, name='B Doctor', branch=self.branch_b,
+                national_id='B123456', salary_value=1000,
+            )
+            self.service_b = Service.all_objects.create(tenant=self.b, name='B Service', base_price=10)
 
         self.client.login(email='aadmin@t.local', password='pass12345')
 
@@ -91,7 +95,10 @@ class CrossTenantIsolationTests(TestCase):
 
     def test_deleting_another_tenants_patient_leaves_it_intact(self):
         self.client.post(reverse('patients:patient_delete', args=[self.patient_b.uuid]), {})
-        self.assertTrue(Patient.all_objects.filter(pk=self.patient_b.pk).exists())
+        # Checked from inside tenant B. Asking unbound would return nothing
+        # whether or not the row survived, so the assertion would hold vacuously.
+        with tenant_context(self.b):
+            self.assertTrue(Patient.all_objects.filter(pk=self.patient_b.pk).exists())
 
     def test_list_views_do_not_include_another_tenants_rows(self):
         response = self.client.get(reverse('patients:patient_list'))
@@ -112,11 +119,18 @@ class FormChoiceTests(TestCase):
     def setUp(self):
         self.a = Tenant.objects.first()
         self.b = Tenant.objects.create(name='Rival', slug='rival', status=Tenant.Status.ACTIVE)
-        role, _ = ClinicRole.all_objects.get_or_create(tenant=self.a, name='Admin')
-        self.branch = Branch.all_objects.create(tenant=self.a, name='Main', code='MN')
-        Branch.all_objects.create(tenant=self.b, name='Theirs', code='TH')
-        Patient.all_objects.create(tenant=self.a, name='Ours', branch=self.branch)
-        Patient.all_objects.create(tenant=self.b, name='Theirs', branch=None)
+        # A form's ModelChoiceField queryset is lazy: it is evaluated by the
+        # assertion, after the response has returned and the middleware has put
+        # the binding back. Without an outer binding here it would evaluate
+        # unbound and count zero.
+        act_as_tenant(self, self.a)
+        with tenant_context(self.a):
+            role, _ = ClinicRole.all_objects.get_or_create(tenant=self.a, name='Admin')
+            self.branch = Branch.all_objects.create(tenant=self.a, name='Main', code='MN')
+            Patient.all_objects.create(tenant=self.a, name='Ours', branch=self.branch)
+        with tenant_context(self.b):
+            Branch.all_objects.create(tenant=self.b, name='Theirs', code='TH')
+            Patient.all_objects.create(tenant=self.b, name='Theirs', branch=None)
         User.objects.create_user(
             username='admin', email='admin@t.local', password='pass12345',
             tenant=self.a, role=role, branch=self.branch,
@@ -151,8 +165,10 @@ class ManagerScopingTests(TestCase):
     def setUp(self):
         self.a = Tenant.objects.first()
         self.b = Tenant.objects.create(name='Rival Clinic', slug='rival-clinic', status=Tenant.Status.ACTIVE)
-        Patient.all_objects.create(tenant=self.a, name='A Patient')
-        Patient.all_objects.create(tenant=self.b, name='B Patient')
+        with tenant_context(self.a):
+            Patient.all_objects.create(tenant=self.a, name='A Patient')
+        with tenant_context(self.b):
+            Patient.all_objects.create(tenant=self.b, name='B Patient')
 
     def test_no_tenant_in_context_returns_nothing(self):
         """Fails closed. Returning everything here would be the dangerous default."""
@@ -165,8 +181,23 @@ class ManagerScopingTests(TestCase):
         with tenant_context(self.b):
             self.assertEqual([p.name for p in Patient.objects.all()], ['B Patient'])
 
-    def test_all_objects_is_the_deliberate_way_across_tenants(self):
-        self.assertEqual(Patient.all_objects.count(), 2)
+    def test_all_objects_bypasses_the_manager_but_not_the_database(self):
+        """`all_objects` is an application-layer escape hatch, and that is all
+        it is — a point worth pinning, because the name suggests otherwise.
+
+        On PostgreSQL the RLS policies are a second, independent gate that no
+        manager choice can open: reaching another tenant's rows needs a
+        connection bound to that tenant, or a role holding BYPASSRLS. So
+        `all_objects` sees one tenant there and both on SQLite, and code that
+        relies on it spanning tenants (platform admin, the demo seeder's reset)
+        behaves differently on the two backends.
+        """
+        with tenant_context(self.a):
+            self.assertEqual(Patient.objects.count(), 1)  # manager scopes
+            if connection.vendor == 'postgresql':
+                self.assertEqual(Patient.all_objects.count(), 1)  # RLS still applies
+            else:
+                self.assertEqual(Patient.all_objects.count(), 2)  # no RLS on SQLite
 
     def test_context_does_not_leak_out_of_its_block(self):
         with tenant_context(self.a):
@@ -176,7 +207,8 @@ class ManagerScopingTests(TestCase):
     def test_foreign_key_traversal_still_works_without_context(self):
         """base_manager_name keeps _base_manager unfiltered; if it were
         scoped, following a FK with no tenant in context would blow up."""
-        payment_branch = Branch.all_objects.create(tenant=self.a, name='FK Branch', code='FK')
-        patient = Patient.all_objects.create(tenant=self.a, name='FK Patient', branch=payment_branch)
-        fetched = Patient.all_objects.get(pk=patient.pk)
-        self.assertEqual(fetched.branch.name, 'FK Branch')
+        with tenant_context(self.a):
+            payment_branch = Branch.all_objects.create(tenant=self.a, name='FK Branch', code='FK')
+            patient = Patient.all_objects.create(tenant=self.a, name='FK Patient', branch=payment_branch)
+            fetched = Patient.all_objects.get(pk=patient.pk)
+            self.assertEqual(fetched.branch.name, 'FK Branch')

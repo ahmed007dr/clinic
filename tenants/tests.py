@@ -9,7 +9,9 @@ from branches.models import Branch
 from patients.models import Patient
 from services.models import Service
 
+from .context import tenant_context
 from .models import SerialCounter, Tenant
+from .testing import act_as_tenant
 
 
 class DefaultTenantMigrationTests(TestCase):
@@ -26,13 +28,15 @@ class DefaultTenantMigrationTests(TestCase):
 
     def test_default_roles_are_seeded_for_the_tenant(self):
         tenant = Tenant.objects.get()
-        names = set(ClinicRole.all_objects.filter(tenant=tenant).values_list('name', flat=True))
+        with tenant_context(tenant):
+            names = set(ClinicRole.all_objects.filter(tenant=tenant).values_list('name', flat=True))
         self.assertEqual(names, {'Admin', 'Reception', 'Doctor'})
 
 
 class TenantOwnershipTests(TestCase):
     def setUp(self):
         self.tenant = Tenant.objects.first()
+        act_as_tenant(self, self.tenant)
 
     def test_tenant_is_required_on_owned_models(self):
         with self.assertRaises(Exception):
@@ -53,25 +57,44 @@ class PerTenantUniquenessTests(TestCase):
         self.a = Tenant.objects.first()
         self.b = Tenant.objects.create(name='Second Clinic', slug='second-clinic', status=Tenant.Status.ACTIVE)
 
+    def _count(self, model, tenant, **lookup):
+        """Counts are filtered by tenant explicitly rather than swept across
+        the table. Under RLS the app role cannot see two tenants at once — and
+        an explicit filter reads the same on SQLite, so the assertion means the
+        same thing on both backends.
+        """
+        with tenant_context(tenant):
+            return model.all_objects.filter(tenant=tenant, **lookup).count()
+
     def test_two_tenants_can_reuse_a_branch_name_and_code(self):
-        Branch.all_objects.create(tenant=self.a, name='Main', code='MAIN')
-        Branch.all_objects.create(tenant=self.b, name='Main', code='MAIN')
-        self.assertEqual(Branch.all_objects.filter(name='Main').count(), 2)
+        with tenant_context(self.a):
+            Branch.all_objects.create(tenant=self.a, name='Main', code='MAIN')
+        with tenant_context(self.b):
+            Branch.all_objects.create(tenant=self.b, name='Main', code='MAIN')
+        self.assertEqual(self._count(Branch, self.a, name='Main'), 1)
+        self.assertEqual(self._count(Branch, self.b, name='Main'), 1)
 
     def test_two_tenants_can_reuse_a_service_name(self):
-        Service.all_objects.create(tenant=self.a, name='Consultation', base_price=100)
-        Service.all_objects.create(tenant=self.b, name='Consultation', base_price=250)
-        self.assertEqual(Service.all_objects.filter(name='Consultation').count(), 2)
+        with tenant_context(self.a):
+            Service.all_objects.create(tenant=self.a, name='Consultation', base_price=100)
+        with tenant_context(self.b):
+            Service.all_objects.create(tenant=self.b, name='Consultation', base_price=250)
+        self.assertEqual(self._count(Service, self.a, name='Consultation'), 1)
+        self.assertEqual(self._count(Service, self.b, name='Consultation'), 1)
 
     def test_two_tenants_can_hold_the_same_role_names(self):
-        ClinicRole.all_objects.get_or_create(tenant=self.a, name='Admin')
-        ClinicRole.all_objects.get_or_create(tenant=self.b, name='Admin')
-        self.assertEqual(ClinicRole.all_objects.filter(name='Admin').count(), 2)
+        with tenant_context(self.a):
+            ClinicRole.all_objects.get_or_create(tenant=self.a, name='Admin')
+        with tenant_context(self.b):
+            ClinicRole.all_objects.get_or_create(tenant=self.b, name='Admin')
+        self.assertEqual(self._count(ClinicRole, self.a, name='Admin'), 1)
+        self.assertEqual(self._count(ClinicRole, self.b, name='Admin'), 1)
 
     def test_duplicate_within_one_tenant_is_still_rejected(self):
-        Branch.all_objects.create(tenant=self.a, name='Clinic X', code='CX')
-        with self.assertRaises(Exception):
-            Branch.all_objects.create(tenant=self.a, name='Clinic X', code='CX2')
+        with tenant_context(self.a):
+            Branch.all_objects.create(tenant=self.a, name='Clinic X', code='CX')
+            with self.assertRaises(Exception):
+                Branch.all_objects.create(tenant=self.a, name='Clinic X', code='CX2')
 
 
 class SerialNumberTests(TestCase):
@@ -83,9 +106,11 @@ class SerialNumberTests(TestCase):
         self.b = Tenant.objects.create(name='Second Clinic', slug='second-clinic', status=Tenant.Status.ACTIVE)
 
     def test_each_tenant_starts_its_own_day_at_001(self):
-        first_a = Patient.all_objects.create(tenant=self.a, name='A1')
-        Patient.all_objects.create(tenant=self.a, name='A2')
-        first_b = Patient.all_objects.create(tenant=self.b, name='B1')
+        with tenant_context(self.a):
+            first_a = Patient.all_objects.create(tenant=self.a, name='A1')
+            Patient.all_objects.create(tenant=self.a, name='A2')
+        with tenant_context(self.b):
+            first_b = Patient.all_objects.create(tenant=self.b, name='B1')
 
         today = timezone.now().date().strftime('%Y%m%d')
         self.assertEqual(first_a.serial_number, f'{today}-001')
@@ -93,7 +118,11 @@ class SerialNumberTests(TestCase):
         self.assertEqual(first_b.serial_number, f'{today}-001')
 
     def test_serials_increment_within_a_tenant(self):
-        serials = [Patient.all_objects.create(tenant=self.a, name=f'P{i}').serial_number for i in range(3)]
+        with tenant_context(self.a):
+            serials = [
+                Patient.all_objects.create(tenant=self.a, name=f'P{i}').serial_number
+                for i in range(3)
+            ]
         today = timezone.now().date().strftime('%Y%m%d')
         self.assertEqual(serials, [f'{today}-001', f'{today}-002', f'{today}-003'])
 

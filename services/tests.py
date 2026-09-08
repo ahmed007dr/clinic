@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from accounts.models import ClinicRole
 from branches.models import Branch
 from tenants.models import Tenant
+from tenants.testing import act_as_tenant
 from .forms import ServiceForm
 
 User = get_user_model()
@@ -15,6 +16,7 @@ class ServiceAuthorizationTests(TestCase):
 
     def setUp(self):
         self.tenant = Tenant.objects.first()  # created by tenants.0002 data migration
+        act_as_tenant(self, self.tenant)
         self.branch = Branch.all_objects.create(tenant=self.tenant, name='Branch A', code='A')
         self.admin_role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Admin')
         self.reception_role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Reception')

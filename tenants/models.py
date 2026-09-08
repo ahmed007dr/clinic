@@ -40,6 +40,16 @@ class TenantManager(models.Manager):
     a mistake falls matters more than whether one happens. Use `all_objects`
     where crossing tenants is genuinely intended (platform staff, scheduled
     jobs that loop over tenants, migrations).
+
+    `all_objects` opens this manager and nothing else — the name overpromises.
+    On PostgreSQL the row-level security policies installed by tenants.0005 are
+    a second, independent gate, and no manager choice reaches past them: rows
+    belonging to another tenant need a connection bound to that tenant (see
+    tenants.context.bind_database_tenant) or a role holding BYPASSRLS, which
+    the application role deliberately does not have. So code that loops over
+    tenants must enter `tenant_context` per tenant rather than sweeping the
+    table once — a sweep quietly returns nothing on PostgreSQL while working
+    on SQLite.
     """
 
     def get_queryset(self):

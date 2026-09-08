@@ -1,4 +1,9 @@
-from .context import reset_current_tenant, set_current_tenant
+from .context import (
+    bind_database_tenant,
+    reset_current_tenant,
+    restore_database_tenant,
+    set_current_tenant,
+)
 
 
 class TenantMiddleware:
@@ -20,7 +25,9 @@ class TenantMiddleware:
         tenant = user.tenant if (user is not None and user.is_authenticated) else None
 
         token = set_current_tenant(tenant)
+        previous = bind_database_tenant(tenant)
         try:
             return self.get_response(request)
         finally:
             reset_current_tenant(token)
+            restore_database_tenant(previous)

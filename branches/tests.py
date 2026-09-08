@@ -3,6 +3,7 @@ from django.urls import reverse
 from django.contrib.auth import get_user_model
 from accounts.models import ClinicRole
 from tenants.models import Tenant
+from tenants.testing import act_as_tenant
 from .models import Branch
 
 User = get_user_model()
@@ -13,6 +14,7 @@ class BranchAuthorizationTests(TestCase):
 
     def setUp(self):
         self.tenant = Tenant.objects.first()  # created by tenants.0002 data migration
+        act_as_tenant(self, self.tenant)
         self.branch_a = Branch.all_objects.create(tenant=self.tenant, name='Branch A', code='A')
         self.admin_role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Admin')
         self.reception_role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Reception')

@@ -27,19 +27,27 @@ DEFAULT_EMPLOYEE_TYPES = [
 
 
 def provision_tenant_defaults(tenant):
-    """Idempotent — safe to run against a tenant that already has its rows."""
+    """Idempotent — safe to run against a tenant that already has its rows.
+
+    Runs inside tenant_context because these rows are tenant-owned: under
+    PostgreSQL row-level security an INSERT is rejected unless the connection
+    has declared which tenant it is acting for.
+    """
     from accounts.models import ClinicRole
     from employees.models import EmployeeType
 
-    for name, description in DEFAULT_ROLES:
-        ClinicRole.all_objects.get_or_create(
-            tenant=tenant, name=name, defaults={"description": description}
-        )
+    from .context import tenant_context
 
-    for name, description in DEFAULT_EMPLOYEE_TYPES:
-        EmployeeType.all_objects.get_or_create(
-            tenant=tenant, name=name, defaults={"description": description}
-        )
+    with tenant_context(tenant):
+        for name, description in DEFAULT_ROLES:
+            ClinicRole.all_objects.get_or_create(
+                tenant=tenant, name=name, defaults={"description": description}
+            )
+
+        for name, description in DEFAULT_EMPLOYEE_TYPES:
+            EmployeeType.all_objects.get_or_create(
+                tenant=tenant, name=name, defaults={"description": description}
+            )
 
     return tenant
 
@@ -61,9 +69,12 @@ def create_first_branch(tenant, name, code=None):
     appointments all hang off one."""
     from branches.models import Branch
 
+    from .context import tenant_context
+
     # slugify() returns "" for Arabic names, so fall back rather than blank.
     fallback = slugify(name).upper()[:20] or "MAIN"
-    return Branch.all_objects.create(tenant=tenant, name=name, code=code or fallback)
+    with tenant_context(tenant):
+        return Branch.all_objects.create(tenant=tenant, name=name, code=code or fallback)
 
 
 def create_tenant_admin(tenant, email, password=None, username="admin", branch=None):
@@ -76,21 +87,24 @@ def create_tenant_admin(tenant, email, password=None, username="admin", branch=N
 
     from accounts.models import ClinicRole
 
+    from .context import tenant_context
+
     User = get_user_model()
 
     if password is None:
         password = get_random_string(14, allowed_chars=PASSWORD_ALPHABET)
 
-    # provision_tenant_defaults guarantees this exists.
-    admin_role = ClinicRole.all_objects.get(tenant=tenant, name="Admin")
+    with tenant_context(tenant):
+        # provision_tenant_defaults guarantees this exists.
+        admin_role = ClinicRole.all_objects.get(tenant=tenant, name="Admin")
 
-    user = User.objects.create_user(
-        username=username,
-        email=email,
-        password=password,
-        tenant=tenant,
-        role=admin_role,
-        branch=branch,
-        clinic_code=tenant.slug.upper()[:20],
-    )
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=password,
+            tenant=tenant,
+            role=admin_role,
+            branch=branch,
+            clinic_code=tenant.slug.upper()[:20],
+        )
     return user, password

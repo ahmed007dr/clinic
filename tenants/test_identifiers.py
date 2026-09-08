@@ -22,6 +22,7 @@ from patients.models import Patient
 from patients.views import patient_detail
 
 from .models import Tenant
+from .testing import act_as_tenant
 
 User = get_user_model()
 
@@ -29,6 +30,7 @@ User = get_user_model()
 class PublicIdentifierTests(TestCase):
     def setUp(self):
         self.tenant = Tenant.objects.first()
+        act_as_tenant(self, self.tenant)
         role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Admin')
         self.branch = Branch.all_objects.create(tenant=self.tenant, name='Main', code='MN')
         self.user = User.objects.create_user(
@@ -86,6 +88,7 @@ class TicketNumberDisplayTests(TestCase):
 
     def setUp(self):
         self.tenant = Tenant.objects.first()
+        act_as_tenant(self, self.tenant)
         role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Admin')
         self.branch = Branch.all_objects.create(tenant=self.tenant, name='Main', code='MN')
         self.user = User.objects.create_user(

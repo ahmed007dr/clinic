@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from accounts.models import ClinicRole
 from branches.models import Branch
 from tenants.models import Tenant
+from tenants.testing import act_as_tenant
 from .models import AuditLog
 
 User = get_user_model()
@@ -14,6 +15,7 @@ class AuditLogAccessTests(TestCase):
 
     def setUp(self):
         self.tenant = Tenant.objects.first()  # created by tenants.0002 data migration
+        act_as_tenant(self, self.tenant)
         self.branch = Branch.all_objects.create(tenant=self.tenant, name='Branch A', code='A')
         self.admin_role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Admin')
         self.reception_role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Reception')
@@ -38,6 +40,7 @@ class LoginLogoutAuditTests(TestCase):
 
     def setUp(self):
         self.tenant = Tenant.objects.first()  # created by tenants.0002 data migration
+        act_as_tenant(self, self.tenant)
         self.branch = Branch.all_objects.create(tenant=self.tenant, name='Branch A', code='A')
         self.admin_role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Admin')
         self.user = User.objects.create_user(username='admin', email='admin@t.local', password='pass12345', tenant=self.tenant, role=self.admin_role, branch=self.branch)

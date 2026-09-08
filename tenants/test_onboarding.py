@@ -19,6 +19,7 @@ from branches.models import Branch
 from employees.models import EmployeeType
 from patients.models import Patient
 
+from .context import tenant_context
 from .models import Tenant
 from .provisioning import create_first_branch, create_tenant_admin, provision_tenant_defaults
 
@@ -35,15 +36,20 @@ class CreateTenantCommandTests(TestCase):
     def test_provisions_a_complete_usable_tenant(self):
         tenant, _ = onboard()
 
-        roles = set(ClinicRole.all_objects.filter(tenant=tenant).values_list("name", flat=True))
-        self.assertEqual(roles, {"Admin", "Reception", "Doctor"})
-        self.assertTrue(EmployeeType.all_objects.filter(tenant=tenant, name="Doctor").exists())
-        self.assertEqual(Branch.all_objects.filter(tenant=tenant).count(), 1)
+        with tenant_context(tenant):
+            roles = set(ClinicRole.all_objects.filter(tenant=tenant).values_list("name", flat=True))
+            self.assertEqual(roles, {"Admin", "Reception", "Doctor"})
+            self.assertTrue(EmployeeType.all_objects.filter(tenant=tenant, name="Doctor").exists())
+            self.assertEqual(Branch.all_objects.filter(tenant=tenant).count(), 1)
 
         admin = User.objects.get(email="admin@nile.example")
         self.assertEqual(admin.tenant, tenant)
-        self.assertEqual(admin.role.name, "Admin")
-        self.assertEqual(admin.branch.tenant, tenant)
+        # accounts_user carries no RLS policy — authentication has to find the
+        # user before any tenant is known — but role and branch do, so
+        # following those FKs needs the binding.
+        with tenant_context(tenant):
+            self.assertEqual(admin.role.name, "Admin")
+            self.assertEqual(admin.branch.tenant, tenant)
 
     def test_generated_password_is_shown_and_actually_works(self):
         _, output = onboard()
@@ -80,7 +86,8 @@ class CreateTenantCommandTests(TestCase):
         password was shown — losing a credential that cannot be recovered."""
         _, output = onboard(branch="المعادي", branch_code="MAADI")
         self.assertIn("password", output)
-        branch = Branch.all_objects.get(tenant__slug="nile-clinic")
+        with tenant_context(Tenant.objects.get(slug="nile-clinic")):
+            branch = Branch.all_objects.get(tenant__slug="nile-clinic")
         self.assertEqual(branch.name, "المعادي")
 
     def test_credentials_are_printed_before_any_user_supplied_text(self):
@@ -105,9 +112,10 @@ class NewTenantIsolationTests(TestCase):
         self.existing_admin, self.existing_password = create_tenant_admin(
             self.existing, "admin@existing.example", password="pass12345", branch=branch
         )
-        self.existing_patient = Patient.all_objects.create(
-            tenant=self.existing, name="Existing Patient", branch=branch
-        )
+        with tenant_context(self.existing):
+            self.existing_patient = Patient.all_objects.create(
+                tenant=self.existing, name="Existing Patient", branch=branch
+            )
 
         self.new, output = onboard()
         self.new_password = [
@@ -128,35 +136,51 @@ class NewTenantIsolationTests(TestCase):
         self.assertEqual(response.status_code, 404)
 
     def test_the_existing_tenant_is_unaffected_by_the_new_one(self):
-        new_patient = Patient.all_objects.create(
-            tenant=self.new, name="Nile Patient",
-            branch=Branch.all_objects.get(tenant=self.new),
-        )
+        with tenant_context(self.new):
+            Patient.all_objects.create(
+                tenant=self.new, name="Nile Patient",
+                branch=Branch.all_objects.get(tenant=self.new),
+            )
         self.client.login(email="admin@existing.example", password="pass12345")
         response = self.client.get(reverse("patients:patient_list"))
         self.assertContains(response, "Existing Patient")
         self.assertNotContains(response, "Nile Patient")
 
     def test_each_tenant_gets_its_own_roles_not_shared_rows(self):
-        existing_roles = set(
-            ClinicRole.all_objects.filter(tenant=self.existing).values_list("id", flat=True)
-        )
-        new_roles = set(ClinicRole.all_objects.filter(tenant=self.new).values_list("id", flat=True))
+        # Each side is read under its own binding. Read unbound, both sets come
+        # back empty and isdisjoint() is trivially true — the assertion would
+        # hold even if the two tenants shared every row.
+        with tenant_context(self.existing):
+            existing_roles = set(
+                ClinicRole.all_objects.filter(tenant=self.existing).values_list("id", flat=True)
+            )
+        with tenant_context(self.new):
+            new_roles = set(
+                ClinicRole.all_objects.filter(tenant=self.new).values_list("id", flat=True)
+            )
+        self.assertTrue(existing_roles)
+        self.assertTrue(new_roles)
         self.assertTrue(existing_roles.isdisjoint(new_roles))
 
     def test_both_tenants_can_hold_a_branch_with_the_same_name(self):
         create_first_branch(self.new, "Existing Branch", "EX")
-        self.assertEqual(Branch.all_objects.filter(name="Existing Branch").count(), 2)
+        for tenant in (self.existing, self.new):
+            with self.subTest(tenant=tenant.slug), tenant_context(tenant):
+                self.assertEqual(
+                    Branch.all_objects.filter(tenant=tenant, name="Existing Branch").count(), 1
+                )
 
     def test_serial_numbers_restart_for_the_new_tenant(self):
         """The new clinic's ticket numbers must not disclose the other's volume."""
-        for i in range(3):
-            Patient.all_objects.create(
-                tenant=self.existing, name=f"E{i}",
-                branch=Branch.all_objects.filter(tenant=self.existing).first(),
+        with tenant_context(self.existing):
+            for i in range(3):
+                Patient.all_objects.create(
+                    tenant=self.existing, name=f"E{i}",
+                    branch=Branch.all_objects.filter(tenant=self.existing).first(),
+                )
+        with tenant_context(self.new):
+            first_for_new = Patient.all_objects.create(
+                tenant=self.new, name="First",
+                branch=Branch.all_objects.get(tenant=self.new),
             )
-        first_for_new = Patient.all_objects.create(
-            tenant=self.new, name="First",
-            branch=Branch.all_objects.get(tenant=self.new),
-        )
         self.assertTrue(first_for_new.serial_number.endswith("-001"))

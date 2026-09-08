@@ -16,6 +16,7 @@ from tenants.models import Tenant
 from tenants.provisioning import provision_tenant_defaults
 
 from tenants.context import tenant_context
+from tenants.testing import act_as_tenant
 
 from .models import Allergy, Prescription, PrescriptionItem, Visit
 
@@ -25,6 +26,7 @@ User = get_user_model()
 class ClinicalTestBase(TestCase):
     def setUp(self):
         self.tenant = Tenant.objects.first()
+        act_as_tenant(self, self.tenant)
         provision_tenant_defaults(self.tenant)
         self.branch = Branch.all_objects.create(tenant=self.tenant, name='Main', code='MN')
 
@@ -142,11 +144,15 @@ class ClinicalIsolationTests(ClinicalTestBase):
             name='Rival', slug='rival', status=Tenant.Status.ACTIVE
         )
         provision_tenant_defaults(self.other)
-        other_branch = Branch.all_objects.create(tenant=self.other, name='B', code='B')
+        # The rival tenant's own rows are written under its own binding — the
+        # test process cannot write for two tenants at once, any more than a
+        # request can.
+        with tenant_context(self.other):
+            other_branch = Branch.all_objects.create(tenant=self.other, name='B', code='B')
+            other_role = ClinicRole.all_objects.get(tenant=self.other, name='Doctor')
         self.other_doctor = User.objects.create_user(
             username='otherdoc', email='otherdoc@t.local', password='pass12345',
-            tenant=self.other, branch=other_branch,
-            role=ClinicRole.all_objects.get(tenant=self.other, name='Doctor'),
+            tenant=self.other, branch=other_branch, role=other_role,
         )
 
     def test_another_tenants_doctor_cannot_open_the_visit(self):

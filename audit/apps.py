@@ -6,7 +6,12 @@ class AuditConfig(AppConfig):
 
     def ready(self):
         import sys
-        # ما تسجلش الـ signals أثناء migrate أو makemigrations
+
+        # Noise reduction only: skip auditing schema work when it is obvious
+        # we are doing schema work. This is NOT what makes migrations safe —
+        # it misses `manage.py test` (which migrates to build the test
+        # database), programmatic call_command("migrate"), and pytest.
+        # The actual protection is the savepoint in create_audit_log.
         if "migrate" in sys.argv or "makemigrations" in sys.argv:
             return
         import audit.signals
