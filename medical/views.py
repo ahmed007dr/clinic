@@ -9,6 +9,7 @@ from .forms import (
     AllergyForm,
     PrescriptionForm,
     PrescriptionItemFormSet,
+    ProcedureForm,
     TreatmentPlanForm,
     TreatmentSessionForm,
     VisitForm,
@@ -16,6 +17,7 @@ from .forms import (
 from .models import (
     Allergy,
     Prescription,
+    Procedure,
     TreatmentPlan,
     TreatmentSession,
     Visit,
@@ -76,6 +78,7 @@ def visit_detail(request, uuid):
         "visit": visit,
         "patient": visit.patient,
         "allergies": Allergy.objects.filter(patient=visit.patient),
+        "procedures": visit.procedures.all(),
     })
 
 
@@ -273,6 +276,87 @@ def session_update(request, uuid):
         "plan": session.plan,
         "patient": session.patient,
         "session": session,
+        "is_new": False,
+    })
+
+
+
+def _get_procedure(request, uuid):
+    # A procedure has no branch of its own to fall back on — it is reached
+    # through its visit, so scope on the visit's branch, as prescriptions do.
+    return get_object_or_404(
+        scoped_to_user(Procedure.objects.all(), request.user, "visit__branch"),
+        uuid=uuid,
+    )
+
+
+@login_required
+@clinical_required
+def procedure_create(request, visit_uuid):
+    visit = _get_visit(request, visit_uuid)
+
+    if request.method == "POST":
+        form = ProcedureForm(request.POST)
+        if form.is_valid():
+            procedure = form.save(commit=False)
+            procedure.tenant = request.user.tenant
+            procedure.visit = visit
+            procedure.patient = visit.patient
+            procedure.created_by = request.user
+            if not procedure.doctor_id:
+                procedure.doctor = visit.doctor
+            if not procedure.branch_id:
+                procedure.branch = visit.branch or request.user.branch
+            procedure.save()
+            messages.success(request, f"تم تسجيل الإجراء {procedure.serial_number}")
+            return redirect("medical:procedure_detail", uuid=procedure.uuid)
+        messages.error(request, "خطأ في إدخال البيانات")
+    else:
+        form = ProcedureForm(initial={
+            "doctor": visit.doctor,
+            "branch": visit.branch or request.user.branch,
+            "performed_at": visit.visit_date,
+        })
+
+    return render(request, "medical/procedure_form.html", {
+        "form": form,
+        "visit": visit,
+        "patient": visit.patient,
+        "is_new": True,
+    })
+
+
+@login_required
+@clinical_required
+def procedure_detail(request, uuid):
+    procedure = _get_procedure(request, uuid)
+    return render(request, "medical/procedure_detail.html", {
+        "procedure": procedure,
+        "visit": procedure.visit,
+        "patient": procedure.patient,
+    })
+
+
+@login_required
+@clinical_required
+def procedure_update(request, uuid):
+    procedure = _get_procedure(request, uuid)
+
+    if request.method == "POST":
+        form = ProcedureForm(request.POST, instance=procedure)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "تم تعديل الإجراء بنجاح")
+            return redirect("medical:procedure_detail", uuid=procedure.uuid)
+        messages.error(request, "خطأ في إدخال البيانات")
+    else:
+        form = ProcedureForm(instance=procedure)
+
+    return render(request, "medical/procedure_form.html", {
+        "form": form,
+        "visit": procedure.visit,
+        "patient": procedure.patient,
+        "procedure": procedure,
         "is_new": False,
     })
 

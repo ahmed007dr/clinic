@@ -5,6 +5,7 @@ from .models import (
     Allergy,
     Prescription,
     PrescriptionItem,
+    Procedure,
     TreatmentPlan,
     TreatmentSession,
     Visit,
@@ -121,6 +122,60 @@ class TreatmentSessionForm(TenantScopedFormMixin, forms.ModelForm):
                 self.add_error(
                     "discount", "الخصم لا يمكن أن يتجاوز إجمالي الجلسة"
                 )
+        return cleaned
+
+
+class ProcedureForm(TenantScopedFormMixin, forms.ModelForm):
+    class Meta:
+        model = Procedure
+        fields = [
+            "name", "service", "doctor", "branch", "performed_at", "status",
+            "body_site", "quantity", "unit_price", "discount", "payment",
+            "findings", "outcome", "complications", "notes",
+        ]
+        widgets = {
+            "name": forms.TextInput(
+                attrs={"class": "form-control", "placeholder": "مثال: استئصال شامة"}
+            ),
+            "service": forms.Select(attrs={"class": "form-control js-example-basic-single"}),
+            "doctor": forms.Select(attrs={"class": "form-control js-example-basic-single"}),
+            "branch": forms.Select(attrs={"class": "form-control js-example-basic-single"}),
+            "payment": forms.Select(attrs={"class": "form-control js-example-basic-single"}),
+            "status": forms.Select(attrs={"class": "form-control js-example-basic-single"}),
+            "performed_at": forms.DateTimeInput(
+                attrs={"type": "datetime-local", "class": "form-control"},
+                format="%Y-%m-%dT%H:%M",
+            ),
+            "body_site": forms.TextInput(
+                attrs={"class": "form-control", "placeholder": "مثال: الساعد الأيمن"}
+            ),
+            "quantity": forms.NumberInput(attrs={"class": "form-control", "min": 1}),
+            "unit_price": forms.NumberInput(attrs={"class": "form-control", "min": 0, "step": "0.01"}),
+            "discount": forms.NumberInput(attrs={"class": "form-control", "min": 0, "step": "0.01"}),
+            "findings": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
+            "outcome": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
+            "complications": forms.Textarea(
+                attrs={"rows": 3, "class": "form-control",
+                       "placeholder": "اتركه فارغاً إذا لم تحدث مضاعفات"}
+            ),
+            "notes": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["performed_at"].input_formats = ["%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S"]
+
+    def clean(self):
+        """Mirrors `procedure_discount_within_total`, so an over-discount comes
+        back as a field error the doctor can act on rather than an
+        IntegrityError. Same rule and same reasoning as TreatmentSessionForm."""
+        cleaned = super().clean()
+        quantity = cleaned.get("quantity")
+        unit_price = cleaned.get("unit_price")
+        discount = cleaned.get("discount")
+        if quantity is not None and unit_price is not None and discount is not None:
+            if discount > unit_price * quantity:
+                self.add_error("discount", "الخصم لا يمكن أن يتجاوز إجمالي الإجراء")
         return cleaned
 
 

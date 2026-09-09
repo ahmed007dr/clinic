@@ -26,6 +26,7 @@ from .models import (
     Allergy,
     Prescription,
     PrescriptionItem,
+    Procedure,
     TreatmentPlan,
     TreatmentSession,
     Visit,
@@ -847,6 +848,243 @@ class TreatmentSessionIsolationTests(ClinicalIsolationTests):
         self.assertEqual(
             self.client.get(
                 reverse('medical:session_detail', args=[session.uuid])
+            ).status_code,
+            404,
+        )
+
+
+class ProcedureTests(ClinicalTestBase):
+    """P3 — a discrete clinical act performed at a visit (doc §19, §23).
+
+    Distinct from a Service (a catalogue entry) and from a TreatmentSession
+    (one numbered step of a course). §46 counts it separately from both.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.service = Service.all_objects.create(
+            tenant=self.tenant, name='استئصال', base_price=Decimal('500.00')
+        )
+        self.client.login(email='doc@t.local', password='pass12345')
+
+    def _post(self, **overrides):
+        data = {
+            'name': 'استئصال شامة',
+            'performed_at': '2026-09-08T10:00',
+            'status': Procedure.Status.COMPLETED,
+            'body_site': 'الساعد الأيمن',
+            'quantity': '1',
+            'unit_price': '500.00',
+            'discount': '0',
+        }
+        data.update(overrides)
+        return self.client.post(
+            reverse('medical:procedure_create', args=[self.visit.uuid]), data
+        )
+
+    def test_doctor_can_record_a_procedure(self):
+        self.assertEqual(self._post().status_code, 302)
+        procedure = Procedure.all_objects.get()
+        self.assertEqual(procedure.visit, self.visit)
+        self.assertEqual(procedure.patient, self.patient)
+        self.assertEqual(procedure.tenant, self.tenant)
+        self.assertEqual(procedure.created_by, self.doctor_user)
+        self.assertEqual(procedure.body_site, 'الساعد الأيمن')
+
+    def test_it_gets_a_serial_starting_at_001(self):
+        self._post()
+        self.assertTrue(Procedure.all_objects.get().serial_number.endswith('-001'))
+
+    def test_serials_are_a_separate_sequence_from_visits(self):
+        """Procedures have their own SerialCounter scope, so numbering does not
+        interleave with visits or prescriptions."""
+        self._post()
+        procedure = Procedure.all_objects.get()
+        self.assertNotEqual(procedure.serial_number, self.visit.serial_number)
+
+    def test_a_procedure_needs_a_name(self):
+        """An unnamed act is not a record of anything. The name is required even
+        though the catalogue Service is optional, because plenty of procedures
+        are not in the price list."""
+        self.assertEqual(self._post(name='').status_code, 200)
+        self.assertFalse(Procedure.all_objects.exists())
+
+    def test_the_service_is_optional(self):
+        """An unlisted procedure must still be recordable."""
+        self.assertEqual(self._post().status_code, 302)
+        self.assertIsNone(Procedure.all_objects.get().service)
+
+    def test_the_doctor_and_branch_default_to_the_visits(self):
+        self._post()
+        procedure = Procedure.all_objects.get()
+        self.assertEqual(procedure.branch, self.visit.branch)
+
+    def test_money_is_computed_from_quantity_and_discount(self):
+        self._post(quantity='3', unit_price='500.00', discount='250.00')
+        procedure = Procedure.all_objects.get()
+        self.assertEqual(procedure.gross_amount, Decimal('1500.00'))
+        self.assertEqual(procedure.total_amount, Decimal('1250.00'))
+
+    def test_a_discount_larger_than_the_line_is_refused(self):
+        response = self._post(quantity='1', unit_price='500.00', discount='900.00')
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Procedure.all_objects.exists())
+
+    def test_the_database_refuses_an_over_discount_too(self):
+        """The form check is a courtesy; this is the rule. Same guarantee as
+        TreatmentSession — a background job or future API cannot write negative
+        revenue."""
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Procedure.all_objects.create(
+                    tenant=self.tenant, visit=self.visit, patient=self.patient,
+                    name='X', quantity=1,
+                    unit_price=Decimal('100.00'), discount=Decimal('500.00'),
+                )
+
+    def test_negative_money_and_zero_quantity_are_refused(self):
+        self.assertEqual(self._post(unit_price='-1').status_code, 200)
+        self.assertEqual(self._post(quantity='0').status_code, 200)
+        self.assertFalse(Procedure.all_objects.exists())
+
+    def test_complications_are_recordable_and_flagged(self):
+        """An adverse event needs somewhere to live. Without a field for it, it
+        gets written into a free-text note where nobody finds it again."""
+        self._post(complications='نزيف بسيط توقف بالضغط')
+        procedure = Procedure.all_objects.get()
+        self.assertTrue(procedure.had_complications)
+        response = self.client.get(
+            reverse('medical:procedure_detail', args=[procedure.uuid])
+        )
+        self.assertContains(response, 'نزيف بسيط')
+        self.assertContains(response, 'مضاعفات مسجلة')
+
+    def test_no_complications_means_no_warning(self):
+        self._post()
+        procedure = Procedure.all_objects.get()
+        self.assertFalse(procedure.had_complications)
+        response = self.client.get(
+            reverse('medical:procedure_detail', args=[procedure.uuid])
+        )
+        self.assertNotContains(response, 'مضاعفات مسجلة')
+
+    def test_an_aborted_procedure_is_distinguishable_from_a_cancelled_one(self):
+        """Aborted means it was started on the patient and stopped — a clinical
+        event. Cancelled means it never happened. Collapsing the two would lose
+        the difference."""
+        self.assertEqual(self._post(status=Procedure.Status.ABORTED).status_code, 302)
+        self.assertEqual(
+            Procedure.all_objects.get().status, Procedure.Status.ABORTED
+        )
+        self.assertNotEqual(Procedure.Status.ABORTED, Procedure.Status.CANCELLED)
+
+    def test_doctor_can_read_and_update_a_procedure(self):
+        self._post()
+        procedure = Procedure.all_objects.get()
+        self.assertEqual(
+            self.client.get(
+                reverse('medical:procedure_detail', args=[procedure.uuid])
+            ).status_code,
+            200,
+        )
+        response = self.client.post(
+            reverse('medical:procedure_update', args=[procedure.uuid]),
+            {
+                'name': 'استئصال شامة - معدل',
+                'performed_at': '2026-09-08T10:00',
+                'status': Procedure.Status.COMPLETED,
+                'quantity': '1', 'unit_price': '500.00', 'discount': '0',
+                'outcome': 'التئام كامل',
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        procedure.refresh_from_db()
+        self.assertEqual(procedure.outcome, 'التئام كامل')
+
+    def test_there_is_no_delete_route(self):
+        """doc §66: medical data must not change without trace. Prescriptions
+        already work this way; procedures follow."""
+        from django.urls import NoReverseMatch
+
+        self._post()
+        procedure = Procedure.all_objects.get()
+        with self.assertRaises(NoReverseMatch):
+            reverse('medical:procedure_delete', args=[procedure.uuid])
+
+    def test_the_procedure_appears_on_the_visit_page(self):
+        self._post()
+        response = self.client.get(
+            reverse('medical:visit_detail', args=[self.visit.uuid])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'استئصال شامة')
+        self.assertContains(response, 'الساعد الأيمن')
+
+    def test_the_form_offers_this_tenants_records(self):
+        form = self.client.get(
+            reverse('medical:procedure_create', args=[self.visit.uuid])
+        ).context['form']
+        self.assertGreater(form.fields['branch'].queryset.count(), 0)
+        self.assertGreater(form.fields['service'].queryset.count(), 0)
+
+
+class ProcedureAccessTests(ClinicalTestBase):
+    """A procedure records what was physically done to a patient — the same
+    wall as the rest of the clinical record."""
+
+    def setUp(self):
+        super().setUp()
+        self.procedure = Procedure.all_objects.create(
+            tenant=self.tenant, visit=self.visit, patient=self.patient,
+            branch=self.branch, name='CONFIDENTIAL PROCEDURE',
+            findings='CONFIDENTIAL FINDING',
+        )
+
+    def test_reception_is_blocked_on_every_procedure_url(self):
+        self.client.login(email='rec@t.local', password='pass12345')
+        urls = [
+            reverse('medical:procedure_create', args=[self.visit.uuid]),
+            reverse('medical:procedure_detail', args=[self.procedure.uuid]),
+            reverse('medical:procedure_update', args=[self.procedure.uuid]),
+        ]
+        for url in urls:
+            with self.subTest(url=url):
+                self.assertNotEqual(self.client.get(url).status_code, 200)
+                self.assertNotEqual(self.client.post(url, {}).status_code, 200)
+
+    def test_a_user_with_no_role_gets_nothing(self):
+        User.objects.create_user(
+            username='norole4', email='norole4@t.local', password='pass12345',
+            tenant=self.tenant, branch=self.branch,
+        )
+        self.client.login(email='norole4@t.local', password='pass12345')
+        self.assertNotEqual(
+            self.client.get(
+                reverse('medical:procedure_detail', args=[self.procedure.uuid])
+            ).status_code,
+            200,
+        )
+
+
+class ProcedureIsolationTests(ClinicalIsolationTests):
+    def test_another_tenants_doctor_cannot_open_a_procedure(self):
+        procedure = Procedure.all_objects.create(
+            tenant=self.tenant, visit=self.visit, patient=self.patient,
+            branch=self.branch, name='Ours',
+        )
+        self.client.login(email='otherdoc@t.local', password='pass12345')
+        self.assertEqual(
+            self.client.get(
+                reverse('medical:procedure_detail', args=[procedure.uuid])
+            ).status_code,
+            404,
+        )
+
+    def test_another_tenants_doctor_cannot_record_against_the_visit(self):
+        self.client.login(email='otherdoc@t.local', password='pass12345')
+        self.assertEqual(
+            self.client.get(
+                reverse('medical:procedure_create', args=[self.visit.uuid])
             ).status_code,
             404,
         )

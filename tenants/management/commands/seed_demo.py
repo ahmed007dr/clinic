@@ -29,6 +29,7 @@ from medical.models import (
     Allergy,
     Prescription,
     PrescriptionItem,
+    Procedure,
     TreatmentPlan,
     TreatmentSession,
     Visit,
@@ -47,6 +48,8 @@ COMPLAINTS = ["حكة وطفح جلدي", "تساقط الشعر", "بقع دا�
 DIAGNOSES = ["التهاب جلدي تحسسي", "أكزيما", "حب شباب متوسط", "تصبغات جلدية", "صدفية خفيفة"]
 ALLERGENS = ["البنسلين", "الأسبرين", "اليود", "اللاتكس", "السلفا"]
 REACTIONS = ["طفح جلدي", "تورم", "ضيق تنفس", "حكة شديدة"]
+PROCEDURES = ["استئصال شامة", "كي بالتبريد", "خزعة جلدية", "تفريغ خراج", "حقن موضعي"]
+BODY_SITES = ["الساعد الأيمن", "الظهر", "فروة الرأس", "الوجه - الخد الأيسر", "الساق اليسرى"]
 MEDICATIONS = [
     ("كريم هيدروكورتيزون", "1%", "مرتين يومياً", "أسبوعين", "موضعي على المنطقة المصابة"),
     ("لوراتادين", "10 مجم", "مرة يومياً", "10 أيام", "قبل النوم"),
@@ -141,9 +144,11 @@ class Command(BaseCommand):
         Payment.all_objects.all().delete()
         Expense.all_objects.all().delete()
         # Clinical records first: Visit.patient, Allergy.patient,
-        # TreatmentPlan.patient and TreatmentSession.patient are all PROTECT,
-        # so patients cannot be cleared while any of these exist. Sessions
-        # before plans, for the same reason.
+        # TreatmentPlan.patient, TreatmentSession.patient and
+        # Procedure.patient/.visit are all PROTECT, so patients and visits
+        # cannot be cleared while any of these exist. Sessions before plans,
+        # and procedures before visits, for the same reason.
+        Procedure.all_objects.all().delete()
         TreatmentSession.all_objects.all().delete()
         TreatmentPlan.all_objects.all().delete()
         PrescriptionItem.all_objects.all().delete()
@@ -415,6 +420,33 @@ class Command(BaseCommand):
                         )
                     )
 
+            # A procedure on some of the visits, one of them with a recorded
+            # complication so the warning path is visible in demo data.
+            procedures = []
+            for index, visit in enumerate(visits[:4]):
+                service = random.choice(services)
+                procedures.append(
+                    Procedure.objects.create(
+                        tenant=tenant,
+                        visit=visit,
+                        patient=visit.patient,
+                        doctor=visit.doctor,
+                        branch=visit.branch,
+                        service=service,
+                        name=random.choice(PROCEDURES),
+                        body_site=random.choice(BODY_SITES),
+                        performed_at=visit.visit_date,
+                        status=Procedure.Status.COMPLETED,
+                        quantity=1,
+                        unit_price=service.base_price,
+                        discount=Decimal(0),
+                        findings=fake.sentence(),
+                        outcome=fake.sentence(),
+                        complications="احمرار موضعي خفيف" if index == 0 else "",
+                        created_by=users[2],
+                    )
+                )
+
             expenses = [
                 Expense.objects.create(
                     tenant=tenant,
@@ -444,6 +476,7 @@ class Command(BaseCommand):
             "prescriptions": len(prescriptions),
             "plans": len(plans),
             "sessions": len(sessions),
+            "procedures": len(procedures),
         }
 
     def _user(self, tenant, email, username, role, branch):
@@ -482,7 +515,8 @@ class Command(BaseCommand):
                 f"{s['allergies']} recorded allergies"
             )
             self.stdout.write(
-                f"    {s['plans']} treatment plans  {s['sessions']} sessions"
+                f"    {s['plans']} treatment plans  {s['sessions']} sessions  "
+                f"{s['procedures']} procedures"
             )
             self.stdout.write(f"    admin@{s['slug']}.local      (Admin)")
             self.stdout.write(f"    reception@{s['slug']}.local  (Reception)")

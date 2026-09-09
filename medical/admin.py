@@ -6,6 +6,7 @@ from .models import (
     Allergy,
     Prescription,
     PrescriptionItem,
+    Procedure,
     TreatmentPlan,
     TreatmentSession,
     Visit,
@@ -45,6 +46,15 @@ class TreatmentSessionAdmin(TenantOwnedAdmin):
     search_fields = ("plan__serial_number", "patient__name")
     date_hierarchy = "scheduled_date"
     readonly_fields = ("uuid", "created_at", "updated_at")
+
+
+@admin.register(Procedure)
+class ProcedureAdmin(TenantOwnedAdmin):
+    list_display = ("serial_number", "name", "patient", "doctor", "status", "performed_at")
+    list_filter = ("status", "branch")
+    search_fields = ("serial_number", "name", "patient__name", "body_site")
+    date_hierarchy = "performed_at"
+    readonly_fields = ("uuid", "serial_number", "created_at", "updated_at")
 
 
 class PrescriptionItemInline(admin.TabularInline):

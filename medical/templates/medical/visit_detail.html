@@ -59,5 +59,44 @@
       <a href="{% url 'medical:prescription_create' visit.uuid %}" class="btn btn-primary">روشتة جديدة</a>
     </div>
   </div>
+
+  <div class="card mt-4">
+    <div class="card-body">
+      <h4 class="card-title">الإجراءات</h4>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>رقم الإجراء</th><th>الإجراء</th><th>الموضع</th>
+            <th>التاريخ</th><th>الصافي</th><th>الحالة</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for procedure in procedures %}
+          <tr>
+            <td>{{ procedure.serial_number }}</td>
+            <td>
+              {{ procedure.name }}
+              {% if procedure.had_complications %}
+                <span class="badge bg-danger" title="مضاعفات مسجلة">مضاعفات</span>
+              {% endif %}
+            </td>
+            <td>{{ procedure.body_site|default:"—" }}</td>
+            <td>{{ procedure.performed_at|date:"Y-m-d" }}</td>
+            <td>{{ procedure.total_amount }}</td>
+            <td>
+              <span class="badge {% if procedure.status == 'completed' %}bg-success{% elif procedure.status == 'planned' %}bg-primary{% elif procedure.status == 'aborted' %}bg-warning{% else %}bg-secondary{% endif %}">
+                {{ procedure.get_status_display }}
+              </span>
+            </td>
+            <td><a href="{% url 'medical:procedure_detail' procedure.uuid %}" class="btn btn-sm btn-info">تفاصيل</a></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7">لا توجد إجراءات لهذه الزيارة</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <a href="{% url 'medical:procedure_create' visit.uuid %}" class="btn btn-primary">تسجيل إجراء</a>
+    </div>
+  </div>
 </div>
 {% endblock %}

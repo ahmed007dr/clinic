@@ -350,7 +350,7 @@ class TreatmentSession(TenantOwnedModel):
             # total downstream with it. BE-005 put a floor under the individual
             # amounts; this is the relationship between them.
             models.CheckConstraint(
-                check=models.Q(discount__lte=models.F("unit_price") * models.F("quantity")),
+                condition=models.Q(discount__lte=models.F("unit_price") * models.F("quantity")),
                 name="session_discount_within_total",
             ),
         ]
@@ -389,6 +389,147 @@ class TreatmentSession(TenantOwnedModel):
             .first()
         )
         return (last or 0) + 1
+
+
+class Procedure(TenantOwnedModel):
+    """A discrete clinical act performed during a visit — doc/readme.md §19, §23.
+
+    Three things in this system look adjacent and are not:
+
+    * `Service` is a catalogue entry with a price. It describes what the clinic
+      offers, not what happened to anyone.
+    * `TreatmentSession` is one numbered step of a course (session 3 of 6),
+      scheduled in advance and belonging to a plan.
+    * A `Procedure` is a one-off act carried out at a single encounter — a
+      biopsy, an excision, cryotherapy. It belongs to the visit, not to a plan,
+      and it may never repeat.
+
+    §46 counts procedures separately from services and sessions in the daily
+    report, which is the other reason this cannot simply be a `Service` row.
+
+    The clinical fields are the point of the model. `body_site` matters because
+    "excision" without a site is not a record of anything, and `complications`
+    has to be recordable — an adverse event that has nowhere to go gets written
+    into a free-text note where nobody will find it again.
+
+    There is no delete view, matching Prescription: §66 requires that medical
+    data not change without trace.
+    """
+
+    class Status(models.TextChoices):
+        PLANNED = "planned", "مخطط"
+        COMPLETED = "completed", "تم"
+        # Distinct from cancelled: an aborted procedure was started on the
+        # patient and stopped. That is a clinical event, and the record has to
+        # be able to say so rather than looking like it never happened.
+        ABORTED = "aborted", "توقف"
+        CANCELLED = "cancelled", "ملغي"
+
+    visit = models.ForeignKey(
+        Visit, on_delete=models.PROTECT, related_name="procedures"
+    )
+    # Denormalised from visit.patient, as Prescription and TreatmentSession do,
+    # so a patient's procedure history is a single-table query.
+    patient = models.ForeignKey(
+        "patients.Patient", on_delete=models.PROTECT, related_name="procedures"
+    )
+    doctor = models.ForeignKey(
+        "employees.Employee", on_delete=models.SET_NULL,
+        null=True, blank=True,
+        limit_choices_to={"employee_type__name": "Doctor"},
+        related_name="procedures",
+    )
+    branch = models.ForeignKey(
+        "branches.Branch", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    # Optional: a procedure is often in the price list, but not always — an
+    # unlisted act still has to be recordable, which is why `name` is the
+    # required field and this is not.
+    service = models.ForeignKey(
+        "services.Service", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="procedures",
+    )
+    payment = models.ForeignKey(
+        "billing.Payment", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="procedures",
+    )
+
+    name = models.CharField(max_length=200, verbose_name="اسم الإجراء")
+    performed_at = models.DateTimeField(default=timezone.now, verbose_name="تاريخ الإجراء")
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.COMPLETED,
+        verbose_name="الحالة",
+    )
+
+    body_site = models.CharField(max_length=200, blank=True, verbose_name="الموضع")
+    findings = models.TextField(blank=True, verbose_name="ما تم ملاحظته")
+    outcome = models.TextField(blank=True, verbose_name="النتيجة")
+    complications = models.TextField(blank=True, verbose_name="مضاعفات")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+
+    # Same money shape as TreatmentSession, deliberately duplicated rather than
+    # extracted: two occurrences of six lines is not yet a pattern, and pulling
+    # a shared base out would rename that model's shipped constraint. If a third
+    # billable clinical model appears, extract it then.
+    quantity = models.PositiveIntegerField(
+        default=1, validators=[MinValueValidator(1)], verbose_name="الكمية"
+    )
+    unit_price = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        validators=[MinValueValidator(0)], verbose_name="سعر الوحدة",
+    )
+    discount = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        validators=[MinValueValidator(0)], verbose_name="الخصم",
+    )
+
+    serial_number = models.CharField(max_length=20, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta(TenantOwnedModel.Meta):
+        ordering = ["-performed_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "serial_number"],
+                name="uniq_procedure_serial_per_tenant",
+            ),
+            # Enforced by the database, not only the form: a discount larger than
+            # the line it discounts turns revenue negative and every total
+            # downstream with it. Same rule as TreatmentSession.
+            models.CheckConstraint(
+                condition=models.Q(discount__lte=models.F("unit_price") * models.F("quantity")),
+                name="procedure_discount_within_total",
+            ),
+        ]
+        verbose_name = "إجراء"
+        verbose_name_plural = "الإجراءات"
+
+    def __str__(self):
+        return f"{self.serial_number} - {self.name}"
+
+    @property
+    def gross_amount(self):
+        return self.unit_price * self.quantity
+
+    @property
+    def total_amount(self):
+        return self.gross_amount - self.discount
+
+    @property
+    def had_complications(self):
+        return bool(self.complications.strip())
+
+    def save(self, *args, **kwargs):
+        if not self.serial_number:
+            self.serial_number = SerialCounter.next_serial(
+                self.tenant_id, "procedure", self.performed_at.date()
+            )
+        super().save(*args, **kwargs)
 
 
 def allergy_conflicts(patient, medications):

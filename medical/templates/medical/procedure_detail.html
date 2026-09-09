@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block body %}
+<div class="container">
+  <h2>الإجراء {{ procedure.serial_number }} - {{ patient.name }}</h2>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert {% if message.tags == 'warning' %}alert-warning{% elif message.tags == 'error' %}alert-danger{% else %}alert-info{% endif %}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  {% if procedure.had_complications %}
+    {# Surfaced at the top, not buried in the record: a complication is the one
+       thing anyone reading this afterwards most needs to see. #}
+    <div class="alert alert-danger">
+      <strong>مضاعفات مسجلة:</strong> {{ procedure.complications|linebreaksbr }}
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">{{ procedure.name }}</h4>
+      <table class="table">
+        <tr>
+          <th style="width:25%">الحالة</th>
+          <td>
+            <span class="badge {% if procedure.status == 'completed' %}bg-success{% elif procedure.status == 'planned' %}bg-primary{% elif procedure.status == 'aborted' %}bg-warning{% else %}bg-secondary{% endif %}">
+              {{ procedure.get_status_display }}
+            </span>
+          </td>
+        </tr>
+        <tr><th>تاريخ الإجراء</th><td>{{ procedure.performed_at|date:"Y-m-d H:i" }}</td></tr>
+        <tr><th>الموضع</th><td>{{ procedure.body_site|default:"—" }}</td></tr>
+        <tr><th>الخدمة</th><td>{{ procedure.service.name|default:"غير محددة" }}</td></tr>
+        <tr><th>الطبيب</th><td>{{ procedure.doctor.name|default:"غير محدد" }}</td></tr>
+        <tr><th>الفرع</th><td>{{ procedure.branch.name|default:"غير محدد" }}</td></tr>
+        <tr>
+          <th>الزيارة</th>
+          <td><a href="{% url 'medical:visit_detail' visit.uuid %}">{{ visit.serial_number }}</a></td>
+        </tr>
+      </table>
+
+      <h4 class="card-title mt-4">الحساب</h4>
+      <table class="table">
+        <tr><th style="width:25%">الكمية</th><td>{{ procedure.quantity }}</td></tr>
+        <tr><th>سعر الوحدة</th><td>{{ procedure.unit_price }}</td></tr>
+        <tr><th>الإجمالي قبل الخصم</th><td>{{ procedure.gross_amount }}</td></tr>
+        <tr><th>الخصم</th><td>{{ procedure.discount }}</td></tr>
+        <tr><th>الصافي</th><td><strong>{{ procedure.total_amount }}</strong></td></tr>
+        <tr>
+          <th>الدفعة</th>
+          <td>
+            {% if procedure.payment %}
+              <a href="{% url 'billing:payment_detail' procedure.payment.uuid %}">{{ procedure.payment.receipt_number }}</a>
+            {% else %}
+              غير مرتبط بدفعة
+            {% endif %}
+          </td>
+        </tr>
+      </table>
+
+      {% if procedure.findings %}
+        <p><strong>ما تم ملاحظته:</strong> {{ procedure.findings|linebreaksbr }}</p>
+      {% endif %}
+      {% if procedure.outcome %}
+        <p><strong>النتيجة:</strong> {{ procedure.outcome|linebreaksbr }}</p>
+      {% endif %}
+      {% if procedure.notes %}
+        <p><strong>ملاحظات:</strong> {{ procedure.notes|linebreaksbr }}</p>
+      {% endif %}
+
+      <a href="{% url 'medical:procedure_update' procedure.uuid %}" class="btn btn-primary mt-3">تعديل</a>
+      <a href="{% url 'medical:visit_detail' visit.uuid %}" class="btn btn-secondary mt-3">رجوع إلى الزيارة</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
