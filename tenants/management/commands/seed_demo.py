@@ -27,6 +27,7 @@ from employees.models import Employee, EmployeeType, SalaryType, Specialization
 from notifications.models import Notification
 from medical.models import (
     Allergy,
+    LabResult,
     Prescription,
     PrescriptionItem,
     Procedure,
@@ -50,6 +51,14 @@ ALLERGENS = ["البنسلين", "الأسبرين", "اليود", "اللاتك
 REACTIONS = ["طفح جلدي", "تورم", "ضيق تنفس", "حكة شديدة"]
 PROCEDURES = ["استئصال شامة", "كي بالتبريد", "خزعة جلدية", "تفريغ خراج", "حقن موضعي"]
 BODY_SITES = ["الساعد الأيمن", "الظهر", "فروة الرأس", "الوجه - الخد الأيسر", "الساق اليسرى"]
+# (test, unit, reference range, a normal value, an out-of-range value)
+LAB_TESTS = [
+    ("صورة دم كاملة", "g/dL", "12.0 - 15.5", "13.4", "9.1"),
+    ("سكر صائم", "mg/dL", "70 - 99", "88", "162"),
+    ("وظائف الكبد ALT", "U/L", "7 - 56", "24", "118"),
+    ("فيتامين د", "ng/mL", "30 - 100", "42", "11"),
+]
+SPECIMENS = ["دم وريدي", "بول", "مسحة جلدية"]
 MEDICATIONS = [
     ("كريم هيدروكورتيزون", "1%", "مرتين يومياً", "أسبوعين", "موضعي على المنطقة المصابة"),
     ("لوراتادين", "10 مجم", "مرة يومياً", "10 أيام", "قبل النوم"),
@@ -145,9 +154,11 @@ class Command(BaseCommand):
         Expense.all_objects.all().delete()
         # Clinical records first: Visit.patient, Allergy.patient,
         # TreatmentPlan.patient, TreatmentSession.patient and
-        # Procedure.patient/.visit are all PROTECT, so patients and visits
+        # Procedure.patient/.visit and LabResult.patient are all PROTECT, so
+        # patients and visits
         # cannot be cleared while any of these exist. Sessions before plans,
         # and procedures before visits, for the same reason.
+        LabResult.all_objects.all().delete()
         Procedure.all_objects.all().delete()
         TreatmentSession.all_objects.all().delete()
         TreatmentPlan.all_objects.all().delete()
@@ -447,6 +458,32 @@ class Command(BaseCommand):
                     )
                 )
 
+            # A few lab results, including one abnormal-and-unacknowledged so
+            # the "needs attention" path is visible in demo data.
+            lab_results = []
+            for index, visit in enumerate(visits[:5]):
+                test, unit, ref, normal, abnormal = random.choice(LAB_TESTS)
+                out_of_range = index == 0
+                lab_results.append(
+                    LabResult.objects.create(
+                        tenant=tenant,
+                        patient=visit.patient,
+                        visit=visit,
+                        ordered_by=visit.doctor,
+                        branch=visit.branch,
+                        test_name=test,
+                        specimen=random.choice(SPECIMENS),
+                        lab_name="معمل المركز",
+                        value=abnormal if out_of_range else normal,
+                        unit=unit,
+                        reference_range=ref,
+                        flag=LabResult.Flag.ABNORMAL if out_of_range else LabResult.Flag.NORMAL,
+                        status=LabResult.Status.RESULTED,
+                        ordered_at=visit.visit_date,
+                        created_by=users[2],
+                    )
+                )
+
             expenses = [
                 Expense.objects.create(
                     tenant=tenant,
@@ -477,6 +514,7 @@ class Command(BaseCommand):
             "plans": len(plans),
             "sessions": len(sessions),
             "procedures": len(procedures),
+            "lab_results": len(lab_results),
         }
 
     def _user(self, tenant, email, username, role, branch):
@@ -516,7 +554,7 @@ class Command(BaseCommand):
             )
             self.stdout.write(
                 f"    {s['plans']} treatment plans  {s['sessions']} sessions  "
-                f"{s['procedures']} procedures"
+                f"{s['procedures']} procedures  {s['lab_results']} lab results"
             )
             self.stdout.write(f"    admin@{s['slug']}.local      (Admin)")
             self.stdout.write(f"    reception@{s['slug']}.local  (Reception)")

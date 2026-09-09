@@ -2,6 +2,10 @@ from django.urls import path
 
 from .views import (
     allergy_create,
+    lab_result_acknowledge,
+    lab_result_create,
+    lab_result_detail,
+    lab_result_update,
     prescription_create,
     prescription_detail,
     prescription_print,
@@ -40,4 +44,8 @@ urlpatterns = [
     path("visit/<uuid:visit_uuid>/procedure/new/", procedure_create, name="procedure_create"),
     path("procedure/<uuid:uuid>/", procedure_detail, name="procedure_detail"),
     path("procedure/<uuid:uuid>/update/", procedure_update, name="procedure_update"),
+    path("patient/<uuid:patient_uuid>/lab/new/", lab_result_create, name="lab_result_create"),
+    path("lab/<uuid:uuid>/", lab_result_detail, name="lab_result_detail"),
+    path("lab/<uuid:uuid>/update/", lab_result_update, name="lab_result_update"),
+    path("lab/<uuid:uuid>/acknowledge/", lab_result_acknowledge, name="lab_result_acknowledge"),
 ]

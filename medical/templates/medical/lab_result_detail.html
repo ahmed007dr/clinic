@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+
+{% block body %}
+<div class="container">
+  <h2>التحليل {{ result.serial_number }} - {{ patient.name }}</h2>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert {% if message.tags == 'warning' %}alert-warning{% elif message.tags == 'error' %}alert-danger{% else %}alert-info{% endif %}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  {% if result.needs_attention %}
+    {# The whole point of the model: an out-of-range result that has arrived and
+       nobody has signed off. Shown first, with the action attached. #}
+    <div class="alert alert-danger">
+      <strong>
+        {% if result.flag == 'critical' %}نتيجة حرجة{% else %}نتيجة غير طبيعية{% endif %}
+        — لم يتم تسجيل الاطلاع عليها بعد.
+      </strong>
+      <form method="post" action="{% url 'medical:lab_result_acknowledge' result.uuid %}" class="mt-2">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm btn-danger">تسجيل الاطلاع</button>
+      </form>
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">{{ result.test_name }}</h4>
+      <table class="table">
+        <tr>
+          <th style="width:25%">الحالة</th>
+          <td>
+            <span class="badge {% if result.status == 'resulted' %}bg-success{% elif result.status == 'ordered' %}bg-primary{% else %}bg-secondary{% endif %}">
+              {{ result.get_status_display }}
+            </span>
+          </td>
+        </tr>
+        <tr>
+          <th>التقييم</th>
+          <td>
+            <span class="badge {% if result.flag == 'critical' %}bg-danger{% elif result.flag == 'abnormal' %}bg-warning{% else %}bg-success{% endif %}">
+              {{ result.get_flag_display }}
+            </span>
+          </td>
+        </tr>
+        <tr>
+          <th>النتيجة</th>
+          <td>
+            {% if result.value %}
+              <strong>{{ result.value }}</strong> {{ result.unit }}
+              {% if result.reference_range %}
+                <span class="text-muted">(المعدل الطبيعي: {{ result.reference_range }})</span>
+              {% endif %}
+            {% else %}
+              لم تصدر بعد
+            {% endif %}
+          </td>
+        </tr>
+        <tr><th>العينة</th><td>{{ result.specimen|default:"—" }}</td></tr>
+        <tr><th>المعمل</th><td>{{ result.lab_name|default:"—" }}</td></tr>
+        <tr><th>تاريخ الطلب</th><td>{{ result.ordered_at|date:"Y-m-d H:i" }}</td></tr>
+        <tr><th>تاريخ النتيجة</th><td>{{ result.resulted_at|date:"Y-m-d H:i"|default:"—" }}</td></tr>
+        <tr><th>طلبه</th><td>{{ result.ordered_by.name|default:"غير محدد" }}</td></tr>
+        <tr><th>الفرع</th><td>{{ result.branch.name|default:"غير محدد" }}</td></tr>
+        {% if result.visit %}
+          <tr>
+            <th>الزيارة</th>
+            <td><a href="{% url 'medical:visit_detail' result.visit.uuid %}">{{ result.visit.serial_number }}</a></td>
+          </tr>
+        {% endif %}
+        <tr>
+          <th>الاطلاع</th>
+          <td>
+            {% if result.is_acknowledged %}
+              {{ result.acknowledged_at|date:"Y-m-d H:i" }}
+              {% if result.acknowledged_by %} — {{ result.acknowledged_by.username }}{% endif %}
+            {% else %}
+              لم يتم تسجيل الاطلاع
+            {% endif %}
+          </td>
+        </tr>
+      </table>
+
+      {% if result.notes %}
+        <p><strong>ملاحظات:</strong> {{ result.notes|linebreaksbr }}</p>
+      {% endif %}
+
+      {% if result.status == 'resulted' and not result.is_acknowledged and not result.needs_attention %}
+        {# Normal results can be signed off too; they are just not chased. #}
+        <form method="post" action="{% url 'medical:lab_result_acknowledge' result.uuid %}" class="d-inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-outline-success mt-3">تسجيل الاطلاع</button>
+        </form>
+      {% endif %}
+      <a href="{% url 'medical:lab_result_update' result.uuid %}" class="btn btn-primary mt-3">تعديل</a>
+      <a href="{% url 'patients:patient_detail' patient.uuid %}" class="btn btn-secondary mt-3">رجوع إلى ملف المريض</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

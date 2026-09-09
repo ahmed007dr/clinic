@@ -3,6 +3,7 @@ from django.forms import inlineformset_factory
 
 from .models import (
     Allergy,
+    LabResult,
     Prescription,
     PrescriptionItem,
     Procedure,
@@ -122,6 +123,69 @@ class TreatmentSessionForm(TenantScopedFormMixin, forms.ModelForm):
                 self.add_error(
                     "discount", "الخصم لا يمكن أن يتجاوز إجمالي الجلسة"
                 )
+        return cleaned
+
+
+class LabResultForm(TenantScopedFormMixin, forms.ModelForm):
+    """`flag` is a field the clinician sets, not something derived from
+    `value` and `reference_range` — see the model docstring for why inferring
+    it would be a safety signal that is wrong some of the time.
+
+    `acknowledged_by`/`acknowledged_at` are deliberately absent: acknowledgement
+    is its own action with its own endpoint, so it cannot happen as a side
+    effect of editing something else.
+    """
+
+    class Meta:
+        model = LabResult
+        fields = [
+            "test_name", "specimen", "lab_name", "ordered_by", "branch", "visit",
+            "status", "ordered_at", "resulted_at",
+            "value", "unit", "reference_range", "flag", "notes",
+        ]
+        widgets = {
+            "test_name": forms.TextInput(
+                attrs={"class": "form-control", "placeholder": "مثال: صورة دم كاملة"}
+            ),
+            "specimen": forms.TextInput(
+                attrs={"class": "form-control", "placeholder": "مثال: دم وريدي"}
+            ),
+            "lab_name": forms.TextInput(attrs={"class": "form-control"}),
+            "ordered_by": forms.Select(attrs={"class": "form-control js-example-basic-single"}),
+            "branch": forms.Select(attrs={"class": "form-control js-example-basic-single"}),
+            "visit": forms.Select(attrs={"class": "form-control js-example-basic-single"}),
+            "status": forms.Select(attrs={"class": "form-control js-example-basic-single"}),
+            "flag": forms.Select(attrs={"class": "form-control js-example-basic-single"}),
+            "ordered_at": forms.DateTimeInput(
+                attrs={"type": "datetime-local", "class": "form-control"},
+                format="%Y-%m-%dT%H:%M",
+            ),
+            "resulted_at": forms.DateTimeInput(
+                attrs={"type": "datetime-local", "class": "form-control"},
+                format="%Y-%m-%dT%H:%M",
+            ),
+            "value": forms.TextInput(
+                attrs={"class": "form-control", "placeholder": "مثال: 7.2 أو إيجابي"}
+            ),
+            "unit": forms.TextInput(attrs={"class": "form-control", "placeholder": "مثال: mg/dL"}),
+            "reference_range": forms.TextInput(
+                attrs={"class": "form-control", "placeholder": "مثال: 4.0 - 5.6"}
+            ),
+            "notes": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name in ("ordered_at", "resulted_at"):
+            self.fields[name].input_formats = ["%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S"]
+
+    def clean(self):
+        """A result cannot be reported as arrived with nothing in it. Without
+        this, a row reads as `صدرت النتيجة` while the value is blank, which
+        looks like a normal result rather than a missing one."""
+        cleaned = super().clean()
+        if cleaned.get("status") == LabResult.Status.RESULTED and not cleaned.get("value"):
+            self.add_error("value", "أدخل النتيجة قبل تحديد الحالة كـ«صدرت النتيجة»")
         return cleaned
 
 

@@ -5,7 +5,7 @@ from .forms import PatientForm
 from .models import Patient
 from appointments.models import Appointment
 from billing.models import Payment
-from medical.models import Allergy, TreatmentPlan, Visit
+from medical.models import Allergy, LabResult, TreatmentPlan, Visit
 from medical.permissions import can_view_clinical
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -82,6 +82,9 @@ def patient_detail(request, uuid):
         'allergies': Allergy.objects.filter(patient=patient) if show_clinical else [],
         'treatment_plans': (
             TreatmentPlan.objects.filter(patient=patient) if show_clinical else []
+        ),
+        'lab_results': (
+            LabResult.objects.filter(patient=patient) if show_clinical else []
         ),
     }
     return render(request, 'patients/detail.html', context)

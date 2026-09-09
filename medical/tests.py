@@ -24,6 +24,7 @@ from tenants.testing import act_as_tenant
 
 from .models import (
     Allergy,
+    LabResult,
     Prescription,
     PrescriptionItem,
     Procedure,
@@ -1088,3 +1089,264 @@ class ProcedureIsolationTests(ClinicalIsolationTests):
             ).status_code,
             404,
         )
+
+
+class LabResultTests(ClinicalTestBase):
+    """P3 — lab results on the patient record (doc §23).
+
+    The spec says only "Lab results", so most of what is asserted here is the
+    design: values are text, abnormality is entered rather than inferred, and
+    acknowledgement is a first-class act.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.client.login(email='doc@t.local', password='pass12345')
+
+    def _post(self, **overrides):
+        data = {
+            'test_name': 'صورة دم كاملة',
+            'specimen': 'دم وريدي',
+            'status': LabResult.Status.ORDERED,
+            'flag': LabResult.Flag.NORMAL,
+            'ordered_at': '2026-09-08T09:00',
+        }
+        data.update(overrides)
+        return self.client.post(
+            reverse('medical:lab_result_create', args=[self.patient.uuid]), data
+        )
+
+    def test_doctor_can_order_a_test(self):
+        self.assertEqual(self._post().status_code, 302)
+        result = LabResult.all_objects.get()
+        self.assertEqual(result.patient, self.patient)
+        self.assertEqual(result.tenant, self.tenant)
+        self.assertEqual(result.created_by, self.doctor_user)
+        self.assertEqual(result.status, LabResult.Status.ORDERED)
+        self.assertTrue(result.serial_number)
+
+    def test_a_test_name_is_required(self):
+        self.assertEqual(self._post(test_name='').status_code, 200)
+        self.assertFalse(LabResult.all_objects.exists())
+
+    def test_a_result_can_be_qualitative_not_just_numeric(self):
+        """Values are stored as text on purpose: 'إيجابي' and '<0.01' are as
+        real as '7.2', and a numeric field would reject them."""
+        for value in ('إيجابي', '<0.01', '7.2', 'لم يُكتشف'):
+            with self.subTest(value=value):
+                LabResult.all_objects.filter(patient=self.patient).delete()
+                response = self._post(
+                    value=value, status=LabResult.Status.RESULTED,
+                    ordered_at='2026-09-08T09:00',
+                )
+                self.assertEqual(response.status_code, 302)
+                self.assertEqual(LabResult.all_objects.get().value, value)
+
+    def test_a_resulted_test_must_carry_a_value(self):
+        """Otherwise the row reads as 'صدرت النتيجة' with nothing in it, which
+        looks like a normal result rather than a missing one."""
+        response = self._post(status=LabResult.Status.RESULTED, value='')
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(LabResult.all_objects.exists())
+
+    def test_resulted_at_is_stamped_when_the_result_arrives(self):
+        """A result marked as arrived with no arrival date makes 'how long has
+        this been waiting' unanswerable."""
+        self._post(status=LabResult.Status.RESULTED, value='13.4')
+        self.assertIsNotNone(LabResult.all_objects.get().resulted_at)
+
+    # ---- the point of the model: abnormal results get seen -------------------
+
+    def _resulted(self, flag=LabResult.Flag.ABNORMAL):
+        return LabResult.all_objects.create(
+            tenant=self.tenant, patient=self.patient, branch=self.branch,
+            test_name='سكر صائم', value='162', unit='mg/dL',
+            reference_range='70 - 99', flag=flag,
+            status=LabResult.Status.RESULTED,
+        )
+
+    def test_an_unacknowledged_abnormal_result_needs_attention(self):
+        self.assertTrue(self._resulted().needs_attention)
+
+    def test_a_normal_result_does_not_need_attention(self):
+        self.assertFalse(self._resulted(LabResult.Flag.NORMAL).needs_attention)
+
+    def test_an_abnormal_result_that_has_not_arrived_does_not_need_attention(self):
+        """There is nothing to read yet, so chasing it would be noise."""
+        pending = LabResult.all_objects.create(
+            tenant=self.tenant, patient=self.patient, branch=self.branch,
+            test_name='سكر صائم', flag=LabResult.Flag.ABNORMAL,
+            status=LabResult.Status.ORDERED,
+        )
+        self.assertFalse(pending.needs_attention)
+
+    def test_acknowledging_clears_the_need_for_attention(self):
+        result = self._resulted()
+        response = self.client.post(
+            reverse('medical:lab_result_acknowledge', args=[result.uuid])
+        )
+        self.assertEqual(response.status_code, 302)
+        result.refresh_from_db()
+        self.assertTrue(result.is_acknowledged)
+        self.assertEqual(result.acknowledged_by, self.doctor_user)
+        self.assertIsNotNone(result.acknowledged_at)
+        self.assertFalse(result.needs_attention)
+
+    def test_acknowledging_twice_keeps_the_first_signature(self):
+        """Who saw it first is the fact worth keeping; a second click must not
+        rewrite it."""
+        result = self._resulted()
+        result.acknowledge(self.doctor_user)
+        first_at = result.acknowledged_at
+
+        self.assertFalse(result.acknowledge(self.admin_user))
+        result.refresh_from_db()
+        self.assertEqual(result.acknowledged_by, self.doctor_user)
+        self.assertEqual(result.acknowledged_at, first_at)
+
+    def test_acknowledgement_cannot_happen_on_a_get(self):
+        """A clinical sign-off must not be triggerable by a crawler, a prefetch
+        or a link someone was sent."""
+        result = self._resulted()
+        response = self.client.get(
+            reverse('medical:lab_result_acknowledge', args=[result.uuid])
+        )
+        self.assertEqual(response.status_code, 405)
+        result.refresh_from_db()
+        self.assertFalse(result.is_acknowledged)
+
+    def test_the_edit_form_cannot_acknowledge_as_a_side_effect(self):
+        """Acknowledgement is its own act, so the general edit form must not
+        expose those fields at all."""
+        form = self.client.get(
+            reverse('medical:lab_result_create', args=[self.patient.uuid])
+        ).context['form']
+        self.assertNotIn('acknowledged_by', form.fields)
+        self.assertNotIn('acknowledged_at', form.fields)
+
+    def test_a_critical_result_is_distinguishable_from_a_merely_abnormal_one(self):
+        """Critical means act now; a clinician scanning a list needs that
+        without reading values."""
+        critical = self._resulted(LabResult.Flag.CRITICAL)
+        self.assertTrue(critical.is_out_of_range)
+        self.assertTrue(critical.needs_attention)
+        self.assertNotEqual(LabResult.Flag.CRITICAL, LabResult.Flag.ABNORMAL)
+
+    # ---- surfacing -----------------------------------------------------------
+
+    def test_the_patient_page_flags_a_result_nobody_has_read(self):
+        self._resulted()
+        response = self.client.get(
+            reverse('patients:patient_detail', args=[self.patient.uuid])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'سكر صائم')
+        self.assertContains(response, 'لم يُطّلع عليها')
+
+    def test_the_patient_page_stops_flagging_once_acknowledged(self):
+        result = self._resulted()
+        result.acknowledge(self.doctor_user)
+        response = self.client.get(
+            reverse('patients:patient_detail', args=[self.patient.uuid])
+        )
+        self.assertContains(response, 'سكر صائم')
+        self.assertNotContains(response, 'لم يُطّلع عليها')
+
+    def test_doctor_can_read_and_update_a_result(self):
+        result = self._resulted()
+        self.assertEqual(
+            self.client.get(
+                reverse('medical:lab_result_detail', args=[result.uuid])
+            ).status_code,
+            200,
+        )
+        response = self.client.post(
+            reverse('medical:lab_result_update', args=[result.uuid]),
+            {
+                'test_name': 'سكر صائم', 'status': LabResult.Status.RESULTED,
+                'flag': LabResult.Flag.CRITICAL, 'value': '310',
+                'ordered_at': '2026-09-08T09:00',
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        result.refresh_from_db()
+        self.assertEqual(result.flag, LabResult.Flag.CRITICAL)
+
+    def test_there_is_no_delete_route(self):
+        from django.urls import NoReverseMatch
+
+        result = self._resulted()
+        with self.assertRaises(NoReverseMatch):
+            reverse('medical:lab_result_delete', args=[result.uuid])
+
+
+class LabResultAccessTests(ClinicalTestBase):
+    def setUp(self):
+        super().setUp()
+        self.result = LabResult.all_objects.create(
+            tenant=self.tenant, patient=self.patient, branch=self.branch,
+            test_name='CONFIDENTIAL TEST', value='CONFIDENTIAL VALUE',
+            status=LabResult.Status.RESULTED, flag=LabResult.Flag.ABNORMAL,
+        )
+
+    def test_reception_is_blocked_on_every_lab_url(self):
+        self.client.login(email='rec@t.local', password='pass12345')
+        urls = [
+            reverse('medical:lab_result_create', args=[self.patient.uuid]),
+            reverse('medical:lab_result_detail', args=[self.result.uuid]),
+            reverse('medical:lab_result_update', args=[self.result.uuid]),
+            reverse('medical:lab_result_acknowledge', args=[self.result.uuid]),
+        ]
+        for url in urls:
+            with self.subTest(url=url):
+                self.assertNotEqual(self.client.get(url).status_code, 200)
+                self.assertNotEqual(self.client.post(url, {}).status_code, 200)
+
+    def test_reception_cannot_acknowledge_a_result(self):
+        """Sign-off is a clinical act, so it must not merely be hidden."""
+        self.client.login(email='rec@t.local', password='pass12345')
+        self.client.post(
+            reverse('medical:lab_result_acknowledge', args=[self.result.uuid])
+        )
+        self.result.refresh_from_db()
+        self.assertFalse(self.result.is_acknowledged)
+
+    def test_results_never_reach_receptions_patient_page(self):
+        self.client.login(email='rec@t.local', password='pass12345')
+        response = self.client.get(
+            reverse('patients:patient_detail', args=[self.patient.uuid])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'CONFIDENTIAL TEST')
+        self.assertNotContains(response, 'CONFIDENTIAL VALUE')
+
+
+class LabResultIsolationTests(ClinicalIsolationTests):
+    def test_another_tenants_doctor_cannot_open_a_result(self):
+        result = LabResult.all_objects.create(
+            tenant=self.tenant, patient=self.patient, branch=self.branch,
+            test_name='Ours', status=LabResult.Status.RESULTED, value='1',
+        )
+        self.client.login(email='otherdoc@t.local', password='pass12345')
+        self.assertEqual(
+            self.client.get(
+                reverse('medical:lab_result_detail', args=[result.uuid])
+            ).status_code,
+            404,
+        )
+
+    def test_another_tenants_doctor_cannot_acknowledge_a_result(self):
+        result = LabResult.all_objects.create(
+            tenant=self.tenant, patient=self.patient, branch=self.branch,
+            test_name='Ours', status=LabResult.Status.RESULTED, value='1',
+            flag=LabResult.Flag.ABNORMAL,
+        )
+        self.client.login(email='otherdoc@t.local', password='pass12345')
+        self.assertEqual(
+            self.client.post(
+                reverse('medical:lab_result_acknowledge', args=[result.uuid])
+            ).status_code,
+            404,
+        )
+        result.refresh_from_db()
+        self.assertFalse(result.is_acknowledged)

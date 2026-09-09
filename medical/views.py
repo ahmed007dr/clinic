@@ -2,11 +2,13 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from patients.models import Patient
 
 from .forms import (
     AllergyForm,
+    LabResultForm,
     PrescriptionForm,
     PrescriptionItemFormSet,
     ProcedureForm,
@@ -16,6 +18,7 @@ from .forms import (
 )
 from .models import (
     Allergy,
+    LabResult,
     Prescription,
     Procedure,
     TreatmentPlan,
@@ -279,6 +282,94 @@ def session_update(request, uuid):
         "is_new": False,
     })
 
+
+
+
+def _get_lab_result(request, uuid):
+    # Scoped on the result's own branch: a result can arrive with no visit
+    # attached, so there is nothing else to inherit from.
+    return get_object_or_404(
+        scoped_to_user(LabResult.objects.all(), request.user), uuid=uuid
+    )
+
+
+@login_required
+@clinical_required
+def lab_result_create(request, patient_uuid):
+    patient = _get_patient(request, patient_uuid)
+
+    if request.method == "POST":
+        form = LabResultForm(request.POST)
+        if form.is_valid():
+            result = form.save(commit=False)
+            result.tenant = request.user.tenant
+            result.patient = patient
+            result.created_by = request.user
+            if not result.branch_id:
+                result.branch = patient.branch or request.user.branch
+            result.save()
+            messages.success(request, f"تم تسجيل التحليل {result.serial_number}")
+            return redirect("medical:lab_result_detail", uuid=result.uuid)
+        messages.error(request, "خطأ في إدخال البيانات")
+    else:
+        form = LabResultForm(initial={"branch": patient.branch or request.user.branch})
+
+    return render(request, "medical/lab_result_form.html", {
+        "form": form,
+        "patient": patient,
+        "is_new": True,
+    })
+
+
+@login_required
+@clinical_required
+def lab_result_detail(request, uuid):
+    result = _get_lab_result(request, uuid)
+    return render(request, "medical/lab_result_detail.html", {
+        "result": result,
+        "patient": result.patient,
+    })
+
+
+@login_required
+@clinical_required
+def lab_result_update(request, uuid):
+    result = _get_lab_result(request, uuid)
+
+    if request.method == "POST":
+        form = LabResultForm(request.POST, instance=result)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "تم تعديل التحليل بنجاح")
+            return redirect("medical:lab_result_detail", uuid=result.uuid)
+        messages.error(request, "خطأ في إدخال البيانات")
+    else:
+        form = LabResultForm(instance=result)
+
+    return render(request, "medical/lab_result_form.html", {
+        "form": form,
+        "patient": result.patient,
+        "result": result,
+        "is_new": False,
+    })
+
+
+@login_required
+@clinical_required
+@require_POST
+def lab_result_acknowledge(request, uuid):
+    """Records that a clinician has read the result.
+
+    Its own endpoint, and POST-only, for two reasons: signing off an abnormal
+    result is a clinical act rather than an edit, and a GET would let a crawler
+    or a prefetch acknowledge it by accident.
+    """
+    result = _get_lab_result(request, uuid)
+    if result.acknowledge(request.user):
+        messages.success(request, f"تم تسجيل اطلاعك على التحليل {result.serial_number}")
+    else:
+        messages.info(request, "هذا التحليل مسجل الاطلاع عليه بالفعل")
+    return redirect("medical:lab_result_detail", uuid=result.uuid)
 
 
 def _get_procedure(request, uuid):

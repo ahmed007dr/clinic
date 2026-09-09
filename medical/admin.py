@@ -4,6 +4,7 @@ from tenants.admin import TenantOwnedAdmin
 
 from .models import (
     Allergy,
+    LabResult,
     Prescription,
     PrescriptionItem,
     Procedure,
@@ -46,6 +47,15 @@ class TreatmentSessionAdmin(TenantOwnedAdmin):
     search_fields = ("plan__serial_number", "patient__name")
     date_hierarchy = "scheduled_date"
     readonly_fields = ("uuid", "created_at", "updated_at")
+
+
+@admin.register(LabResult)
+class LabResultAdmin(TenantOwnedAdmin):
+    list_display = ("serial_number", "test_name", "patient", "flag", "status", "ordered_at")
+    list_filter = ("flag", "status", "branch")
+    search_fields = ("serial_number", "test_name", "patient__name", "lab_name")
+    date_hierarchy = "ordered_at"
+    readonly_fields = ("uuid", "serial_number", "created_at", "updated_at")
 
 
 @admin.register(Procedure)

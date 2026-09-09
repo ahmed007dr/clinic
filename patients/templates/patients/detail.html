@@ -167,6 +167,53 @@
       <a href="{% url 'medical:treatment_plan_create' patient.uuid %}" class="btn btn-primary">خطة علاج جديدة</a>
     </div>
   </div>
+
+  <div class="card mt-4">
+    <div class="card-body">
+      <h4 class="card-title">التحاليل</h4>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>رقم التحليل</th><th>التحليل</th><th>النتيجة</th>
+            <th>التقييم</th><th>تاريخ الطلب</th><th>الحالة</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for result in lab_results %}
+          {# An out-of-range result nobody has signed off is the one thing on this
+             page that needs chasing, so the whole row is marked, not just a cell. #}
+          <tr {% if result.needs_attention %}class="table-danger"{% endif %}>
+            <td>{{ result.serial_number }}</td>
+            <td>
+              {{ result.test_name }}
+              {% if result.needs_attention %}
+                <span class="badge bg-danger">لم يُطّلع عليها</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if result.value %}{{ result.value }} {{ result.unit }}{% else %}—{% endif %}
+            </td>
+            <td>
+              <span class="badge {% if result.flag == 'critical' %}bg-danger{% elif result.flag == 'abnormal' %}bg-warning{% else %}bg-success{% endif %}">
+                {{ result.get_flag_display }}
+              </span>
+            </td>
+            <td>{{ result.ordered_at|date:"Y-m-d" }}</td>
+            <td>
+              <span class="badge {% if result.status == 'resulted' %}bg-success{% elif result.status == 'ordered' %}bg-primary{% else %}bg-secondary{% endif %}">
+                {{ result.get_status_display }}
+              </span>
+            </td>
+            <td><a href="{% url 'medical:lab_result_detail' result.uuid %}" class="btn btn-sm btn-info">تفاصيل</a></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7">لا توجد تحاليل مسجلة</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <a href="{% url 'medical:lab_result_create' patient.uuid %}" class="btn btn-primary">طلب تحليل</a>
+    </div>
+  </div>
   {% endif %}
 </div>
 <style>

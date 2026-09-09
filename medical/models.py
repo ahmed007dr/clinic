@@ -532,6 +532,170 @@ class Procedure(TenantOwnedModel):
         super().save(*args, **kwargs)
 
 
+class LabResult(TenantOwnedModel):
+    """A test result on the patient's record — doc/readme.md §23.
+
+    The spec lists "Lab results" and says no more, so the shape below is a
+    design decision. Two choices drive it.
+
+    **The value is stored as text, and abnormality is recorded, not computed.**
+    Results are heterogeneous: `7.2` with a range of `4.0-5.6`, but also
+    `Positive`, `<0.01`, `Not detected`. A DecimalField would reject most of
+    those. Deriving "is this abnormal" by parsing a range string would work for
+    the easy cases and quietly fail for the rest — and a safety flag that is
+    wrong some of the time is worse than one a human sets, because it will be
+    trusted. So `flag` is entered, not inferred.
+
+    **Acknowledgement is the point of the model.** A result that arrives, is
+    abnormal, and is never read by a clinician is a well-documented way for
+    patients to come to harm — the danger is not producing the number, it is
+    nobody seeing it. So the record carries who signed it off and when, and
+    `needs_attention` marks the ones that have not been. That is what the
+    patient page surfaces.
+
+    Unlike Procedure and TreatmentSession this carries no money: lab work is
+    billed through the ordinary service/payment path, and §46 does not count it
+    as revenue. It is therefore not the third billable model that would trigger
+    extracting a shared base.
+
+    No delete view, matching Prescription and Procedure (§66).
+    """
+
+    class Status(models.TextChoices):
+        ORDERED = "ordered", "مطلوب"
+        RESULTED = "resulted", "صدرت النتيجة"
+        CANCELLED = "cancelled", "ملغي"
+
+    class Flag(models.TextChoices):
+        NORMAL = "normal", "طبيعي"
+        ABNORMAL = "abnormal", "غير طبيعي"
+        # Separate from abnormal on purpose: critical means "act now", and a
+        # clinician scanning a list needs to see that without reading values.
+        CRITICAL = "critical", "حرج"
+
+    patient = models.ForeignKey(
+        "patients.Patient", on_delete=models.PROTECT, related_name="lab_results"
+    )
+    # Optional, and SET_NULL: a result often arrives days after the encounter
+    # that ordered it, and some are ordered with no visit recorded at all.
+    visit = models.ForeignKey(
+        Visit, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="lab_results",
+    )
+    ordered_by = models.ForeignKey(
+        "employees.Employee", on_delete=models.SET_NULL,
+        null=True, blank=True,
+        limit_choices_to={"employee_type__name": "Doctor"},
+        related_name="lab_results",
+    )
+    branch = models.ForeignKey(
+        "branches.Branch", on_delete=models.SET_NULL, null=True, blank=True
+    )
+
+    test_name = models.CharField(max_length=200, verbose_name="التحليل")
+    specimen = models.CharField(max_length=100, blank=True, verbose_name="العينة")
+    lab_name = models.CharField(max_length=200, blank=True, verbose_name="المعمل")
+
+    value = models.CharField(max_length=200, blank=True, verbose_name="النتيجة")
+    unit = models.CharField(max_length=50, blank=True, verbose_name="الوحدة")
+    reference_range = models.CharField(
+        max_length=100, blank=True, verbose_name="المعدل الطبيعي"
+    )
+    flag = models.CharField(
+        max_length=20, choices=Flag.choices, default=Flag.NORMAL, verbose_name="التقييم"
+    )
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.ORDERED,
+        verbose_name="الحالة",
+    )
+
+    ordered_at = models.DateTimeField(default=timezone.now, verbose_name="تاريخ الطلب")
+    resulted_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ النتيجة")
+
+    # Deliberately not paired with a database constraint requiring both fields
+    # together. `acknowledged_by` is SET_NULL, so removing a user would leave a
+    # row that violates such a constraint and could never be saved again.
+    # `acknowledged_at` is therefore the source of truth for *whether* a result
+    # was reviewed, and `acknowledged_by` is best-effort attribution.
+    acknowledged_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+    acknowledged_at = models.DateTimeField(
+        null=True, blank=True, verbose_name="تاريخ الاطلاع"
+    )
+
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+
+    serial_number = models.CharField(max_length=20, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta(TenantOwnedModel.Meta):
+        ordering = ["-ordered_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "serial_number"],
+                name="uniq_lab_result_serial_per_tenant",
+            )
+        ]
+        verbose_name = "نتيجة تحليل"
+        verbose_name_plural = "نتائج التحاليل"
+
+    def __str__(self):
+        return f"{self.serial_number} - {self.test_name}"
+
+    @property
+    def is_acknowledged(self):
+        return self.acknowledged_at is not None
+
+    @property
+    def is_out_of_range(self):
+        return self.flag in {self.Flag.ABNORMAL, self.Flag.CRITICAL}
+
+    @property
+    def needs_attention(self):
+        """An out-of-range result that has arrived and nobody has signed off.
+
+        Ordered-but-not-resulted does not qualify — there is nothing to read
+        yet — and neither does a normal result, which is why this is narrower
+        than "not acknowledged".
+        """
+        return (
+            self.status == self.Status.RESULTED
+            and self.is_out_of_range
+            and not self.is_acknowledged
+        )
+
+    def acknowledge(self, user):
+        """Records that a clinician has read the result.
+
+        Idempotent: the first acknowledgement stands, so a second click does not
+        rewrite who saw it first, which is the fact worth keeping.
+        """
+        if self.is_acknowledged:
+            return False
+        self.acknowledged_by = user
+        self.acknowledged_at = timezone.now()
+        self.save(update_fields=["acknowledged_by", "acknowledged_at", "updated_at"])
+        return True
+
+    def save(self, *args, **kwargs):
+        if not self.serial_number:
+            self.serial_number = SerialCounter.next_serial(
+                self.tenant_id, "lab_result", self.ordered_at.date()
+            )
+        # A result marked as arrived with no arrival date sorts wrongly and
+        # makes "how long has this been waiting" unanswerable, so stamp it.
+        if self.status == self.Status.RESULTED and self.resulted_at is None:
+            self.resulted_at = timezone.now()
+        super().save(*args, **kwargs)
+
+
 def allergy_conflicts(patient, medications):
     """Flag prescribed medications that mention a recorded allergen.
 
