@@ -49,7 +49,48 @@ def provision_tenant_defaults(tenant):
                 tenant=tenant, name=name, defaults={"description": description}
             )
 
+        ensure_subscription(tenant)
+
     return tenant
+
+
+# A new clinic starts on the entry tier, on trial. Not "no subscription":
+# entitlements fail closed, so a tenant without one has a zero branch limit and
+# cannot finish its own setup.
+DEFAULT_PLAN_CODE = "basic"
+TRIAL_DAYS = 30
+
+
+def ensure_subscription(tenant):
+    """Give a tenant a subscription if it has none. Idempotent, and it never
+    replaces an existing active one — a tenant that has been moved onto another
+    plan must not be silently reset by a later provisioning run."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from subscriptions.models import Plan, Subscription
+
+    existing = Subscription.all_objects.filter(
+        tenant=tenant, status=Subscription.Status.ACTIVE
+    ).first()
+    if existing:
+        return existing
+
+    plan = Plan.objects.filter(code=DEFAULT_PLAN_CODE).first()
+    if plan is None:
+        # The catalogue is seeded by subscriptions.0002. During a partial
+        # migrate it may not exist yet; the post_migrate backstop will catch up.
+        return None
+
+    today = timezone.now().date()
+    return Subscription.all_objects.create(
+        tenant=tenant,
+        plan=plan,
+        status=Subscription.Status.ACTIVE,
+        started_on=today,
+        trial_ends_on=today + timedelta(days=TRIAL_DAYS),
+    )
 
 
 def create_tenant(name, slug=None, status=None):

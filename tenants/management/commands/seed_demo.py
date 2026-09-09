@@ -37,6 +37,7 @@ from medical.models import (
 )
 from patients.models import Patient
 from services.models import Service
+from subscriptions.models import Plan, Subscription
 from tenants.context import tenant_context
 from tenants.models import SerialCounter, Tenant
 from tenants.provisioning import provision_tenant_defaults
@@ -158,6 +159,14 @@ class Command(BaseCommand):
         # patients and visits
         # cannot be cleared while any of these exist. Sessions before plans,
         # and procedures before visits, for the same reason.
+        # Subscriptions must go here, inside the per-tenant binding, not with
+        # the platform-level rows below. Tenant.delete() cannot find them
+        # otherwise: Django's deletion collector reads related rows through
+        # `all_objects`, and under RLS an unbound query sees nothing — so the
+        # collector concludes there is nothing PROTECTing the tenant, deletes
+        # it, and the database raises a raw foreign-key violation instead of
+        # the ProtectedError the ORM would have given.
+        Subscription.all_objects.all().delete()
         LabResult.all_objects.all().delete()
         Procedure.all_objects.all().delete()
         TreatmentSession.all_objects.all().delete()
@@ -181,6 +190,23 @@ class Command(BaseCommand):
         ClinicRole.all_objects.all().delete()
         Branch.all_objects.all().delete()
 
+
+    def _subscribe_to_demo_plan(self, tenant):
+        """Put demo tenants on Professional rather than the Basic trial that
+        provisioning gives a real new clinic.
+
+        Otherwise the demo data contradicts its own plan: Basic allows one
+        branch and this seeder creates two, so the fixture would start out over
+        its limit. Professional (3 branches, 25 staff, 5000 patients) fits what
+        is seeded, so the entitlement checks can be exercised honestly — try
+        adding a fourth branch and the limit fires for the right reason.
+        """
+        professional = Plan.objects.filter(code="professional").first()
+        if professional is None:
+            return
+        with tenant_context(tenant):
+            Subscription.all_objects.filter(tenant=tenant).update(plan=professional)
+
     # ------------------------------------------------------------------- seed
 
     def _seed_tenant(self, spec):
@@ -191,6 +217,7 @@ class Command(BaseCommand):
             defaults={"name": spec["name"], "status": Tenant.Status.ACTIVE},
         )
         provision_tenant_defaults(tenant)
+        self._subscribe_to_demo_plan(tenant)
 
         # Inside this block, plain .objects queries are scoped to this tenant.
         with tenant_context(tenant):

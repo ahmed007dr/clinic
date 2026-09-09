@@ -44,7 +44,15 @@ def create_audit_log(user, action, instance, description=""):
     try:
         with transaction.atomic():
             AuditLog.objects.create(
-                tenant=getattr(instance, "tenant", None),
+                # tenant_id, not tenant. During a data migration the instance is
+                # a *historical* model built by apps.get_model, so its `.tenant`
+                # is a historical Tenant that Django refuses to assign to a
+                # relation declared against the real one — the save blows up and
+                # takes the migration with it. The id is just an integer and
+                # works for both, and it saves fetching the related row too.
+                # Same lesson as BUG-001: auditing must never be able to break
+                # the operation it is observing.
+                tenant_id=getattr(instance, "tenant_id", None),
                 user=user if user and getattr(user, "is_authenticated", False) else None,
                 action=action,
                 model_name=model_name,

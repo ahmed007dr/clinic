@@ -13,6 +13,7 @@ from medical.models import (
     Visit,
 )
 from medical.permissions import can_view_clinical
+from subscriptions.entitlements import LimitReached, check_limit
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator
@@ -33,6 +34,17 @@ def patient_create(request):
     if request.method == 'POST':
         form = PatientForm(request.POST, request.FILES)
         if form.is_valid():
+            try:
+                check_limit(
+                    request.user.tenant, 'max_patients', Patient.objects.count()
+                )
+            except LimitReached as reached:
+                messages.error(
+                    request,
+                    f'باقتك الحالية تسمح بـ {reached.allowed} مريض. '
+                    'قم بترقية الباقة لتسجيل المزيد.',
+                )
+                return redirect('patients:patient_list')
             patient = form.save(commit=False)
             patient.tenant = request.user.tenant
             patient.save()
