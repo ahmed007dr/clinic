@@ -46,12 +46,62 @@ without them.
 
 | | |
 |---|---|
-| Host | Where this runs. **Currently unknown** — see the Gate A findings in [06-implementation-progress.md](06-implementation-progress.md): the previous domain no longer resolves and the tracked `passenger_wsgi.py` has been inert since 2025-09-29 |
+| Host | **cPanel shared hosting** (confirmed 2026-09-09). See section 1a |
 | Domain + TLS certificate | Drives `DJANGO_ALLOWED_HOSTS` and `DJANGO_CSRF_TRUSTED_ORIGINS`, and section 0 |
-| PostgreSQL instance | **14 or newer** (Django 5.2's minimum; 16 or 17 recommended). The role the application connects as must be **`NOSUPERUSER NOBYPASSRLS`** — see section 4 |
+| PostgreSQL instance | **17** (confirmed). Django 5.2's minimum is 14. The role the application connects as must be **`NOSUPERUSER NOBYPASSRLS`** — see section 4 |
 | Python | **3.10 or newer** (Django 5.2 and pillow 12 both require it). Rehearsed on 3.11 |
 | SMTP credentials | Reports and notifications. The account rotated under SEC-001 |
-| Existing patient data | **Location unknown.** Nothing is migrated until this is answered — see section 9 |
+| Existing patient data | **None exists** (confirmed 2026-09-09). The system is delivered with the seeded demo dataset; there is no legacy schema and nothing to migrate |
+
+
+## 1a. cPanel specifics
+
+Four things differ from a plain server, and all four have bitten deployments
+before.
+
+**Python version.** cPanel's *Setup Python App* offers a list; pick **3.10 or
+newer**. Django 5.2 and pillow 12 both require it, and there is no fallback —
+an older interpreter fails at install, not at runtime.
+
+**The entry point.** Setup Python App looks for `passenger_wsgi.py` at the
+application root, and this repository ships a working one. It derives its own
+path, so it works on any account — unlike the previous version, which hardcoded
+`/home/odayscom/src` and had been commented out in its entirety since
+2025-09-29, defining no `application` at all. Set the application root to the
+clone directory and the application URL to the domain; leave the startup file as
+`passenger_wsgi.py`.
+
+**Where files live.** cPanel serves `~/public_html` directly, and only that.
+So:
+
+```
+DJANGO_STATIC_ROOT=/home/<account>/public_html/static
+DJANGO_MEDIA_ROOT=/home/<account>/public_html/media
+DJANGO_MEDICAL_ATTACHMENTS_ROOT=/home/<account>/private/attachments
+```
+
+**The application clone itself must not be inside `public_html`.** If it is, the
+web server will happily serve `.env`, and with it the database password and the
+secret key.
+
+**Medical attachments must stay outside `public_html`** — that is the whole
+point of `DJANGO_MEDICAL_ATTACHMENTS_ROOT` being separate. A file the web server
+can reach has bypassed every permission check the application makes; attachments
+are streamed by an authenticated view instead.
+
+**TLS behind Passenger.** cPanel terminates TLS at the web server and proxies to
+the application, so Django may see plain HTTP even when the browser is on HTTPS
+— which triggers the silent data loss described in section 0, or a redirect
+loop. Deploy, enable AutoSSL, then run the section 8 check. **If saving a
+patient does nothing, or the site redirects endlessly**, set:
+
+```
+DJANGO_TRUST_PROXY_SSL_HEADER=True
+```
+
+Only set it once AutoSSL is active and the proxy is genuinely terminating TLS:
+it makes Django trust `X-Forwarded-Proto`, and trusting that header on a server
+that does not set it lets a client claim its own connection was secure.
 
 ## 2. Get the code and build the environment
 
@@ -159,21 +209,33 @@ Do these against the real URL, over HTTPS, in a browser.
 6. Check `/admin/` loads for a superuser. Tenant-owned models are deliberately
    absent from it (ADMIN-002) — that is expected, not a fault.
 
-## 9. Existing data
+## 9. Load the demo dataset
 
-**Do not migrate anything until the current data has been located and audited.**
-
-Once it is, run the audit against a copy first. It is read-only and mutates
-nothing:
+There is no existing data and no legacy schema, so the system is delivered with
+a seeded dataset:
 
 ```bash
-venv/bin/python manage.py audit_data_compatibility --samples 20
+venv/bin/python manage.py seed_demo --reset
 ```
 
-It reports values SQLite accepts and PostgreSQL will reject — over-length
-fields, malformed dates and UUIDs, decimal overflow, orphaned foreign keys and
-cross-tenant references. **Blockers must be resolved by a person**, not by
-truncation: a phone number cut short is a patient who cannot be contacted.
+This creates two clinics with Arabic patients, appointments, visits,
+prescriptions, treatment plans, sessions, procedures, lab results and payments,
+plus Admin, Reception and Doctor logins for each. It prints the accounts and the
+shared password when it finishes.
+
+It runs on a production install: `Faker` is a development dependency and is
+deliberately absent from `requirements.txt`, so the seeder falls back to a
+built-in Arabic generator and says which it used. **Do not install
+`requirements-dev.txt` on the server** to get Faker — it is not needed.
+
+`--reset` clears the seeded data first, so it is safe to re-run. **It deletes
+everything except the `dr-ahmed` tenant**, which makes it exactly the wrong
+command to run once the clinic has entered real records. Once real use begins,
+stop using it.
+
+If data ever does need importing from elsewhere, `manage.py
+audit_data_compatibility` reports values SQLite accepts and PostgreSQL rejects.
+It is read-only and mutates nothing.
 
 ## 10. Ongoing
 

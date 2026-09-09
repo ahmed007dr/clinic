@@ -42,6 +42,8 @@ from tenants.context import tenant_context
 from tenants.models import SerialCounter, Tenant
 from tenants.provisioning import provision_tenant_defaults
 
+from ._demo_data import get_generator
+
 User = get_user_model()
 
 DEMO_PASSWORD = "demo-clinic-2026"
@@ -108,14 +110,13 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        try:
-            from faker import Faker
-        except ImportError:
-            self.stderr.write("Faker is required: pip install -r requirements.txt")
-            return
-
-        self.fake = Faker("ar_EG")
+        # Faker is a development dependency and is deliberately absent from a
+        # production install, but the demo dataset is what the system ships
+        # with — so the seeder has to run there too. _demo_data supplies the
+        # handful of generators this command needs when Faker is missing.
+        self.fake, source = get_generator(20260908)
         random.seed(20260908)  # reproducible runs
+        self.stdout.write(f"Generating demo data using: {source}")
 
         if options["reset"]:
             self._reset()

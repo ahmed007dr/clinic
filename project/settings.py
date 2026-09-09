@@ -185,10 +185,13 @@ STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
 # collectstatic target for deployment. Generated output — gitignored.
-STATIC_ROOT = BASE_DIR / "staticfiles"
+# Env-configurable because shared hosting decides where these live. On cPanel
+# the web server only serves what is under ~/public_html, so collectstatic has
+# to write there — e.g. DJANGO_STATIC_ROOT=/home/<account>/public_html/static.
+STATIC_ROOT = Path(env.str('DJANGO_STATIC_ROOT', default=str(BASE_DIR / "staticfiles")))
 
-MEDIA_URL='media/'
-MEDIA_ROOT=BASE_DIR / "media"
+MEDIA_URL = env.str('DJANGO_MEDIA_URL', default='/media/')
+MEDIA_ROOT = Path(env.str('DJANGO_MEDIA_ROOT', default=str(BASE_DIR / "media")))
 
 # --- Medical attachments (doc §61) -------------------------------------------
 # Deliberately NOT under MEDIA_ROOT. Anything in MEDIA_ROOT is a candidate for
