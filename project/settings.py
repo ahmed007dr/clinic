@@ -73,6 +73,7 @@ INSTALLED_APPS = [
 
     "tenants",
     "subscriptions",
+    "platform_admin",
     "accounts",
     "employees",
     "patients",

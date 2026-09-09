@@ -27,6 +27,9 @@ urlpatterns = [
     path('services/', include(('services.urls', 'services'), namespace='services')),
     path('medical/', include(('medical.urls', 'medical'), namespace='medical')),
     path('dashboard/', include(('dashboard.urls', 'dashboard'), namespace="dashboard")),
+    # SaaS operators only (platform_admin.permissions). Mounted separately
+    # from /admin/, which is Django's own and stays as it is.
+    path('platform/', include(('platform_admin.urls', 'platform_admin'), namespace='platform_admin')),
 
     #path('', lambda request: redirect('login')),
     path('', lambda request: redirect('accounts:login'), name='index'),
