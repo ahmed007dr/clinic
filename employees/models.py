@@ -29,8 +29,9 @@ class Employee(TenantOwnedModel):
     employee_type = models.ForeignKey(EmployeeType, on_delete=models.SET_NULL, null=True, blank=True)
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE)
     national_id = models.CharField(max_length=20)
-    phone1 = models.CharField(max_length=20, blank=True)
-    phone2 = models.CharField(max_length=20, blank=True)
+    # 32 — see Branch.phone for why 20 was too narrow.
+    phone1 = models.CharField(max_length=32, blank=True)
+    phone2 = models.CharField(max_length=32, blank=True)
     email = models.EmailField(blank=True)
     hire_date = models.DateField(null=False, blank=False, default=timezone.now)
     salary_type = models.ForeignKey(SalaryType, on_delete=models.SET_NULL, null=True, blank=True)

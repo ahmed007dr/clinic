@@ -181,7 +181,7 @@ class Command(BaseCommand):
             branches = [
                 Branch.objects.get_or_create(
                     tenant=tenant, code=code,
-                    defaults={"name": name, "address": fake.address(), "phone": fake.phone_number()[:20]},
+                    defaults={"name": name, "address": fake.address(), "phone": fake.phone_number()[:32]},
                 )[0]
                 for name, code in spec["branches"]
             ]
@@ -246,7 +246,7 @@ class Command(BaseCommand):
                     employee_type=doctor_type if i < max(2, spec["employees"] // 2) else nurse_type,
                     branch=random.choice(branches),
                     national_id=fake.unique.numerify(text="##############"),
-                    phone1=fake.phone_number()[:20],
+                    phone1=fake.phone_number()[:32],
                     email=fake.unique.email(),
                     hire_date=fake.date_between(start_date="-3y", end_date="today"),
                     salary_type=random.choice(salary_types),
@@ -264,7 +264,7 @@ class Command(BaseCommand):
                     national_id=fake.unique.numerify(text="##############"),
                     gender=random.choice(["male", "female"]),
                     birth_date=fake.date_of_birth(minimum_age=18, maximum_age=80),
-                    phone1=fake.phone_number()[:20],
+                    phone1=fake.phone_number()[:32],
                     email=fake.unique.email(),
                     marital_status=random.choice(["single", "married"]),
                     address=fake.address(),

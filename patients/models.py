@@ -22,8 +22,9 @@ class Patient(TenantOwnedModel):
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, default='female')
     marital_status = models.CharField(max_length=20, choices=MARITAL_STATUS_CHOICES, default='single')
     birth_date = models.DateField(blank=True, null=True)
-    phone1 = models.CharField(max_length=20, blank=True, null=True)
-    phone2 = models.CharField(max_length=20, blank=True, null=True)
+    # 32 — see Branch.phone. Eight patient rows already exceeded 20 characters.
+    phone1 = models.CharField(max_length=32, blank=True, null=True)
+    phone2 = models.CharField(max_length=32, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     address = models.TextField(blank=True, null=True)
     photo = models.ImageField(upload_to='patients/', blank=True, null=True)
