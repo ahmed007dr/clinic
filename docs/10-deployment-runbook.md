@@ -1,0 +1,203 @@
+# 10 — Deployment runbook
+
+Every step below was rehearsed on 2026-09-09 against a **clean clone of the
+committed state**, a virgin PostgreSQL 17 database and a fresh virtualenv built
+from `requirements.txt` alone. The commands are what actually ran, not what
+ought to work.
+
+What that rehearsal proved: the repository is self-contained. A clone plus a
+`.env` produces a working system — migrations apply to an empty database,
+`collectstatic` succeeds, a clinic can be onboarded, its administrator can log
+in, and every main screen renders.
+
+---
+
+## 0. Read this first — the failure that looks like success
+
+**If the site is served over plain HTTP, every form submission is silently
+discarded.**
+
+`SECURE_SSL_REDIRECT` is on whenever `DJANGO_DEBUG=False`. Over HTTP, Django
+answers a `POST` with `301 → https://…`. A redirect drops the request body, so
+the browser re-issues it as a `GET`: the page reloads, no error appears, and
+nothing is saved. Verified in the rehearsal — over HTTP the patient count stayed
+at zero; over HTTPS the same request saved.
+
+For a clinic this is the worst possible failure mode: staff enter a patient, the
+screen looks normal, and the record does not exist.
+
+So, before handover, exactly one of these must be true:
+
+* **TLS terminates at Django** (it has a real certificate), or
+* **TLS terminates at a proxy** and `DJANGO_TRUST_PROXY_SSL_HEADER=True` is set,
+  and that proxy sets `X-Forwarded-Proto` **and strips any client-supplied
+  copy** — otherwise a client can assert its own connection was secure, or
+* `DJANGO_SECURE_SSL_REDIRECT=False`, which is only acceptable while nothing
+  real is being entered.
+
+Verify with step 8. Do not skip it.
+
+---
+
+## 1. What must be supplied before starting
+
+These are decisions and secrets, not engineering. Nothing below can proceed
+without them.
+
+| | |
+|---|---|
+| Host | Where this runs. **Currently unknown** — see the Gate A findings in [06-implementation-progress.md](06-implementation-progress.md): the previous domain no longer resolves and the tracked `passenger_wsgi.py` has been inert since 2025-09-29 |
+| Domain + TLS certificate | Drives `DJANGO_ALLOWED_HOSTS` and `DJANGO_CSRF_TRUSTED_ORIGINS`, and section 0 |
+| PostgreSQL instance | **14 or newer** (Django 5.2's minimum; 16 or 17 recommended). The role the application connects as must be **`NOSUPERUSER NOBYPASSRLS`** — see section 4 |
+| Python | **3.10 or newer** (Django 5.2 and pillow 12 both require it). Rehearsed on 3.11 |
+| SMTP credentials | Reports and notifications. The account rotated under SEC-001 |
+| Existing patient data | **Location unknown.** Nothing is migrated until this is answered — see section 9 |
+
+## 2. Get the code and build the environment
+
+```bash
+git clone <repo> clinic && cd clinic
+python -m venv venv
+venv/bin/pip install -r requirements.txt          # Windows: venv\Scripts\pip
+```
+
+`requirements-dev.txt` adds only Faker, used by `seed_demo`. **Do not install it
+in production** — production has no use for a fake-data generator.
+
+## 3. Configure
+
+```bash
+cp .env.example .env
+```
+
+Fill it in. Every value in the template is a placeholder; none is a real
+credential. Generate the secret key rather than inventing one:
+
+```bash
+venv/bin/python -c "from django.core.management.utils import get_random_secret_key as k; print(k())"
+```
+
+`DJANGO_DEBUG` **must** be `False`. With it on, Django serves `MEDIA_ROOT` with
+no authentication at all, and patient photographs become readable by anyone who
+guesses a URL.
+
+## 4. The database role
+
+The application connects as a role that is **neither `SUPERUSER` nor
+`BYPASSRLS`**. This is not a preference: the row-level security policies that
+keep clinics apart are simply skipped for such a role, and the entire isolation
+backstop becomes decorative. A test asserts it (`tenants/test_rls.py`), so a
+misconfigured deployment fails the suite rather than running unprotected.
+
+```sql
+CREATE ROLE clinic_app LOGIN PASSWORD '…' NOSUPERUSER NOBYPASSRLS NOCREATEDB;
+CREATE DATABASE clinic OWNER clinic_app;
+```
+
+Migrations may be run as the same role — the policies are created by
+`tenants.0005`–`0011`, and `FORCE ROW LEVEL SECURITY` means even the table owner
+is subject to them.
+
+## 5. Migrate and collect static files
+
+```bash
+venv/bin/python manage.py migrate
+venv/bin/python manage.py collectstatic --noinput
+```
+
+Expect roughly 266 static files. The migrations install the isolation policies
+and seed the subscription catalogue (Basic / Professional / Enterprise).
+
+## 6. Check the deployment
+
+```bash
+venv/bin/python manage.py check --deploy
+```
+
+**One warning is expected and correct**: `security.W004`, that
+`SECURE_HSTS_SECONDS` is unset. HSTS is deliberately opt-in — browsers cache it
+for its `max-age` and will then refuse plain HTTP to the domain and every
+subdomain for that whole period, ignoring anything the server later sends. Turn
+it on once HTTPS is confirmed everywhere, starting small:
+
+```
+DJANGO_SECURE_HSTS_SECONDS=3600      # raise to 31536000 after a week of calm
+DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS=True
+```
+
+**Any other warning is a real finding.** Do not silence it.
+
+## 7. Onboard the first clinic
+
+```bash
+venv/bin/python manage.py create_tenant "اسم العيادة" \
+    --slug clinic-slug --admin-email admin@clinic.example \
+    --branch "الفرع الرئيسي" --branch-code MAIN
+```
+
+This creates the tenant, its roles (Admin, Reception, Doctor), the Doctor
+employee type, the first branch, the administrator account, and a Basic trial
+subscription. **The generated password is printed once and is not recoverable** —
+capture it before closing the terminal, and hand it over out of band.
+
+A non-ASCII name needs `--slug`, because `slugify()` returns an empty string for
+Arabic and a tenant with a blank slug is unusable.
+
+## 8. Verify before handing over
+
+Do these against the real URL, over HTTPS, in a browser.
+
+1. **Log in** as the clinic administrator.
+2. **Register a patient, then reload the list and confirm it is there.** This is
+   the section 0 check. If the patient does not appear, TLS is misconfigured and
+   nothing is being saved.
+3. Open the patient, record a visit, issue a prescription, **print it** — this
+   also confirms the Arabic PDF font is working (FE-016). Arabic must be joined
+   and right-to-left, not boxes or disconnected letters.
+4. Export the patient list as **PDF** and as **Excel**; open both.
+5. Log in as a **Reception** account and confirm no diagnosis is visible.
+6. Check `/admin/` loads for a superuser. Tenant-owned models are deliberately
+   absent from it (ADMIN-002) — that is expected, not a fault.
+
+## 9. Existing data
+
+**Do not migrate anything until the current data has been located and audited.**
+
+Once it is, run the audit against a copy first. It is read-only and mutates
+nothing:
+
+```bash
+venv/bin/python manage.py audit_data_compatibility --samples 20
+```
+
+It reports values SQLite accepts and PostgreSQL will reject — over-length
+fields, malformed dates and UUIDs, decimal overflow, orphaned foreign keys and
+cross-tenant references. **Blockers must be resolved by a person**, not by
+truncation: a phone number cut short is a patient who cannot be contacted.
+
+## 10. Ongoing
+
+* **Backups.** Nothing in this repository backs anything up. A managed
+  PostgreSQL instance with point-in-time recovery is the least work; whatever is
+  chosen, restore it once before relying on it.
+* **`private/`** holds medical attachments and is outside `MEDIA_ROOT` on
+  purpose. It is not in version control and **must** be included in backups —
+  losing it loses patient documents. It must never be served by the web server;
+  attachments are streamed by an authenticated view.
+* **Secret rotation.** `DJANGO_SECRET_KEY` invalidates all sessions when
+  changed, which is the point.
+* **Scheduled reports** (`reports/views.py`) exist but nothing invokes them —
+  they need a cron entry or equivalent, and none is configured.
+
+## 11. Known gaps at handover
+
+Honest list. None of these blocks day-to-day clinical use.
+
+| Gap | Impact |
+|---|---|
+| No live payment gateway | Subscription billing is manual — record transfers out of band. The clinic-facing patient billing is unaffected and works |
+| Cross-tenant reporting | Platform totals need a per-tenant loop; RLS means an unbound aggregate returns nothing rather than a wrong number |
+| Storage limit not enforced | `max_storage_mb` exists on plans but nothing counts usage yet |
+| Patient portal | Not built. A design document is required first |
+| Scheduled reports unwired | See section 10 |
+| `passenger_wsgi.py` | Inert and unused. `project/wsgi.py` is the real entry point; delete the former or repair it deliberately |

@@ -30,6 +30,8 @@ from django.test import SimpleTestCase, TestCase, override_settings
 
 from utils.utils import (
     ARABIC_FONT,
+    EXCEL_SHEET_NAME_LIMIT,
+    excel_sheet_name,
     ARABIC_FONT_PATH,
     arabic_table_style,
     export_excel,
@@ -315,3 +317,42 @@ class ArabicPdfRenderingTests(SimpleTestCase):
                 if start == (0, 0) and stop == (-1, -1):
                     return
         self.fail("no FONTNAME command spans the whole table including row 0")
+
+
+class ExcelSheetNameTests(SimpleTestCase):
+    """Excel rejects sheet names over 31 characters or containing : \ / ? * [ ].
+
+    openpyxl only *warns*, so the file gets written and then fails to open in
+    some readers — a defect that surfaces at the client, not in the logs. Found
+    during the clean-clone handover rehearsal: the real title
+    "قائمة المرضى - فرع الفرع الرئيسي" is 32 characters.
+    """
+
+    def test_a_long_arabic_title_is_shortened(self):
+        title = "قائمة المرضى - فرع الفرع الرئيسي"
+        self.assertGreater(len(title), EXCEL_SHEET_NAME_LIMIT)
+        self.assertLessEqual(len(excel_sheet_name(title)), EXCEL_SHEET_NAME_LIMIT)
+
+    def test_forbidden_characters_are_removed(self):
+        for bad in ":\/?*[]":
+            with self.subTest(char=bad):
+                self.assertNotIn(bad, excel_sheet_name(f"a{bad}b"))
+
+    def test_an_empty_title_still_yields_a_valid_name(self):
+        self.assertTrue(excel_sheet_name(""))
+        self.assertTrue(excel_sheet_name(None))
+
+    def test_a_workbook_with_a_long_title_opens_cleanly(self):
+        """The end-to-end claim: no warning, and openpyxl can read it back."""
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")  # a UserWarning here fails the test
+            response = export_excel(
+                ROWS, HEADERS, "قائمة المرضى - فرع الفرع الرئيسي", "long-title"
+            )
+        workbook = openpyxl.load_workbook(BytesIO(response.content))
+        self.assertLessEqual(len(workbook.active.title), EXCEL_SHEET_NAME_LIMIT)
+        # The full title is not lost — it is still the first row.
+        first_row = [c.value for c in next(workbook.active.iter_rows())]
+        self.assertIn("قائمة المرضى - فرع الفرع الرئيسي", first_row)

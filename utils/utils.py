@@ -134,10 +134,25 @@ def export_pdf(data, headers, title, filename):
     buffer.close()
     return response
 
+# Excel refuses sheet names over 31 characters or containing any of : \ / ? * [ ]
+# — and openpyxl only warns, so the file is written and then fails to open in
+# some readers. The real titles here are Arabic and routinely longer than that
+# ("قائمة المرضى - فرع الفرع الرئيسي" is 32), so this is not a hypothetical.
+EXCEL_SHEET_NAME_LIMIT = 31
+_EXCEL_FORBIDDEN = str.maketrans({c: " " for c in ":\/?*[]"})
+
+
+def excel_sheet_name(title, fallback="Sheet1"):
+    """A title Excel will actually accept. The full title still appears in the
+    first row of the sheet, so nothing is lost by shortening the tab."""
+    cleaned = (title or "").translate(_EXCEL_FORBIDDEN).strip()
+    return cleaned[:EXCEL_SHEET_NAME_LIMIT] or fallback
+
+
 def export_excel(data, headers, title, filename):
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = title
+    ws.title = excel_sheet_name(title)
     
     # إضافة العنوان
     ws.append([title])
