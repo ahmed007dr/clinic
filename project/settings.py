@@ -23,6 +23,42 @@ ALLOWED_HOSTS = env.list('DJANGO_ALLOWED_HOSTS', default=[])
 CSRF_TRUSTED_ORIGINS = env.list('DJANGO_CSRF_TRUSTED_ORIGINS', default=[])
 
 
+# --- Transport security -------------------------------------------------------
+# Secure by default and relaxed only when DEBUG is on, so a local HTTP session
+# still works while a deployment gets the hardened values without anyone
+# remembering to set them. Each stays overridable, because "is this deployment
+# behind TLS" is a property of the environment, not of the code.
+#
+# Django already defaults the rest of the headers sensibly and they are not
+# repeated here: SECURE_CONTENT_TYPE_NOSNIFF, X_FRAME_OPTIONS = 'DENY',
+# SECURE_REFERRER_POLICY, SECURE_CROSS_ORIGIN_OPENER_POLICY and
+# SESSION_COOKIE_HTTPONLY are all already on.
+SESSION_COOKIE_SECURE = env.bool('DJANGO_SESSION_COOKIE_SECURE', default=not DEBUG)
+CSRF_COOKIE_SECURE = env.bool('DJANGO_CSRF_COOKIE_SECURE', default=not DEBUG)
+
+# Redirects http:// to https://. Read the proxy note below before deploying:
+# behind a load balancer that terminates TLS, Django cannot tell the original
+# request was secure, so this redirects forever unless the proxy's header is
+# trusted. That is why the header is a separate, explicit opt-in — trusting a
+# forwarded header blindly lets a client claim its own connection was secure.
+SECURE_SSL_REDIRECT = env.bool('DJANGO_SECURE_SSL_REDIRECT', default=not DEBUG)
+if env.bool('DJANGO_TRUST_PROXY_SSL_HEADER', default=False):
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# HSTS is opt-in and off by default, unlike the three settings above, because it
+# is the one that cannot be quickly undone: browsers cache it for max-age and
+# will refuse plain HTTP to this domain — and with subdomains, everything under
+# it — for that whole period, ignoring any later change. Enable it per
+# deployment once HTTPS is confirmed everywhere, starting with a small max-age
+# (e.g. 3600) and raising it. Until then `manage.py check --deploy` reports
+# W004, which is an accurate description of the deployment, not a defect here.
+SECURE_HSTS_SECONDS = env.int('DJANGO_SECURE_HSTS_SECONDS', default=0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool(
+    'DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS', default=bool(SECURE_HSTS_SECONDS)
+)
+SECURE_HSTS_PRELOAD = env.bool('DJANGO_SECURE_HSTS_PRELOAD', default=False)
+
+
 
 
 # Application definition
