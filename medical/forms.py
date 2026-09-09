@@ -1,9 +1,12 @@
+from pathlib import PurePath
+
 from django import forms
 from django.forms import inlineformset_factory
 
 from .models import (
     Allergy,
     LabResult,
+    MedicalAttachment,
     Prescription,
     PrescriptionItem,
     Procedure,
@@ -12,6 +15,8 @@ from .models import (
     Visit,
 )
 from tenants.forms import TenantScopedFormMixin
+
+from .attachments import checksum, validate_attachment
 
 
 class VisitForm(TenantScopedFormMixin, forms.ModelForm):
@@ -124,6 +129,63 @@ class TreatmentSessionForm(TenantScopedFormMixin, forms.ModelForm):
                     "discount", "الخصم لا يمكن أن يتجاوز إجمالي الجلسة"
                 )
         return cleaned
+
+
+class MedicalAttachmentForm(TenantScopedFormMixin, forms.ModelForm):
+    """Validation happens in `clean_file`, not on the model.
+
+    The checks in medical/attachments.py need the *uploaded* object — its size,
+    and its leading bytes — which only exists during form processing. By the
+    time a model field has a value it may already be a stored file.
+
+    The derived columns (content type, size, checksum, original name) are filled
+    in here for the same reason: this is the only place the upload is still in
+    hand. `clean_file` stashes what it detected so `save` does not have to read
+    the file a second time.
+    """
+
+    class Meta:
+        model = MedicalAttachment
+        fields = ["title", "category", "file", "visit", "lab_result", "branch", "notes"]
+        widgets = {
+            "title": forms.TextInput(
+                attrs={"class": "form-control", "placeholder": "مثال: تقرير أشعة الصدر"}
+            ),
+            "category": forms.Select(attrs={"class": "form-control js-example-basic-single"}),
+            "file": forms.ClearableFileInput(attrs={"class": "form-control"}),
+            "visit": forms.Select(attrs={"class": "form-control js-example-basic-single"}),
+            "lab_result": forms.Select(attrs={"class": "form-control js-example-basic-single"}),
+            "branch": forms.Select(attrs={"class": "form-control js-example-basic-single"}),
+            "notes": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
+        }
+
+    def clean_file(self):
+        uploaded = self.cleaned_data.get("file")
+        if not uploaded:
+            return uploaded
+        # An already-stored file on an edit has no fresh upload to inspect.
+        if not hasattr(uploaded, "size") or not hasattr(uploaded, "read"):
+            return uploaded
+
+        extension, content_type = validate_attachment(uploaded)
+        self._detected = {
+            "content_type": content_type,
+            "size_bytes": uploaded.size,
+            "checksum": checksum(uploaded),
+            # Only the base name is kept: the browser may send a path, and a
+            # stored value containing separators is a trap for anything that
+            # later joins it to a directory.
+            "original_filename": PurePath(uploaded.name or "").name[:255],
+        }
+        return uploaded
+
+    def save(self, commit=True):
+        attachment = super().save(commit=False)
+        for field, value in getattr(self, "_detected", {}).items():
+            setattr(attachment, field, value)
+        if commit:
+            attachment.save()
+        return attachment
 
 
 class LabResultForm(TenantScopedFormMixin, forms.ModelForm):

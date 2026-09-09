@@ -188,6 +188,21 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL='media/'
 MEDIA_ROOT=BASE_DIR / "media"
 
+# --- Medical attachments (doc §61) -------------------------------------------
+# Deliberately NOT under MEDIA_ROOT. Anything in MEDIA_ROOT is a candidate for
+# the web server to serve directly, and a file served that way has bypassed
+# every permission check the application makes. With DEBUG = True Django serves
+# MEDIA_ROOT itself with no authentication, so a patient's scan would be
+# readable by anyone who guessed the URL. These live somewhere no server is
+# configured to reach, and are streamed only by an authenticated view.
+MEDICAL_ATTACHMENTS_ROOT = Path(
+    env.str('DJANGO_MEDICAL_ATTACHMENTS_ROOT',
+            default=str(BASE_DIR / 'private' / 'attachments'))
+)
+MEDICAL_ATTACHMENT_MAX_BYTES = env.int(
+    'DJANGO_MEDICAL_ATTACHMENT_MAX_BYTES', default=10 * 1024 * 1024
+)
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 

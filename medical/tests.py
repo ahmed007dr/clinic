@@ -4,12 +4,22 @@ The access rule is the point of these tests: Reception books, registers and
 bills, but must never see a diagnosis.
 """
 
+import hashlib
+import os
+import shutil
+import tempfile
 from decimal import Decimal
+from pathlib import Path
+from types import SimpleNamespace
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from django.core.files.base import ContentFile
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
 from accounts.models import ClinicRole
@@ -22,9 +32,16 @@ from tenants.provisioning import provision_tenant_defaults
 from tenants.context import tenant_context
 from tenants.testing import act_as_tenant
 
+from .attachments import (
+    attachment_storage,
+    attachment_upload_path,
+    checksum,
+    validate_attachment,
+)
 from .models import (
     Allergy,
     LabResult,
+    MedicalAttachment,
     Prescription,
     PrescriptionItem,
     Procedure,
@@ -1350,3 +1367,280 @@ class LabResultIsolationTests(ClinicalIsolationTests):
         )
         result.refresh_from_db()
         self.assertFalse(result.is_acknowledged)
+
+
+PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+    b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+PDF_BYTES = b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n"
+
+
+def upload(name="report.pdf", content=PDF_BYTES, content_type="application/pdf"):
+    return SimpleUploadedFile(name, content, content_type=content_type)
+
+
+class AttachmentStorageTests(SimpleTestCase):
+    """The storage decisions, asserted directly — these are what make the file
+    bytes safe, and none of them is visible from the model."""
+
+    def test_attachments_are_stored_outside_media_root(self):
+        """A file under MEDIA_ROOT is a candidate for the web server to serve,
+        and a file served that way has bypassed every check in the view layer.
+        With DEBUG on, Django serves MEDIA_ROOT itself with no authentication.
+        """
+        attachments = Path(settings.MEDICAL_ATTACHMENTS_ROOT).resolve()
+        media = Path(settings.MEDIA_ROOT).resolve()
+        self.assertNotEqual(attachments, media)
+        self.assertFalse(
+            str(attachments).startswith(str(media) + os.sep),
+            f"attachments are inside MEDIA_ROOT: {attachments}",
+        )
+
+    def test_the_storage_exposes_no_public_url(self):
+        """`attachment.file.url` must fail rather than return a path. A template
+        that reaches for it should break loudly, not render a link that leaks."""
+        with self.assertRaises(ValueError):
+            attachment_storage().url("tenant-1/whatever.pdf")
+
+    def test_the_override_is_load_bearing_not_decorative(self):
+        """Passing base_url=None does not achieve the above, which is easy to
+        assume and wrong: None means "use the default", and the default is
+        MEDIA_URL. A storage built that way hands out
+        /media/tenant-1/<uuid>.pdf quite happily. This asserts the difference so
+        nobody simplifies the override away."""
+        from django.core.files.storage import FileSystemStorage
+
+        naive = FileSystemStorage(
+            location=str(settings.MEDICAL_ATTACHMENTS_ROOT), base_url=None
+        )
+        self.assertTrue(naive.url("tenant-1/whatever.pdf").startswith(settings.MEDIA_URL))
+
+    def test_the_stored_name_is_random_and_tenant_partitioned(self):
+        """The uploaded name is attacker-controlled: it can carry separators, be
+        absurdly long, collide, or name the patient in a directory listing."""
+        instance = SimpleNamespace(tenant_id=7)
+        path = attachment_upload_path(instance, "scan.pdf")
+        self.assertTrue(path.startswith("tenant-7/"))
+        self.assertTrue(path.endswith(".pdf"))
+        self.assertNotIn("scan", path)
+        self.assertNotEqual(path, attachment_upload_path(instance, "scan.pdf"))
+
+    def test_a_traversing_filename_cannot_escape_the_directory(self):
+        instance = SimpleNamespace(tenant_id=7)
+        for hostile in ("../../etc/passwd.pdf", "..\\..\\windows\\evil.pdf",
+                        "/etc/shadow.pdf"):
+            with self.subTest(name=hostile):
+                path = attachment_upload_path(instance, hostile)
+                self.assertTrue(path.startswith("tenant-7/"))
+                self.assertNotIn("..", path)
+                self.assertEqual(path.count("/"), 1)
+
+
+class AttachmentValidationTests(SimpleTestCase):
+    """§61: extension, size and MIME validation."""
+
+    def test_an_allowed_type_with_matching_content_passes(self):
+        extension, content_type = validate_attachment(upload())
+        self.assertEqual(extension, ".pdf")
+        self.assertEqual(content_type, "application/pdf")
+
+    def test_a_disallowed_extension_is_refused(self):
+        for name in ("evil.exe", "script.js", "shell.sh", "archive.zip", "noext"):
+            with self.subTest(name=name):
+                with self.assertRaises(ValidationError):
+                    validate_attachment(upload(name, PDF_BYTES))
+
+    def test_content_must_match_the_extension(self):
+        """The whole point of sniffing: `report.pdf` can be anything at all, and
+        the browser's declared Content-Type is supplied by the client."""
+        with self.assertRaises(ValidationError):
+            validate_attachment(
+                upload("report.pdf", b"MZ\x90\x00 this is a windows executable",
+                       content_type="application/pdf")
+            )
+
+    def test_a_renamed_executable_claiming_to_be_a_png_is_refused(self):
+        with self.assertRaises(ValidationError):
+            validate_attachment(
+                upload("photo.png", b"MZ\x90\x00", content_type="image/png")
+            )
+
+    def test_an_oversized_file_is_refused(self):
+        with override_settings(MEDICAL_ATTACHMENT_MAX_BYTES=100):
+            with self.assertRaises(ValidationError):
+                validate_attachment(upload("big.pdf", PDF_BYTES + b"x" * 200))
+
+    def test_an_empty_file_is_refused(self):
+        with self.assertRaises(ValidationError):
+            validate_attachment(upload("empty.pdf", b""))
+
+    def test_validation_leaves_the_file_readable(self):
+        """It reads the head to sniff and the whole file to hash, so it must
+        rewind — otherwise the upload is saved truncated or empty."""
+        uploaded = upload()
+        validate_attachment(uploaded)
+        checksum(uploaded)
+        uploaded.seek(0)
+        self.assertEqual(uploaded.read(), PDF_BYTES)
+
+    def test_the_checksum_is_the_sha256_of_the_content(self):
+        self.assertEqual(checksum(upload()), hashlib.sha256(PDF_BYTES).hexdigest())
+
+
+@override_settings(MEDICAL_ATTACHMENTS_ROOT=Path(tempfile.mkdtemp()) / "attachments")
+class AttachmentUploadTests(ClinicalTestBase):
+    def setUp(self):
+        super().setUp()
+        self.client.login(email='doc@t.local', password='pass12345')
+
+    def tearDown(self):
+        shutil.rmtree(settings.MEDICAL_ATTACHMENTS_ROOT, ignore_errors=True)
+        super().tearDown()
+
+    def post(self, **overrides):
+        data = {'title': 'تقرير أشعة', 'category': MedicalAttachment.Category.IMAGING}
+        data.update(overrides)
+        data.setdefault('file', upload())
+        return self.client.post(
+            reverse('medical:attachment_upload', args=[self.patient.uuid]), data
+        )
+
+    def test_a_doctor_can_upload_a_document(self):
+        self.assertEqual(self.post().status_code, 302)
+        attachment = MedicalAttachment.all_objects.get()
+        self.assertEqual(attachment.patient, self.patient)
+        self.assertEqual(attachment.tenant, self.tenant)
+        self.assertEqual(attachment.uploaded_by, self.doctor_user)
+        self.assertTrue(attachment.serial_number)
+
+    def test_the_derived_columns_are_filled_from_the_upload(self):
+        self.post()
+        attachment = MedicalAttachment.all_objects.get()
+        self.assertEqual(attachment.original_filename, 'report.pdf')
+        self.assertEqual(attachment.content_type, 'application/pdf')
+        self.assertEqual(attachment.size_bytes, len(PDF_BYTES))
+        self.assertEqual(attachment.checksum, hashlib.sha256(PDF_BYTES).hexdigest())
+
+    def test_the_declared_content_type_is_not_trusted(self):
+        """The browser sends whatever it likes; the stored type comes from the
+        file's own bytes."""
+        self.post(file=upload("photo.png", PNG_BYTES, content_type="application/pdf"))
+        self.assertEqual(MedicalAttachment.all_objects.get().content_type, "image/png")
+
+    def test_the_file_lands_outside_media_root_with_a_random_name(self):
+        self.post()
+        attachment = MedicalAttachment.all_objects.get()
+        stored = Path(attachment.file.path).resolve()
+        self.assertTrue(stored.exists())
+        self.assertFalse(str(stored).startswith(str(Path(settings.MEDIA_ROOT).resolve())))
+        self.assertNotIn('report', stored.name)
+        self.assertIn(f'tenant-{self.tenant.id}', attachment.file.name)
+
+    def test_a_hostile_upload_is_refused_and_nothing_is_written(self):
+        response = self.post(file=upload("evil.exe", b"MZ\x90\x00"))
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(MedicalAttachment.all_objects.exists())
+
+    def test_a_content_mismatch_is_refused(self):
+        response = self.post(file=upload("report.pdf", b"MZ\x90\x00 not a pdf"))
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(MedicalAttachment.all_objects.exists())
+
+    def test_an_oversized_upload_is_refused(self):
+        with override_settings(MEDICAL_ATTACHMENT_MAX_BYTES=10):
+            response = self.post(file=upload("report.pdf", PDF_BYTES))
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(MedicalAttachment.all_objects.exists())
+
+    def test_a_title_is_required(self):
+        self.assertEqual(self.post(title='').status_code, 200)
+        self.assertFalse(MedicalAttachment.all_objects.exists())
+
+
+@override_settings(MEDICAL_ATTACHMENTS_ROOT=Path(tempfile.mkdtemp()) / "download")
+class AttachmentDownloadTests(ClinicalTestBase):
+    """The download view is the only route to the bytes, so every access rule
+    has to hold there."""
+
+    def setUp(self):
+        super().setUp()
+        self.client.login(email='doc@t.local', password='pass12345')
+        self.client.post(
+            reverse('medical:attachment_upload', args=[self.patient.uuid]),
+            {'title': 'تقرير', 'category': MedicalAttachment.Category.LAB_REPORT,
+             'file': upload()},
+        )
+        self.attachment = MedicalAttachment.all_objects.get()
+        self.url = reverse('medical:attachment_download', args=[self.attachment.uuid])
+
+    def tearDown(self):
+        shutil.rmtree(settings.MEDICAL_ATTACHMENTS_ROOT, ignore_errors=True)
+        super().tearDown()
+
+    def test_a_doctor_gets_the_file_back_intact(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(b"".join(response.streaming_content), PDF_BYTES)
+
+    def test_it_is_served_as_an_attachment_with_the_detected_type(self):
+        """Serving a user-supplied type inline is how an upload becomes stored
+        XSS; nosniff stops a browser second-guessing the type we set."""
+        response = self.client.get(self.url)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertTrue(response["Content-Disposition"].startswith("attachment;"))
+        self.assertEqual(response["X-Content-Type-Options"], "nosniff")
+
+    def test_an_anonymous_visitor_gets_nothing(self):
+        self.client.logout()
+        response = self.client.get(self.url)
+        self.assertNotEqual(response.status_code, 200)
+
+    def test_reception_cannot_download_a_medical_document(self):
+        self.client.login(email='rec@t.local', password='pass12345')
+        self.assertNotEqual(self.client.get(self.url).status_code, 200)
+
+    def test_a_user_with_no_role_cannot_download(self):
+        User.objects.create_user(
+            username='norole5', email='norole5@t.local', password='pass12345',
+            tenant=self.tenant, branch=self.branch,
+        )
+        self.client.login(email='norole5@t.local', password='pass12345')
+        self.assertNotEqual(self.client.get(self.url).status_code, 200)
+
+    def test_documents_are_absent_from_receptions_patient_page(self):
+        self.client.login(email='rec@t.local', password='pass12345')
+        response = self.client.get(
+            reverse('patients:patient_detail', args=[self.patient.uuid])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'تقرير')
+
+
+@override_settings(MEDICAL_ATTACHMENTS_ROOT=Path(tempfile.mkdtemp()) / "isolation")
+class AttachmentIsolationTests(ClinicalIsolationTests):
+    def tearDown(self):
+        shutil.rmtree(settings.MEDICAL_ATTACHMENTS_ROOT, ignore_errors=True)
+        super().tearDown()
+
+    def test_another_tenants_doctor_cannot_download_the_file(self):
+        """The tenant boundary has to hold for the bytes, not just the row."""
+        with tenant_context(self.tenant):
+            attachment = MedicalAttachment.all_objects.create(
+                tenant=self.tenant, patient=self.patient, branch=self.branch,
+                title='Ours', content_type='application/pdf',
+                file=ContentFile(PDF_BYTES, name='x.pdf'),
+            )
+        self.client.login(email='otherdoc@t.local', password='pass12345')
+        response = self.client.get(
+            reverse('medical:attachment_download', args=[attachment.uuid])
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_another_tenants_doctor_cannot_upload_against_the_patient(self):
+        self.client.login(email='otherdoc@t.local', password='pass12345')
+        response = self.client.get(
+            reverse('medical:attachment_upload', args=[self.patient.uuid])
+        )
+        self.assertEqual(response.status_code, 404)

@@ -214,6 +214,34 @@
       <a href="{% url 'medical:lab_result_create' patient.uuid %}" class="btn btn-primary">طلب تحليل</a>
     </div>
   </div>
+
+  <div class="card mt-4">
+    <div class="card-body">
+      <h4 class="card-title">المستندات الطبية</h4>
+      <table class="table table-striped">
+        <thead>
+          <tr><th>الرقم</th><th>العنوان</th><th>النوع</th><th>الحجم</th><th>تاريخ الرفع</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for attachment in attachments %}
+          <tr>
+            <td>{{ attachment.serial_number }}</td>
+            <td>{{ attachment.title }}</td>
+            <td>{{ attachment.get_category_display }}</td>
+            <td>{{ attachment.size_display }}</td>
+            <td>{{ attachment.created_at|date:"Y-m-d" }}</td>
+            {# Downloads go through a view that re-checks tenant, branch and role.
+               There is no direct file URL — the storage has no base_url at all. #}
+            <td><a href="{% url 'medical:attachment_download' attachment.uuid %}" class="btn btn-sm btn-info">تنزيل</a></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6">لا توجد مستندات</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <a href="{% url 'medical:attachment_upload' patient.uuid %}" class="btn btn-primary">رفع مستند</a>
+    </div>
+  </div>
   {% endif %}
 </div>
 <style>

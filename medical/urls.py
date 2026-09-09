@@ -2,6 +2,8 @@ from django.urls import path
 
 from .views import (
     allergy_create,
+    attachment_download,
+    attachment_upload,
     lab_result_acknowledge,
     lab_result_create,
     lab_result_detail,
@@ -48,4 +50,6 @@ urlpatterns = [
     path("lab/<uuid:uuid>/", lab_result_detail, name="lab_result_detail"),
     path("lab/<uuid:uuid>/update/", lab_result_update, name="lab_result_update"),
     path("lab/<uuid:uuid>/acknowledge/", lab_result_acknowledge, name="lab_result_acknowledge"),
+    path("patient/<uuid:patient_uuid>/attachment/new/", attachment_upload, name="attachment_upload"),
+    path("attachment/<uuid:uuid>/download/", attachment_download, name="attachment_download"),
 ]

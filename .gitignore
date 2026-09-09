@@ -15,6 +15,9 @@ static/css/maps/
 # collectstatic output — generated, never edited
 staticfiles/
 media/
+# Medical attachments: patient data, never committed. Stored outside
+# MEDIA_ROOT so no web server can serve them without going through a view.
+private/
 # IDE and environment
 .idea/
 venv/

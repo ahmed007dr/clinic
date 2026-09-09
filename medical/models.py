@@ -5,6 +5,8 @@ from django.utils import timezone
 
 from tenants.models import SerialCounter, TenantOwnedModel
 
+from .attachments import attachment_storage, attachment_upload_path
+
 
 def today():
     """The project runs with USE_TZ = False, so `timezone.now()` is naive and
@@ -693,6 +695,115 @@ class LabResult(TenantOwnedModel):
         # makes "how long has this been waiting" unanswerable, so stamp it.
         if self.status == self.Status.RESULTED and self.resulted_at is None:
             self.resulted_at = timezone.now()
+        super().save(*args, **kwargs)
+
+
+class MedicalAttachment(TenantOwnedModel):
+    """A document attached to a patient's record — doc/readme.md §23, §61.
+
+    The model is the easy half. The work is that a file, once written to disk,
+    stops being protected by anything the application does: if a web server can
+    reach it, every check in the view layer has been bypassed. So these are
+    stored outside `MEDIA_ROOT` on a storage with no public URL, and reach a
+    browser only by being streamed through `attachment_download`, which applies
+    the same tenant and role checks as the rest of the clinical record. See
+    medical/attachments.py.
+
+    What is kept about the file, and why:
+
+    * `original_filename` — the uploaded name is never used on disk, because it
+      is attacker-controlled and can carry separators or reveal the patient in a
+      directory listing. It is data, so it lives in a column.
+    * `content_type` — detected from the file's leading bytes, not taken from
+      the browser, which supplies whatever it likes.
+    * `checksum` — a record that changes silently is what §66 exists to prevent,
+      and a hash is what makes silence detectable.
+
+    There is no delete view, matching the rest of the clinical models.
+    """
+
+    class Category(models.TextChoices):
+        LAB_REPORT = "lab_report", "تقرير تحاليل"
+        IMAGING = "imaging", "أشعة"
+        CONSENT = "consent", "إقرار موافقة"
+        REFERRAL = "referral", "إحالة"
+        CLINICAL_PHOTO = "clinical_photo", "صورة إكلينيكية"
+        OTHER = "other", "أخرى"
+
+    patient = models.ForeignKey(
+        "patients.Patient", on_delete=models.PROTECT, related_name="attachments"
+    )
+    # Optional: a scan often arrives separately from the encounter it belongs to,
+    # and some documents (a consent form, an old referral) belong to no visit.
+    visit = models.ForeignKey(
+        Visit, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="attachments",
+    )
+    lab_result = models.ForeignKey(
+        LabResult, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="attachments",
+    )
+    branch = models.ForeignKey(
+        "branches.Branch", on_delete=models.SET_NULL, null=True, blank=True
+    )
+
+    title = models.CharField(max_length=200, verbose_name="عنوان المستند")
+    category = models.CharField(
+        max_length=20, choices=Category.choices, default=Category.OTHER,
+        verbose_name="النوع",
+    )
+    file = models.FileField(
+        upload_to=attachment_upload_path,
+        storage=attachment_storage,
+        max_length=255,
+        verbose_name="الملف",
+    )
+
+    original_filename = models.CharField(max_length=255, blank=True)
+    content_type = models.CharField(max_length=100, blank=True)
+    size_bytes = models.PositiveBigIntegerField(default=0)
+    checksum = models.CharField(max_length=64, blank=True, verbose_name="بصمة الملف")
+
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+
+    serial_number = models.CharField(max_length=20, blank=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta(TenantOwnedModel.Meta):
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "serial_number"],
+                name="uniq_attachment_serial_per_tenant",
+            )
+        ]
+        verbose_name = "مستند طبي"
+        verbose_name_plural = "المستندات الطبية"
+
+    def __str__(self):
+        return f"{self.serial_number} - {self.title}"
+
+    @property
+    def size_display(self):
+        kilobytes = self.size_bytes / 1024
+        if kilobytes < 1024:
+            return f"{kilobytes:.0f} KB"
+        return f"{kilobytes / 1024:.1f} MB"
+
+    @property
+    def is_image(self):
+        return self.content_type.startswith("image/")
+
+    def save(self, *args, **kwargs):
+        if not self.serial_number:
+            self.serial_number = SerialCounter.next_serial(
+                self.tenant_id, "attachment", today()
+            )
         super().save(*args, **kwargs)
 
 

@@ -1,14 +1,19 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import Http404
+from django.http import FileResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.encoding import iri_to_uri
 from django.views.decorators.http import require_POST
+
+from django.conf import settings
 
 from patients.models import Patient
 
 from .forms import (
     AllergyForm,
     LabResultForm,
+    MedicalAttachmentForm,
     PrescriptionForm,
     PrescriptionItemFormSet,
     ProcedureForm,
@@ -19,6 +24,7 @@ from .forms import (
 from .models import (
     Allergy,
     LabResult,
+    MedicalAttachment,
     Prescription,
     Procedure,
     TreatmentPlan,
@@ -26,6 +32,7 @@ from .models import (
     Visit,
     allergy_conflicts,
 )
+from .attachments import ALLOWED_EXTENSIONS
 from .permissions import can_view_clinical, scoped_to_user
 
 clinical_required = user_passes_test(can_view_clinical)
@@ -283,6 +290,76 @@ def session_update(request, uuid):
     })
 
 
+
+
+
+def _get_attachment(request, uuid):
+    return get_object_or_404(
+        scoped_to_user(MedicalAttachment.objects.all(), request.user), uuid=uuid
+    )
+
+
+@login_required
+@clinical_required
+def attachment_upload(request, patient_uuid):
+    patient = _get_patient(request, patient_uuid)
+
+    if request.method == "POST":
+        form = MedicalAttachmentForm(request.POST, request.FILES)
+        if form.is_valid():
+            attachment = form.save(commit=False)
+            attachment.tenant = request.user.tenant
+            attachment.patient = patient
+            attachment.uploaded_by = request.user
+            if not attachment.branch_id:
+                attachment.branch = patient.branch or request.user.branch
+            attachment.save()
+            messages.success(request, f"تم رفع المستند {attachment.serial_number}")
+            return redirect("patients:patient_detail", uuid=patient.uuid)
+        messages.error(request, "خطأ في رفع الملف")
+    else:
+        form = MedicalAttachmentForm(
+            initial={"branch": patient.branch or request.user.branch}
+        )
+
+    return render(request, "medical/attachment_form.html", {
+        "form": form,
+        "patient": patient,
+        "max_megabytes": settings.MEDICAL_ATTACHMENT_MAX_BYTES // (1024 * 1024),
+        "allowed": ", ".join(sorted(e.lstrip(".") for e in ALLOWED_EXTENSIONS)),
+    })
+
+
+@login_required
+@clinical_required
+def attachment_download(request, uuid):
+    """The only way a stored attachment reaches a browser.
+
+    Everything that protects these files is here rather than in the filesystem:
+    the login check, the clinical role check, and `scoped_to_user`, which
+    applies the tenant boundary and the branch boundary. A file served straight
+    off disk by a web server would have none of them, which is why these are
+    stored outside MEDIA_ROOT in the first place.
+
+    Served as an attachment with the content type detected at upload, never the
+    one the browser claimed. Serving a user-supplied type inline is how an
+    uploaded file becomes stored XSS.
+    """
+    attachment = _get_attachment(request, uuid)
+
+    filename = attachment.original_filename or f"{attachment.serial_number}"
+    response = FileResponse(
+        attachment.file.open("rb"),
+        content_type=attachment.content_type or "application/octet-stream",
+    )
+    # filename* carries the Arabic names these documents actually have; the
+    # plain filename is the ASCII fallback for older clients.
+    response["Content-Disposition"] = (
+        f"attachment; filename=\"{attachment.serial_number}\"; "
+        f"filename*=UTF-8''{iri_to_uri(filename)}"
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 def _get_lab_result(request, uuid):

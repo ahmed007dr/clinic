@@ -152,8 +152,8 @@ class TenantOwnedAdminDeniedTests(AdminBaseTests):
         decision about it is visible rather than silent."""
         disabled = self.tenant_owned_admins()
         self.assertEqual(
-            len(disabled), 21,
-            f"expected 21 TenantOwnedAdmin registrations, found "
+            len(disabled), 22,
+            f"expected 22 TenantOwnedAdmin registrations, found "
             f"{len(disabled)}: {sorted(disabled)}",
         )
 
