@@ -123,6 +123,36 @@ Gate A asked what the production runtime actually is, before changing the Django
 
 | DEP-002 | Coverage for reportlab and pillow, then the bumps | DONE | These were the only two dependencies producing binary output and **neither had any test**, which makes a version bump unfalsifiable — the suite stays green while PDF export produces garbage, because nothing looks at the bytes. So coverage came first, in its own commit: `dashboard/test_exports.py` asserts the `%PDF-` header, the `%%EOF` terminator and a plausible size (an *empty but well-formed* document is the likely shape of a platypus regression), reads the Excel workbook back through openpyxl rather than trusting it, with the Arabic strings intact, and exercises pillow at Django's real integration points — `forms.ImageField` opening an upload and calling `verify()`, the dimensions Django reads off it, a model round trip through `Patient.photo` with `MEDIA_ROOT` redirected to a temp dir, and the rejection case, since a bump that silently stopped validating uploads would be worse than one that broke loudly. Then **pillow 11.3.0 → 12.3.0** and **reportlab 4.4.4 → 5.0.1** (a major bump), applied one at a time. Two facts the bump surfaced: reportlab 5 now declares **`pillow>=9.0.0` as a hard dependency** (4.4.4 did not), so pillow is required twice over; and pillow 12 requires **Python ≥3.10**, the same floor as Django 5.2, which makes 3.10 the minimum for the dependency set as a whole. Placed in `dashboard` because `utils/` has no `__init__.py` and discovery through an implicit namespace package is unreliable. Noted, not changed: `utils/export_pdf.py` defines a different `export_pdf()` from the live one in `utils/utils.py` and is imported by nothing — dead code, left alone rather than deleted as an unrelated change |
 
+| FE-016 | Arabic is unrenderable in every PDF export | **OPEN — needs a decision** | Found while adding the reportlab coverage for DEP-002, and **not fixed here, because fixing it means adding a font binary to the repository** — which P0 explicitly reserved for a deliberate decision ("do not blindly upload arbitrary or duplicated vendor files; first establish the authoritative asset set"). See the section below |
+
+### FE-016 — Arabic cannot be rendered in exported PDFs
+
+**The defect.** `utils/utils.py::export_pdf` builds every document with `Helvetica-Bold` and registers no other font. Inspecting the produced file confirms it: the only embedded fonts are `Helvetica`, `Helvetica-Bold` and `ZapfDingbats`, all Latin-only Type 1 fonts with no Arabic glyphs. Arabic text is therefore drawn with a font that cannot represent it.
+
+**It cannot be fixed with anything already in the repository.** The obvious repair — register the bundled `static/fonts/sourcesanspro/Cairo-Regular.ttf`, which the dead `utils/export_pdf.py` already tries to use — does not work. Asking reportlab for the glyphs directly:
+
+| codepoint | character | glyph |
+|---|---|---|
+| U+0623 | أ | **none** |
+| U+062D | ح | **none** |
+| U+0645 | م | **none** |
+| U+0041 | A | 37 |
+
+Cairo is normally an Arabic Google font, but this 30 KB copy is a **Latin-only subset with 215 codepoints**. Auditing all 22 font files under `static/` (via fontTools, installed temporarily and removed again — the project venv still matches `requirements.txt` exactly): **not one contains a single codepoint in the Arabic block U+0600–U+06FF.** Source Sans Pro covers 1298 Latin codepoints; the Material Design icon font covers 3997 icons; neither has Arabic.
+
+**Impact.** Four user-facing "تصدير PDF" buttons — patients list, payments list, financial report, services list. Every one exports Arabic content: patient names, service names, and the report title itself (`قائمة المرضى - فرع …`). The failure is silent: the button returns a valid, well-formed PDF with blank or box glyphs where the data should be, which staff could print and file without noticing. **Excel export is unaffected** and sits beside every PDF button — `openpyxl` embeds no fonts, so Arabic round-trips intact (asserted in `dashboard/test_exports.py`). So there is a working path today.
+
+**A second, milder finding from the same audit.** Six templates declare `font-family: 'Cairo', sans-serif`, but there is **no `@font-face` rule for Cairo anywhere** and it is never referenced through `{% static %}` — only Source Sans Pro is declared. The browser therefore looks for a locally installed "Cairo" and silently falls back to the system `sans-serif`. Arabic still displays in the browser because the operating system supplies a font, so this is cosmetic rather than broken — but the app's typography is machine-dependent, and the `'Cairo'` declaration is inert.
+
+**Options, none applied:**
+
+1. **Add a real Arabic font** (e.g. the full Cairo or Noto Naskh Arabic, ~200–400 KB, SIL Open Font License), register it in `export_pdf`, and use it for the table and title styles. This is the only option that makes the existing buttons work. It requires a deliberate choice of font and licence, and adding a tracked binary — which is why it is not done here.
+2. **Also fix the shaping.** Even with an Arabic font, reportlab draws unshaped, left-to-right text: Arabic letters would appear in isolated forms and reversed order — present but wrong. Correct output needs bidi reordering and contextual shaping. reportlab 5 exposes these as extras (`rlbidi` for bidi, `uharfbuzz` for shaping), which is new capability from the DEP-002 bump; previously it needed `arabic-reshaper` plus `python-bidi`. Either way it is two more dependencies.
+3. **Remove the PDF buttons** and keep Excel, which already works. The cheapest honest option if Arabic PDFs are not actually needed.
+4. **Fail loudly** rather than emit a silently unreadable document. Worth doing whichever of the above is chosen, but on its own it turns a working-looking button into an error, which is a product decision.
+
+**Recommendation: 1 + 2 together, or 3.** A half-fix — an Arabic font without shaping — produces a document that looks repaired while being unreadable, which is worse than the current state because it invites trust.
+
 ### Findings from the data compatibility audit
 
 Against the local SQLite database: **2 blockers, 0 warnings.** Both are `max_length` overflow on phone columns — 1 row in `branches_branch.phone` (21 chars) and 8 rows in `patients_patient.phone1` (up to 22 chars), against `varchar(20)`. SQLite treats the limit as advisory; PostgreSQL raises `DataError`.
