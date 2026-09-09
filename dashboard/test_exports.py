@@ -11,6 +11,10 @@ bump unfalsifiable — the suite would stay green while PDF export produced
 garbage, because no test ever looked at the bytes. Written before bumping
 either, so the bump has something to fail against.
 
+The Arabic rendering tests were added with FE-016; see
+static/fonts/cairo/README.md for why the font is tracked and what had to be
+verified about it.
+
 Note for whoever touches the PDF path next: `utils/utils.py::export_pdf` is the
 live one, used by billing, patients and services. `utils/export_pdf.py` defines
 a *different* function with the same name and is imported by nothing — dead
@@ -24,7 +28,15 @@ import openpyxl
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase, TestCase, override_settings
 
-from utils.utils import export_excel, export_pdf
+from utils.utils import (
+    ARABIC_FONT,
+    ARABIC_FONT_PATH,
+    arabic_table_style,
+    export_excel,
+    export_pdf,
+    register_arabic_font,
+    rtl,
+)
 
 HEADERS = ["الاسم", "الهاتف", "المبلغ"]
 ROWS = [
@@ -144,3 +156,162 @@ class ImageFieldTests(TestCase):
                     self.assertEqual(patient.photo.height, 24)
                     with patient.photo.open("rb") as handle:
                         self.assertTrue(handle.read().startswith(b"\x89PNG"))
+
+
+# Real strings this application exports: report titles, table headers, seeded
+# patient names, diagnoses, medications, allergens, branch names, plan titles,
+# and the choice labels — plus money, phone numbers and serials, which must
+# survive untouched.
+ARABIC_CORPUS = [
+    "قائمة المرضى - فرع سوهاج", "تقرير مالي", "قائمة المدفوعات", "قائمة الخدمات",
+    "الاسم", "الهاتف", "المبلغ", "التاريخ", "رقم الإيصال", "الفرع", "الطبيب",
+    "إجمالي الإيرادات", "المصروفات", "صافي الربح", "طريقة الدفع",
+    "حكة وطفح جلدي", "تساقط الشعر", "بقع داكنة بالوجه", "حب الشباب", "جفاف الجلد",
+    "التهاب جلدي تحسسي", "أكزيما", "حب شباب متوسط", "تصبغات جلدية", "صدفية خفيفة",
+    "كريم هيدروكورتيزون", "لوراتادين", "دوكسيسيكلين", "مرطب طبي",
+    "البنسلين", "الأسبرين", "اليود", "اللاتكس", "السلفا",
+    "طفح جلدي", "تورم", "ضيق تنفس", "حكة شديدة",
+    "أحمد محمد", "منى علي", "فاطمة عبد الرحمن", "محمود إبراهيم",
+    "سوهاج", "أسيوط", "القاهرة", "المعادي",
+    "علاج بالليزر", "جلسة ليزر Eximer 160", "كشف عيادة عام", "استشارة جلدية",
+    "مرتين يومياً", "مرة يومياً", "عند اللزوم", "بعد الأكل", "قبل النوم",
+    "خطة علاج", "جلسة علاج", "مكتملة", "مجدولة", "ملغاة", "لم يحضر",
+    "ذكر", "أنثى", "أعزب", "متزوج", "مطلق", "أرمل",
+]
+
+NON_ARABIC = ["1200.00", "01001234567", "20260908-001", "Eximer 120", "", "0", "-50.25"]
+
+
+class ArabicPdfRenderingTests(SimpleTestCase):
+    """FE-016. Arabic in a PDF needs three separate things to be right — an
+    embedded font with the glyphs, contextual shaping, and bidi reordering — and
+    getting two of the three produces a document that looks fixed while being
+    unreadable. Each is asserted here rather than assumed.
+    """
+
+    def font_face(self):
+        register_arabic_font()
+        from reportlab.pdfbase import pdfmetrics
+
+        return pdfmetrics.getFont(ARABIC_FONT).face
+
+    def test_the_font_is_present_and_registers(self):
+        self.assertTrue(
+            ARABIC_FONT_PATH.exists(),
+            f"the Arabic font is missing from the repository: {ARABIC_FONT_PATH}",
+        )
+        from reportlab.pdfbase import pdfmetrics
+
+        register_arabic_font()
+        self.assertIn(ARABIC_FONT, pdfmetrics.getRegisteredFontNames())
+
+    def test_registering_twice_is_harmless(self):
+        """reportlab's font registry is process-global and these exports run per
+        request, so this happens on every call after the first."""
+        self.assertEqual(register_arabic_font(), ARABIC_FONT)
+        self.assertEqual(register_arabic_font(), ARABIC_FONT)
+
+    def test_the_font_actually_covers_arabic(self):
+        """Guards against a replacement that is Arabic in name only. The font
+        previously bundled as Cairo-Regular.ttf was a Latin-only subset."""
+        face = self.font_face()
+        for label, codepoint in (
+            ("alef", 0x0627), ("beh", 0x0628), ("meem", 0x0645),
+            ("heh", 0x0647), ("lam", 0x0644), ("hamza-alef", 0x0623),
+        ):
+            with self.subTest(letter=label):
+                self.assertIsNotNone(
+                    face.charToGlyph.get(codepoint),
+                    f"no glyph for U+{codepoint:04X} ({label})",
+                )
+
+    def test_every_codepoint_the_shaper_emits_has_a_glyph(self):
+        """The test that matters, and the one that failed first.
+
+        "Does the font have Arabic" and "can it draw what the shaper produces"
+        are different questions. arabic_reshaper maps letters onto Presentation
+        Forms-B, and Cairo implements isolated forms through the base codepoint
+        plus GSUB rather than duplicating them there — so 17 codepoints had no
+        glyph until the reshaper was configured with
+        use_unshaped_instead_of_isolated. A blank glyph is silent: the PDF is
+        still valid, it just has nothing where the patient's name should be.
+        """
+        face = self.font_face()
+        missing = {}
+        for text in ARABIC_CORPUS:
+            for char in rtl(text):
+                if face.charToGlyph.get(ord(char)) is None:
+                    missing.setdefault(f"U+{ord(char):04X} {char!r}", text)
+        self.assertEqual(
+            missing, {},
+            "these codepoints would render blank:\n"
+            + "\n".join(f"  {k} — e.g. in {v!r}" for k, v in sorted(missing.items())),
+        )
+
+    def test_shaping_and_reordering_actually_happen(self):
+        """Without this, a no-op rtl() would satisfy the coverage test above."""
+        original = "أحمد محمد"
+        rendered = rtl(original)
+        self.assertNotEqual(rendered, original, "text was not shaped at all")
+        self.assertEqual(len(rendered), len(original), "characters were lost")
+        # Reordered: the first character drawn is the last letter of the source.
+        self.assertEqual(rendered[0], "ﺪ", "bidi reordering did not run")
+
+    def test_non_arabic_values_pass_through_untouched(self):
+        """Amounts, receipt numbers and serials must not be reordered."""
+        for value in NON_ARABIC:
+            with self.subTest(value=value):
+                self.assertEqual(rtl(value), value)
+
+    def test_none_and_numbers_are_handled(self):
+        """Table cells arrive straight from querysets, so they are not all str."""
+        self.assertEqual(rtl(None), "")
+        self.assertEqual(rtl(0), "0")
+        self.assertEqual(rtl(1200), "1200")
+
+    def test_the_pdf_embeds_the_arabic_font(self):
+        """End to end: the produced document must carry a Cairo subset, not just
+        reference a font by name."""
+        import re
+
+        body = export_pdf(ROWS, HEADERS, "تقرير المرضى", "r").content
+        fonts = {f.decode() for f in re.findall(rb"/BaseFont\s*/([A-Za-z0-9+,.-]+)", body)}
+        self.assertTrue(
+            any("Cairo" in name for name in fonts),
+            f"no Cairo subset embedded; fonts present: {sorted(fonts)}",
+        )
+
+    def test_arabic_content_makes_the_document_substantially_larger(self):
+        """A subset font embed is tens of kilobytes. If Arabic silently stopped
+        being drawn, the document would collapse back to its old size."""
+        body = export_pdf(ROWS, HEADERS, "تقرير المرضى", "r").content
+        self.assertGreater(
+            len(body), 8000,
+            f"no font appears to be embedded: {len(body)} bytes",
+        )
+
+    def test_every_font_in_the_table_style_is_the_arabic_face(self):
+        """Closes a gap the first version of these tests had: asserting the PDF
+        embeds Cairo does not prove the *table* uses it. The title alone embeds
+        the font, so a Helvetica-Bold header row — which is what this code
+        originally had — passed the embed check while rendering every header cell
+        blank. The style is where that decision lives, so it is checked here.
+        """
+        commands = arabic_table_style().getCommands()
+        fontnames = [c for c in commands if c[0].upper() == "FONTNAME"]
+        self.assertTrue(fontnames, "the table style sets no font at all")
+        for command in fontnames:
+            with self.subTest(command=command):
+                self.assertEqual(
+                    command[-1], ARABIC_FONT,
+                    f"{command[-1]!r} cannot draw Arabic; only {ARABIC_FONT} can",
+                )
+
+    def test_the_table_style_covers_the_header_row(self):
+        """The header contains Arabic too, and it was the row that regressed."""
+        for command in arabic_table_style().getCommands():
+            if command[0].upper() == "FONTNAME":
+                start, stop = command[1], command[2]
+                if start == (0, 0) and stop == (-1, -1):
+                    return
+        self.fail("no FONTNAME command spans the whole table including row 0")

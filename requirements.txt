@@ -55,3 +55,16 @@ pillow==12.3.0
 reportlab==5.0.1
 openpyxl==3.1.5
 et_xmlfile==2.0.0
+
+# Arabic in PDF export (FE-016). reportlab applies no OpenType shaping and no
+# bidi algorithm, so without these two, Arabic is drawn as disconnected letters
+# in reverse order — present but unreadable. Every PDF this app produces
+# contains Arabic, so they are production dependencies, not extras.
+#
+# Not reportlab's own [bidi,shaping] extras: the `bidi` extra requires `rlbidi`,
+# which does not exist on PyPI, and shaping without bidi still gives reversed
+# text. arabic-reshaper is pure Python; python-bidi is a compiled Rust extension
+# and publishes manylinux wheels for CPython 3.11, 3.12 and 3.13, so a Linux
+# deploy needs no build toolchain.
+arabic-reshaper==3.0.1
+python-bidi==0.6.11
