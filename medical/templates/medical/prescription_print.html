@@ -3,9 +3,10 @@
 <head>
   <meta charset="utf-8">
   <title>روشتة {{ prescription.serial_number }} - {{ patient.name }}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+  {# Served locally: a prescription must print correctly with no internet. #}
+  <link rel="stylesheet" href="{% static 'css/cairo.css' %}">
   <style>
-    body { font-family: 'Tajawal', Arial, sans-serif; color: #111; margin: 0; padding: 32px; background: #fff; }
+    body { font-family: 'Cairo', Arial, sans-serif; color: #111; margin: 0; padding: 32px; background: #fff; }
     .sheet { max-width: 800px; margin: 0 auto; }
     header { border-bottom: 3px solid #111; padding-bottom: 12px; margin-bottom: 20px;
              display: flex; justify-content: space-between; align-items: flex-end; }

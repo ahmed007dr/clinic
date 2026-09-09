@@ -68,12 +68,75 @@ class StaticAssetReferenceTests(SimpleTestCase):
     def test_datatables_translations_are_served_locally(self):
         """The Arabic translation used to be fetched from a CDN at runtime, so
         the interface degraded to English whenever the clinic's connection did."""
-        root = Path(settings.BASE_DIR)
-        offenders = [
-            p.relative_to(root).as_posix()
-            for p in root.rglob("*.html")
-            if p.relative_to(root).parts[0] not in {"static", "staticfiles"}
-            and "cdn.datatables.net" in p.read_text(encoding="utf-8", errors="ignore")
-        ]
+        offenders = self.templates_containing("cdn.datatables.net")
         self.assertEqual(offenders, [], f"templates still calling a CDN: {offenders}")
         self.assertIsNotNone(finders.find("vendors/datatables/i18n-ar.json"))
+
+    def templates_containing(self, needle):
+        """App templates only — `static/` holds vendor documentation that is not
+        served to users and is gitignored."""
+        root = Path(settings.BASE_DIR)
+        return sorted(
+            p.relative_to(root).as_posix()
+            for p in root.rglob("*.html")
+            if p.relative_to(root).parts[0] not in {"static", "staticfiles", "venv"}
+            and needle in p.read_text(encoding="utf-8", errors="ignore")
+        )
+
+    def test_no_template_loads_an_asset_from_an_external_host(self):
+        """Generalises the datatables check to every remote asset, because the
+        same failure kept recurring in a new place.
+
+        The Arabic webfont was fetched from Google on every page load, including
+        the prescription print sheet — so printing a prescription on a flaky
+        connection silently fell back to a system font, and every view of a
+        medical record announced itself to a third party. A clinic application
+        has to render correctly with no internet at all.
+
+        Anchor hrefs are not the concern here; this looks only at things the page
+        *loads*.
+        """
+        remote_asset = re.compile(
+            r"""<(?:link|script|img|source|iframe)\b[^>]*?
+                 (?:href|src)\s*=\s*["'](?:https?:)?//""",
+            re.IGNORECASE | re.VERBOSE,
+        )
+        root = Path(settings.BASE_DIR)
+        offenders = {}
+        for path in root.rglob("*.html"):
+            relative = path.relative_to(root)
+            if relative.parts[0] in {"static", "staticfiles", "venv"}:
+                continue
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            hits = remote_asset.findall(text)
+            if hits:
+                offenders[relative.as_posix()] = len(hits)
+        self.assertEqual(
+            offenders, {},
+            "these templates load assets from an external host, so the page "
+            f"renders differently without internet access: {offenders}",
+        )
+
+    def test_the_arabic_webfont_is_served_from_the_repository(self):
+        """The replacement for that Google Fonts request. Both files are needed:
+        woff2 for browsers, and the TTF for reportlab, which cannot read woff2."""
+        self.assertIsNotNone(finders.find("css/cairo.css"))
+        self.assertIsNotNone(finders.find("fonts/cairo/Cairo-subset.woff2"))
+        self.assertIsNotNone(finders.find("fonts/cairo/Cairo.ttf"))
+        self.assertIsNotNone(
+            finders.find("fonts/cairo/OFL.txt"),
+            "the SIL Open Font Licence must ship alongside the font",
+        )
+
+    def test_the_font_face_rule_points_at_files_that_exist(self):
+        """A stylesheet that references a missing font fails silently — the
+        browser just substitutes something else, which is the bug this replaced."""
+        css = Path(finders.find("css/cairo.css")).read_text(encoding="utf-8")
+        self.assertIn("@font-face", css)
+        referenced = re.findall(r"url\(['\"]?\.\./([^'\")]+)['\"]?\)", css)
+        self.assertTrue(referenced, "the @font-face rule references no files")
+        for asset in referenced:
+            with self.subTest(asset=asset):
+                self.assertIsNotNone(
+                    finders.find(asset), f"@font-face points at a missing file: {asset}"
+                )

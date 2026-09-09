@@ -7,11 +7,12 @@ names, and the report titles themselves. reportlab embeds only the fonts it is
 given, so without an Arabic-capable font here, exports come back as valid PDFs
 with blank glyphs where the data should be — a silent failure (FE-016).
 
-None of the 22 font files already under `static/` contains a single codepoint in
-the Arabic block. That includes `static/fonts/sourcesanspro/Cairo-Regular.ttf`,
-which despite its name is a **Latin-only subset of 215 codepoints** and cannot
-render Arabic. It is referenced only by the dead module `utils/export_pdf.py`
-and is not this file.
+None of the font files that were already under `static/` contains a single
+codepoint in the Arabic block. That included a `sourcesanspro/Cairo-Regular.ttf`
+which, despite its name, was a **Latin-only subset of 215 codepoints** and could
+not render Arabic. It and the dead `utils/export_pdf.py` that referenced it have
+since been removed, so this directory is now the only Cairo in the repository —
+there is no longer a same-named file to confuse it with.
 
 ## Provenance
 

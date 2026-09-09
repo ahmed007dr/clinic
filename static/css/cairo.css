@@ -1,0 +1,52 @@
+/* Arabic typography, served locally.
+ *
+ * This replaces a Google Fonts request for Tajawal that base.html and the
+ * prescription print sheet each made on every page load. Three reasons it had to
+ * go, in order of how much they matter for a clinic:
+ *
+ *   1. It failed offline. A prescription printed on a flaky connection silently
+ *      fell back to a system font — and printing a prescription is not a moment
+ *      to depend on the internet.
+ *   2. It told Google who was reading a medical record, on every request.
+ *   3. It broke the reproducibility P0 established: a clean clone rendered
+ *      differently depending on network access.
+ *
+ * Cairo is used rather than Tajawal so that one font covers the web UI and the
+ * PDF exports, which embed the same file — see static/fonts/cairo/README.md for
+ * provenance and licence.
+ *
+ * Cairo is appended to the sans-serif stack rather than put in front of it. The
+ * browser picks a font per character, so Source Sans Pro and the system faces
+ * still render Latin exactly as before, and Arabic — which none of them
+ * covers — resolves to Cairo instead of whatever the operating system happened
+ * to substitute. Latin appearance is unchanged; Arabic stops being accidental.
+ */
+
+@font-face {
+  font-family: 'Cairo';
+  font-style: normal;
+  font-weight: 400 700; /* variable font: one file covers the range */
+  font-display: swap;
+  /* Cairo-subset.woff2 is Latin + Arabic only, 113 KB against the 585 KB of the
+   * full variable TTF. The TTF stays in the repository for reportlab, which
+   * cannot read woff2, and is never served to a browser.
+   * Regenerate with (fontTools and brotli are build-only, not runtime deps):
+   *   python -m fontTools.subset static/fonts/cairo/Cairo.ttf \
+   *     --unicodes=U+0020-007E,U+00A0-00FF,U+0600-06FF,U+0750-077F,U+FB50-FDFF,U+FE70-FEFF,U+200C-200F,U+2010-2027,U+2039-203A,U+FEFF \
+   *     --flavor=woff2 --layout-features='*' --name-IDs='*' \
+   *     --output-file=static/fonts/cairo/Cairo-subset.woff2
+   */
+  src: url('../fonts/cairo/Cairo-subset.woff2') format('woff2'),
+       url('../fonts/cairo/Cairo.ttf') format('truetype');
+}
+
+:root {
+  /* Cairo sits after the Latin faces and *before* `sans-serif`. Order matters
+   * more than it looks: the generic keyword resolves to a concrete system font
+   * that usually does carry Arabic, so anything listed after it would only be
+   * reached by accident. Putting Cairo ahead of the generic is what makes Arabic
+   * deterministic, while Latin still matches system-ui/Segoe UI/Arial first and
+   * therefore looks exactly as it did before.
+   */
+  --bs-font-sans-serif: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", 'Cairo', sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
