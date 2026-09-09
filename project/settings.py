@@ -160,7 +160,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = env('EMAIL_HOST', default='mail.2odays.com')
+# No default, matching EMAIL_HOST_USER/PASSWORD below. It used to fall back to
+# `mail.2odays.com` — the host SEC-001 rotated away from after its credentials
+# leaked, and which no longer resolves. A stale default is worse than a missing
+# one here: with the user and password already required, the only thing the
+# fallback could do was point correct credentials at the wrong server.
+EMAIL_HOST = env('EMAIL_HOST')
 EMAIL_PORT = env.int('EMAIL_PORT', default=465)
 EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=False)
 EMAIL_USE_SSL = env.bool('EMAIL_USE_SSL', default=True)

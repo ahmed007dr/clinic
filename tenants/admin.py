@@ -4,27 +4,59 @@ from .models import Tenant
 
 
 class TenantOwnedAdmin(admin.ModelAdmin):
-    """Admin is operated by platform staff, who work across tenants.
+    """Disabled: tenant-owned models are not administrable from Django admin.
 
-    The default manager is tenant-scoped and fails closed, which would leave
-    every changelist empty here, so read through the unfiltered manager.
+    This class used to read through `all_objects` so platform staff could work
+    across tenants. An audit of what it actually did found that unusable, in two
+    independent ways:
 
-    Known limitation under PostgreSQL row-level security (tenants.0005):
-    `all_objects` bypasses the manager but not the policies, and platform staff
-    carry no tenant, so these changelists come back empty rather than
-    cross-tenant. That fails closed — it is a loss of function, not a leak —
-    and it is why cross-tenant platform administration is scheduled with the
-    platform-admin work in P4, where it can be built on a deliberate second
-    connection using a BYPASSRLS role. Widening the policies to accommodate the
-    admin would give that reach to every query in the application.
+    * Under the row-level security policies (tenants.0005), `all_objects`
+      bypasses the application-layer manager but not the database. Platform
+      staff carry no tenant, so every changelist returned zero rows against a
+      database holding real data — 258 notifications, 80 appointments, 55
+      patients, and so on.
+    * Every foreign-key dropdown and list_filter was *already* empty before RLS
+      existed, and had been since TENANT-006. Admin builds those from the
+      related model's `_default_manager`, which is the tenant-scoped one, and
+      this class only ever overrode `get_queryset`. So creating and editing
+      were impossible regardless of the database layer.
+
+    Empty changelists are worse than absent ones: they read as "this clinic has
+    no patients" rather than "you cannot see this here". So access is denied
+    outright, in one place, rather than left silently misleading.
+
+    What is deliberately *not* done to fix this, and why: no BYPASSRLS role and
+    no privileged connection (a standing bypass is a permanent risk, and the
+    only genuine need is read-only inspection), and no bypass flag in the
+    policies (privilege must come from the database role you authenticate as,
+    which application code cannot change — not from a GUC anything could set).
+
+    The replacement is per-tenant, read-only and audited: platform staff select
+    one tenant and the application enters `tenant_context` for it on the normal
+    connection, so RLS permits exactly that tenant's rows and the isolation
+    model is unchanged. Until that exists, these models are reachable only
+    through the tenant-facing application.
+
+    `Tenant`, `User`, `AuditLog` and `Group` carry no tenant-isolation policy
+    and are administered normally — they do not use this class.
     """
 
-    def get_queryset(self, request):
-        queryset = self.model.all_objects.get_queryset()
-        ordering = self.get_ordering(request)
-        if ordering:
-            queryset = queryset.order_by(*ordering)
-        return queryset
+    # Denied at the module level too, so the models vanish from the admin index
+    # instead of appearing and then 403-ing when clicked.
+    def has_module_permission(self, request):
+        return False
+
+    def has_view_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Tenant)

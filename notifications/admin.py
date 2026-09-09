@@ -10,6 +10,9 @@ class NotificationAdmin(TenantOwnedAdmin):
     search_fields = ("title", "user__username", "message")
     date_hierarchy = "created_at"
     ordering = ("-created_at",)
+    # See AppointmentAdmin: created_at is auto_now_add and therefore not
+    # editable, so it has to be readonly to appear in fieldsets at all.
+    readonly_fields = ("created_at",)
     fieldsets = (
         (None, {"fields": ("user", "type", "title", "message")}),
         ("Status", {"fields": ("is_read", "created_at")}),

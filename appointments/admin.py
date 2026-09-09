@@ -9,6 +9,11 @@ class AppointmentAdmin(TenantOwnedAdmin):
     search_fields = ("patient__name", "doctor__name", "service__name")
     date_hierarchy = "scheduled_date"
     ordering = ("-scheduled_date",)
+    # created_at is auto_now_add, so editable=False. Naming a non-editable field
+    # in fieldsets without also marking it readonly raises FieldError when the
+    # form is built — the add/change pages returned 500, not a validation error.
+    # Readonly keeps it displayed, which is what the "Audit" section is for.
+    readonly_fields = ("created_at",)
     fieldsets = (
         (None, {"fields": ("patient", "doctor", "service", "scheduled_date")}),
         ("Details", {"fields": ("status", "price", "branch", "notes")}),

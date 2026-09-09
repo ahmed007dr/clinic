@@ -10,7 +10,7 @@
 | Auth | Django's built-in session auth (`django.contrib.auth`) with a custom `AUTH_USER_MODEL = "accounts.User"` |
 | API layer | None — no Django REST Framework in `requirements.txt`, no JWT, no API versioning |
 | Multi-tenancy | None — single Django project/database serving one clinic organization ("Dr-ahmed") with multiple **branches** (physical locations), not multiple tenant organizations |
-| Deployment | Passenger/cPanel shared hosting (`passenger_wsgi.py`), domain `2odays.com` (commented in settings) |
+| Deployment | **Unknown / none reachable.** `passenger_wsgi.py` is present but entirely commented out (since 2025-09-29), and `2odays.com` no longer resolves. No Passenger config (`.htaccess`) has ever been tracked here, so any production configuration lives outside this repository. Originally recorded as Passenger/cPanel shared hosting; withdrawn — see [01-system-audit.md](01-system-audit.md) and the Gate A findings in [06-implementation-progress.md](06-implementation-progress.md) |
 | Background jobs | None — no Celery/RQ/cron abstraction in code; `reports/views.py`'s `generate_daily_report()` etc. look like they're meant to be invoked by an external cron job hitting a management command or scheduled task, but no such command exists in the apps read so far |
 | Payments | None — no payment gateway integration (Paymob/Fawry/etc.); `billing` records payments/expenses manually entered by staff, cash-register style |
 | Email | SMTP via `django.core.mail`, configured directly in `settings.py` (see [01-system-audit.md](01-system-audit.md) C1) |

@@ -2,7 +2,14 @@
 
 Scope: full read of every app's `models.py`, `views.py`, `urls.py`, `settings.py`, `project/urls.py`, `.gitignore`, git log, and representative `forms.py`. Every finding below is backed by a file:line reference read directly from this repository on 2026-09-07 — nothing here is inferred from `doc/readme.md`'s aspirational spec.
 
-This is a **live production system** (`passenger_wsgi.py` present, git log message "passenger cpanel", domain `2odays.com` referenced in commented `ALLOWED_HOSTS` in [project/settings.py:30](../project/settings.py#L30)) holding real patient data. Findings are ordered by severity.
+This was originally recorded as a **live production system holding real patient data**, inferred from the presence of `passenger_wsgi.py`, the git log message "passenger cpanel", and the `2odays.com` domain. **That inference did not survive verification and has been withdrawn** — see the Gate A findings in [06-implementation-progress.md](06-implementation-progress.md). In summary:
+
+- `passenger_wsgi.py` was live for exactly one day (2025-09-28) and has been **entirely commented out** since 2025-09-29, so it defines no `application` callable and Passenger cannot boot from it.
+- **`2odays.com` does not resolve.** Public DNS returns SERVFAIL for A, SOA and NS, so its delegation is broken or absent.
+- No Passenger configuration has ever been tracked in this repository (no `.htaccess`), so production configuration lives entirely outside it.
+- `club-ft.com` is a **different Django project** and must not be read as this application's production.
+
+**The location of any real patient data is currently unknown, and no migration or deployment should happen until it is confirmed.** The security findings below stand on their own merits regardless — they are defects in the code as written. Findings are ordered by severity.
 
 ---
 

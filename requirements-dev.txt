@@ -1,0 +1,15 @@
+# Development and testing dependencies.
+#
+#     venv/Scripts/pip install -r requirements-dev.txt
+#
+# Installs everything in requirements.txt as well, so this is the only file a
+# development environment needs.
+-r requirements.txt
+
+# Used by `manage.py seed_demo` to generate Arabic demo data, and by nothing
+# else. It was previously in requirements.txt, which shipped it to production
+# for no reason. seed_demo imports it lazily and reports a clear message if it
+# is missing, so a production install without it behaves correctly.
+#
+# The test suite does not use it: tests build their own fixtures.
+Faker==37.8.0

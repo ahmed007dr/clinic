@@ -1,12 +1,48 @@
+# Production dependencies. Install into a project-local virtualenv:
+#
+#     python -m venv venv
+#     venv/Scripts/pip install -r requirements.txt        # Windows
+#     venv/bin/pip install -r requirements.txt            # Linux
+#
+# Use that interpreter for manage.py, never a shared/global one. This file being
+# authoritative is the point: the previous global environment differed from it on
+# 8 of 12 packages, including Django itself, so nothing verified locally said
+# anything reliable about what production would install.
+#
+# Django 5.2 is the current LTS (supported to April 2028). 4.2 LTS reached end of
+# life in April 2026 and its series stopped at 4.2.30, so it will receive no
+# further security fixes. The old pin was `Django==4.2`, meaning exactly 4.2.0 —
+# thirty patch releases behind the end of a series that is itself now EOL.
+#
+# `~=` rather than `==` deliberately: it admits 5.2.x security patches while
+# refusing 5.3 and 6.0. An exact pin is what let this project sit on 4.2.0 for
+# two and a half years.
+Django~=5.2.17
+
+# Django's own runtime dependencies, pinned for reproducibility.
+# Django 5.2 requires asgiref>=3.8.1 and sqlparse>=0.3.1; tzdata on Windows only.
 asgiref==3.9.2
-charset-normalizer==3.4.3
-Django==4.2
-django-environ==0.12.0
-et_xmlfile==2.0.0
-Faker==37.8.0
-openpyxl==3.1.5
-pillow==11.3.0
-psycopg2-binary==2.9.9
-reportlab==4.4.4
 sqlparse==0.5.3
 tzdata==2025.2
+
+# Reads DATABASE_URL and the rest of settings from .env — project/settings.py.
+django-environ==0.12.0
+
+# PostgreSQL driver. Note for the managed-host migration: the psycopg
+# maintainers advise building psycopg2 from source in production rather than
+# using the -binary wheel. Kept as -binary for now because it is what the
+# current environment has been verified against.
+psycopg2-binary==2.9.9
+
+# Required by Django for the two ImageFields — Branch.logo and Patient.photo.
+pillow==11.3.0
+
+# PDF export (utils/export_pdf.py) and Excel export (utils/utils.py).
+#
+# charset-normalizer used to be pinned here too. It is not imported anywhere in
+# this project — it arrives as a dependency of reportlab, which is where the
+# version constraint belongs. Dropping the direct pin removes a line that
+# implied we depend on it directly; pip still installs it.
+reportlab==4.4.4
+openpyxl==3.1.5
+et_xmlfile==2.0.0
