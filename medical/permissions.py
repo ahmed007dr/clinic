@@ -4,30 +4,13 @@ Reception books appointments, registers patients and handles payments, but
 never sees a diagnosis — doc/readme.md §14 keeps Reception out of clinical
 work and §87 asks for least privilege over medical data.
 
-Any doctor in the clinic can read any of its patients' records, which is what
-makes cover, handover and second opinions possible.
+Any doctor in a clinic can read any of that clinic's patients' records, which
+is what makes cover, handover and second opinions possible. The group Owner
+sees every clinic.
+
+The rules themselves live in `accounts/roles.py`; this module keeps the names
+the clinical views have always imported.
 """
 
-CLINICAL_ROLES = {"Doctor", "Admin"}
-
-
-def can_view_clinical(user):
-    """Read access to clinical records. Fails closed for users with no role."""
-    role = getattr(user, "role", None)
-    return bool(role and role.name in CLINICAL_ROLES)
-
-
-def scoped_to_user(queryset, user, branch_field="branch"):
-    """Admins are org-wide by design; everyone else is limited to their branch.
-
-    The tenant boundary is already applied by the model manager — this is the
-    branch layer on top of it. `branch_field` is a lookup path because not
-    every clinical model carries a branch of its own: a Prescription belongs
-    to the branch of the visit that issued it.
-    """
-    role = getattr(user, "role", None)
-    if role and role.name == "Admin":
-        return queryset
-    if getattr(user, "branch_id", None):
-        return queryset.filter(**{branch_field: user.branch})
-    return queryset.none()
+from accounts.roles import CLINICAL_ROLES, can_view_clinical  # noqa: F401
+from accounts.roles import scope_queryset_to_user as scoped_to_user  # noqa: F401

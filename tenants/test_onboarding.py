@@ -38,7 +38,7 @@ class CreateTenantCommandTests(TestCase):
 
         with tenant_context(tenant):
             roles = set(ClinicRole.all_objects.filter(tenant=tenant).values_list("name", flat=True))
-            self.assertEqual(roles, {"Admin", "Reception", "Doctor"})
+            self.assertEqual(roles, {"Owner", "Admin", "Reception", "Doctor"})
             self.assertTrue(EmployeeType.all_objects.filter(tenant=tenant, name="Doctor").exists())
             self.assertEqual(Branch.all_objects.filter(tenant=tenant).count(), 1)
 
@@ -48,7 +48,7 @@ class CreateTenantCommandTests(TestCase):
         # user before any tenant is known — but role and branch do, so
         # following those FKs needs the binding.
         with tenant_context(tenant):
-            self.assertEqual(admin.role.name, "Admin")
+            self.assertEqual(admin.role.name, "Owner")
             self.assertEqual(admin.branch.tenant, tenant)
 
     def test_generated_password_is_shown_and_actually_works(self):

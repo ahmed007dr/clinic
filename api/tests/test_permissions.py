@@ -44,7 +44,7 @@ class RoleTests(TestCase):
                 tenant=self.tenant, name="Other", code="OT"
             )
             roles = {}
-            for name in ("Admin", "Reception", "Doctor"):
+            for name in ("Owner", "Admin", "Reception", "Doctor"):
                 roles[name], _ = ClinicRole.all_objects.get_or_create(
                     tenant=self.tenant, name=name
                 )
@@ -60,7 +60,7 @@ class RoleTests(TestCase):
             )
 
         self.users = {}
-        for name in ("Admin", "Reception", "Doctor"):
+        for name in ("Owner", "Admin", "Reception", "Doctor"):
             self.users[name] = User.objects.create_user(
                 username=name.lower(), email=f"{name.lower()}-perm@t.local",
                 password="pass12345", tenant=self.tenant,
@@ -176,7 +176,7 @@ class RoleTests(TestCase):
         self.assertEqual(names, {"Here"})
 
     def test_an_admin_sees_every_branch(self):
-        self.login("Admin")
+        self.login("Owner")
         names = {
             row["name"]
             for row in self.client.get(reverse("api:patient-list")).json()["results"]
@@ -210,7 +210,7 @@ class RoleTests(TestCase):
         reception = self.client.get(reverse("api:dashboard")).json()
         self.assertEqual(reception["revenue"]["today"], 100)
 
-        self.login("Admin")
+        self.login("Owner")
         admin = self.client.get(reverse("api:dashboard")).json()
         self.assertEqual(admin["revenue"]["today"], 600)
 

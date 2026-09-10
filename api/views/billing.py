@@ -5,7 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 
-from api.permissions import IsClinicMember, ReadOnlyForNonAdmin, is_clinic_admin
+from api.permissions import IsClinicMember, ReadOnlyForNonAdmin, sees_all_branches
 from api.serializers.billing import (
     ExpenseCategorySerializer,
     ExpenseSerializer,
@@ -131,7 +131,7 @@ class FinancialReportView(ClinicViewSet):
         total_expenses = spend["total"] or 0
 
         by_branch = []
-        if is_clinic_admin(request.user):
+        if sees_all_branches(request.user):
             # Only meaningful for someone who can see more than one branch.
             for row in Branch.objects.all():
                 branch_revenue = payments.filter(branch=row).aggregate(

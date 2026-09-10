@@ -191,7 +191,7 @@ class ScopedChoiceTests(TestCase):
     def test_an_admin_sees_every_branch(self):
         with tenant_context(self.tenant):
             admin_role, _ = ClinicRole.all_objects.get_or_create(
-                tenant=self.tenant, name="Admin"
+                tenant=self.tenant, name="Owner"
             )
         admin = User.objects.create_user(
             username="adm", email="adm-rel@t.local", password="pass12345",

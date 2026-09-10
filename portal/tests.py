@@ -249,7 +249,7 @@ class StaffSideTests(PortalBase):
         super().setUp()
         with tenant_context(self.a):
             roles = {n: ClinicRole.all_objects.get_or_create(tenant=self.a, name=n)[0]
-                     for n in ("Reception", "Doctor", "Admin")}
+                     for n in ("Reception", "Doctor", "Admin", "Owner")}
         for name, role in roles.items():
             User.objects.create_user(username=name.lower(), email=f"{name.lower()}-ps@t.local",
                                      password="pass12345", tenant=self.a, role=role, branch=self.branch)
@@ -291,11 +291,15 @@ class StaffSideTests(PortalBase):
         names = {row["test_name"] for row in self.client.get(self.url("lab-results")).json()}
         self.assertEqual(names, {"Released", "Hidden"})
 
-    def test_only_an_admin_changes_the_diagnosis_setting(self):
+    def test_only_the_owner_changes_the_diagnosis_setting(self):
         self.as_staff("doctor")
         self.assertEqual(self.staff.patch(reverse("api:clinic-settings"), {"portal_show_diagnosis": True},
                                           content_type="application/json").status_code, 403)
+        # Group-wide settings: a clinic Admin is refused too.
         self.as_staff("admin")
+        self.assertEqual(self.staff.patch(reverse("api:clinic-settings"), {"portal_show_diagnosis": True},
+                                          content_type="application/json").status_code, 403)
+        self.as_staff("owner")
         response = self.staff.patch(reverse("api:clinic-settings"), {"portal_show_diagnosis": True},
                                     content_type="application/json")
         self.assertEqual(response.status_code, 200)

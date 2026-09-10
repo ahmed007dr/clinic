@@ -19,14 +19,19 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator
 from utils.utils import export_pdf, export_excel
 from datetime import datetime
+import accounts.roles as _roles
+from accounts.roles import (
+    RECEPTION, is_clinic_admin, is_front_desk, is_owner,
+    role_name, scope_queryset_to_user, sees_all_branches,
+)
 
 def is_reception_or_admin(user):
-    return user.role.name in ['Reception', 'Admin'] if user.role else False
+    return is_front_desk(user)
 
 def can_view_patients(user):
     """Doctors need the patient file to reach the clinical record — but they
     do not register patients, which stays with Reception and Admin."""
-    return user.role.name in ['Reception', 'Admin', 'Doctor'] if user.role else False
+    return _roles.can_view_patients(user)
 
 @login_required
 @user_passes_test(is_reception_or_admin)
@@ -36,7 +41,8 @@ def patient_create(request):
         if form.is_valid():
             try:
                 check_limit(
-                    request.user.tenant, 'max_patients', Patient.objects.count()
+                    request.user.tenant, 'max_patients',
+                    Patient.objects.filter(needs_review=False).count(),
                 )
             except LimitReached as reached:
                 messages.error(
@@ -63,8 +69,9 @@ def patient_create(request):
 @user_passes_test(can_view_patients)
 def patient_list(request):
     patients = Patient.objects.all().order_by('-created_at', '-serial_number')
-    if request.user.role.name == 'Reception' and request.user.branch:
-        patients = patients.filter(branch=request.user.branch).values('uuid', 'serial_number', 'name', 'phone1', 'gender')
+    patients = scope_queryset_to_user(patients, request.user)
+    if role_name(request.user) == RECEPTION:
+        patients = patients.values('uuid', 'serial_number', 'name', 'phone1', 'gender')
     paginator = Paginator(patients, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -78,14 +85,14 @@ def patient_list(request):
 @login_required
 @user_passes_test(can_view_patients)
 def patient_detail(request, uuid):
-    patient = get_object_or_404(Patient, uuid=uuid)
-    # Admin is org-wide by design; everyone else is held to their own branch.
-    if request.user.role.name != 'Admin' and request.user.branch and patient.branch_id != request.user.branch_id:
+    patient = get_object_or_404(scope_queryset_to_user(Patient.objects.all(), request.user), uuid=uuid)
+    # The group Owner sees every clinic; everyone else their own.
+    if not sees_all_branches(request.user) and request.user.branch and patient.branch_id != request.user.branch_id:
         raise Http404
     appointments = Appointment.objects.filter(patient=patient).order_by('-scheduled_date', '-serial_number')
     if request.user.role.name == 'Reception':
         appointments = appointments.values('uuid', 'serial_number', 'doctor__name', 'service__name')
-    payments = Payment.objects.filter(patient=patient).order_by('date') if request.user.role.name == 'Admin' else []
+    payments = Payment.objects.filter(patient=patient).order_by('date') if is_clinic_admin(request.user) else []
 
     # Reception books and bills but never sees a diagnosis — the queries are
     # skipped entirely rather than filtered in the template.
@@ -111,9 +118,9 @@ def patient_detail(request, uuid):
     return render(request, 'patients/detail.html', context)
 
 @login_required
-@user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
+@user_passes_test(is_clinic_admin)
 def patient_update(request, uuid):
-    patient = get_object_or_404(Patient, uuid=uuid)
+    patient = get_object_or_404(scope_queryset_to_user(Patient.objects.all(), request.user), uuid=uuid)
     if request.method == 'POST':
         form = PatientForm(request.POST, request.FILES, instance=patient)
         if form.is_valid():
@@ -130,9 +137,9 @@ def patient_update(request, uuid):
     return render(request, 'patients/update.html', context)
 
 @login_required
-@user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
+@user_passes_test(is_clinic_admin)
 def patient_delete(request, uuid):
-    patient = get_object_or_404(Patient, uuid=uuid)
+    patient = get_object_or_404(scope_queryset_to_user(Patient.objects.all(), request.user), uuid=uuid)
     if request.method == 'POST':
         try:
             patient.delete()
@@ -153,10 +160,10 @@ def patient_delete(request, uuid):
     return render(request, 'patients/delete.html', context)
 
 @login_required
-@user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
+@user_passes_test(is_clinic_admin)
 def patient_list_export(request):
     export_format = request.GET.get('export')
-    patients = Patient.objects.filter(branch=request.user.branch).order_by('-created_at', '-serial_number')
+    patients = scope_queryset_to_user(Patient.objects.all(), request.user).order_by('-created_at', '-serial_number')
     data = [
         [p.serial_number, p.name, p.phone1 or 'غير محدد', p.get_gender_display() or 'غير محدد', p.birth_date.strftime('%Y-%m-%d') if p.birth_date else 'غير محدد', p.national_id or 'غير محدد']
         for p in patients

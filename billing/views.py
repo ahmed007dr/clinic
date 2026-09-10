@@ -10,9 +10,14 @@ from django.db.models import Sum, Count, Q
 from datetime import datetime
 from utils.utils import export_pdf, export_excel
 from django.core.paginator import Paginator
+from django.db.models import OuterRef, Subquery
+from accounts.roles import (
+    RECEPTION, can_view_patients, is_clinic_admin, is_front_desk, is_owner,
+    role_name, scope_queryset_to_user, sees_all_branches,
+)
 
 def is_admin(user):
-    return user.role.name == 'Admin' if user.role else False
+    return is_clinic_admin(user)
 
 @login_required
 @user_passes_test(is_admin)
@@ -36,7 +41,7 @@ def payment_create(request):
 
 @login_required
 def payment_list(request):
-    payments = Payment.objects.all().order_by('-date') if is_admin(request.user) else Payment.objects.filter(branch=request.user.branch).order_by('-date')
+    payments = scope_queryset_to_user(Payment.objects.all(), request.user).order_by('-date')
     context = {
         'payments': payments,
     }
@@ -45,7 +50,7 @@ def payment_list(request):
 @login_required
 @user_passes_test(is_admin)
 def payment_update(request, uuid):
-    payment = get_object_or_404(Payment, uuid=uuid)
+    payment = get_object_or_404(scope_queryset_to_user(Payment.objects.all(), request.user), uuid=uuid)
     if request.method == 'POST':
         form = PaymentForm(request.POST, instance=payment)
         if form.is_valid():
@@ -65,7 +70,7 @@ def payment_update(request, uuid):
 @login_required
 @user_passes_test(is_admin)
 def payment_delete(request, uuid):
-    payment = get_object_or_404(Payment, uuid=uuid)
+    payment = get_object_or_404(scope_queryset_to_user(Payment.objects.all(), request.user), uuid=uuid)
     if request.method == 'POST':
         payment.delete()
         messages.success(request, 'تم حذف الدفعة بنجاح')
@@ -77,8 +82,8 @@ def payment_delete(request, uuid):
 
 @login_required
 def payment_detail(request, uuid):
-    payment = get_object_or_404(Payment, uuid=uuid)
-    if not is_admin(request.user) and request.user.branch and payment.branch_id != request.user.branch_id:
+    payment = get_object_or_404(scope_queryset_to_user(Payment.objects.all(), request.user), uuid=uuid)
+    if not sees_all_branches(request.user) and request.user.branch and payment.branch_id != request.user.branch_id:
         raise Http404
     context = {
         'payment': payment,
@@ -88,7 +93,7 @@ def payment_detail(request, uuid):
 @login_required
 @user_passes_test(is_admin)
 def payment_list_export(request):
-    payments = Payment.objects.all().order_by('-date') if is_admin(request.user) else Payment.objects.filter(branch=request.user.branch).order_by('-date')
+    payments = scope_queryset_to_user(Payment.objects.all(), request.user).order_by('-date')
     export_format = request.GET.get('export')
     data = [
         [p.receipt_number, p.patient.name, str(p.amount), p.method.name if p.method else 'غير محدد', p.date.strftime('%Y-%m-%d')]
@@ -126,7 +131,7 @@ def expense_create(request):
 
 @login_required
 def expense_list(request):
-    expenses = Expense.objects.all().order_by('-date') if is_admin(request.user) else Expense.objects.filter(branch=request.user.branch).order_by('-date')
+    expenses = scope_queryset_to_user(Expense.objects.all(), request.user).order_by('-date')
     context = {
         'expenses': expenses,
     }
@@ -135,7 +140,7 @@ def expense_list(request):
 @login_required
 @user_passes_test(is_admin)
 def expense_update(request, uuid):
-    expense = get_object_or_404(Expense, uuid=uuid)
+    expense = get_object_or_404(scope_queryset_to_user(Expense.objects.all(), request.user), uuid=uuid)
     if request.method == 'POST':
         form = ExpenseForm(request.POST, instance=expense)
         if form.is_valid():
@@ -154,7 +159,7 @@ def expense_update(request, uuid):
 @login_required
 @user_passes_test(is_admin)
 def expense_delete(request, uuid):
-    expense = get_object_or_404(Expense, uuid=uuid)
+    expense = get_object_or_404(scope_queryset_to_user(Expense.objects.all(), request.user), uuid=uuid)
     if request.method == 'POST':
         expense.delete()
         messages.success(request, 'تم حذف المصروف بنجاح')
@@ -246,8 +251,8 @@ def financial_report(request):
     page_branches = request.GET.get('page_branches', 1)
 
     # تصفية الدفعات والمصروفات
-    payments = Payment.objects.all() if is_admin(request.user) else Payment.objects.filter(branch=request.user.branch)
-    expenses = Expense.objects.all() if is_admin(request.user) else Expense.objects.filter(branch=request.user.branch)
+    payments = scope_queryset_to_user(Payment.objects.all(), request.user)
+    expenses = scope_queryset_to_user(Expense.objects.all(), request.user)
     
     # تطبيق الفلترة العامة
     if start_date:
@@ -292,9 +297,15 @@ def financial_report(request):
         doctor_summary = doctor_summary.filter(appointment__doctor__name__icontains=doctor_summary_search)
 
     # إيرادات ومصروفات الفروع
-    branches_summary = Branch.objects.all().annotate(
-        total_revenue=Sum('payment__amount'),
-        total_expenses=Sum('expenses__amount')
+    # Two reverse joins in one annotate multiply each other: every payment was
+    # counted once per expense in the same branch. Each total is its own
+    # subquery, so neither can inflate the other.
+    branch_revenue = Payment.objects.filter(branch=OuterRef('pk')).values('branch').annotate(t=Sum('amount')).values('t')
+    branch_expenses = Expense.objects.filter(branch=OuterRef('pk')).values('branch').annotate(t=Sum('amount')).values('t')
+    branch_base = Branch.objects.all() if sees_all_branches(request.user) else Branch.objects.filter(pk=request.user.branch_id)
+    branches_summary = branch_base.annotate(
+        total_revenue=Subquery(branch_revenue),
+        total_expenses=Subquery(branch_expenses),
     )
     if branches_search:
         branches_summary = branches_summary.filter(name__icontains=branches_search)

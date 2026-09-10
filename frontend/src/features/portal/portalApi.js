@@ -23,5 +23,8 @@ export function portalApi(slug) {
     payments: () => get('payments/'),
     plans: () => get('treatment-plans/'),
     allergies: () => get('allergies/'),
+    /** New-patient self-registration, when the group has turned it on. */
+    registerOptions: () => get('register/options/'),
+    register: (body) => http.post(`${base}/register/`, body),
   }
 }

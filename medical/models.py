@@ -900,3 +900,152 @@ class Allergy(TenantOwnedModel):
     @property
     def is_severe(self):
         return self.severity == self.Severity.SEVERE
+
+
+class ChronicCondition(models.TextChoices):
+    """Structured, so the group can ask "how many of our diabetics…". The value
+    is the contract; the words shown come from the frontend dictionaries."""
+
+    DIABETES = "diabetes", "Diabetes"
+    HYPERTENSION = "hypertension", "Hypertension"
+    HEART_DISEASE = "heart_disease", "Heart disease"
+    KIDNEY_DISEASE = "kidney_disease", "Kidney disease"
+    LIVER_DISEASE = "liver_disease", "Liver disease"
+    RESPIRATORY = "respiratory", "Asthma / respiratory disease"
+    THYROID = "thyroid", "Thyroid disease"
+    EPILEPSY = "epilepsy", "Epilepsy"
+    BLOOD_DISORDER = "blood_disorder", "Blood disorder"
+    OTHER = "other", "Other"
+
+
+class PatientMedicalProfile(TenantOwnedModel):
+    """The patient's standing history, as they reported it at registration.
+
+    One per patient. Kept apart from the physician's own notes on the visit:
+    this is what the patient told us, not what a doctor concluded.
+    """
+
+    class Smoking(models.TextChoices):
+        NEVER = "never", "Never smoked"
+        FORMER = "former", "Former smoker"
+        CURRENT = "current", "Current smoker"
+
+    patient = models.OneToOneField(
+        "patients.Patient", on_delete=models.PROTECT, related_name="medical_profile"
+    )
+    smoking_status = models.CharField(max_length=10, choices=Smoking.choices, blank=True, default="")
+    current_medications = models.TextField(blank=True)
+    previous_surgeries = models.TextField(blank=True)
+    previous_hospitalizations = models.TextField(blank=True)
+    family_history = models.TextField(blank=True)
+    # True once the chronic-condition questions were answered, so "no rows"
+    # can mean "none" rather than "never asked".
+    conditions_reviewed = models.BooleanField(default=False)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta(TenantOwnedModel.Meta):
+        verbose_name = "ملف طبي"
+
+
+class PatientCondition(TenantOwnedModel):
+    """One chronic condition the patient has. Absence of a row is "no" once
+    `PatientMedicalProfile.conditions_reviewed` is set."""
+
+    patient = models.ForeignKey(
+        "patients.Patient", on_delete=models.PROTECT, related_name="conditions"
+    )
+    condition = models.CharField(max_length=30, choices=ChronicCondition.choices)
+    other_name = models.CharField(max_length=100, blank=True, default="")
+    details = models.TextField(blank=True)
+    current_treatment = models.CharField(max_length=300, blank=True, default="")
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    recorded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta(TenantOwnedModel.Meta):
+        constraints = [
+            # One row per condition; "other" may repeat, told apart by name.
+            models.UniqueConstraint(
+                fields=["tenant", "patient", "condition"],
+                condition=~models.Q(condition="other"),
+                name="uniq_condition_per_patient",
+            )
+        ]
+        indexes = [models.Index(fields=["tenant", "condition"], name="condition_idx")]
+
+
+class PatientIntake(TenantOwnedModel):
+    """Why the patient is coming, in their own words, at first contact.
+
+    Deliberately not the diagnosis: `Visit.diagnosis` is the physician's
+    conclusion, this is the patient's complaint. The fields are named
+    `reason_for_visit` and `reported_diagnosis` so nobody mistakes one for the
+    other in a report.
+
+    `case_type` is the *kind* of visit (consultation, follow-up…), never a
+    specialty — specialties are the clinic's own data (`Specialization`), so
+    the two dimensions never conflict.
+    """
+
+    class CaseType(models.TextChoices):
+        CONSULTATION = "consultation", "Consultation"
+        FOLLOW_UP = "follow_up", "Follow-up"
+        ACUTE = "acute", "Acute complaint"
+        CHRONIC = "chronic", "Chronic condition"
+        PREVENTIVE = "preventive", "Preventive / check-up"
+        PROCEDURE = "procedure", "Procedure"
+        OTHER = "other", "Other"
+
+    class Onset(models.TextChoices):
+        TODAY = "today", "Today"
+        DAYS = "days", "A few days"
+        WEEKS = "weeks", "Weeks"
+        MONTHS = "months", "Months"
+        YEARS = "years", "Years"
+        UNKNOWN = "unknown", "Not sure"
+
+    class Source(models.TextChoices):
+        STAFF = "staff", "Staff"
+        PORTAL = "portal", "Patient online"
+
+    patient = models.ForeignKey(
+        "patients.Patient", on_delete=models.PROTECT, related_name="intakes"
+    )
+    # The clinic the patient is heading to — which also decides who may read it.
+    branch = models.ForeignKey(
+        "branches.Branch", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    appointment = models.ForeignKey(
+        "appointments.Appointment", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="intakes",
+    )
+    case_type = models.CharField(max_length=20, choices=CaseType.choices, default=CaseType.CONSULTATION)
+    specialization = models.ForeignKey(
+        "employees.Specialization", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    # The doctor they are coming to see. Null when only a specialty is known,
+    # or when they do not know which doctor they need.
+    requested_doctor = models.ForeignKey(
+        "employees.Employee", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="requested_intakes",
+    )
+    reason_for_visit = models.TextField()
+    symptoms = models.TextField(blank=True)
+    symptom_onset = models.CharField(max_length=10, choices=Onset.choices, blank=True, default="")
+    reported_diagnosis = models.TextField(blank=True)
+    source = models.CharField(max_length=10, choices=Source.choices, default=Source.STAFF)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta(TenantOwnedModel.Meta):
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["tenant", "created_at"], name="intake_created_idx"),
+            models.Index(fields=["tenant", "case_type"], name="intake_case_type_idx"),
+        ]

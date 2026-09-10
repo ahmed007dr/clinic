@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 
 import { useAuth } from '@/hooks/useAuth'
+import { useT } from '@/i18n'
 
 /**
  * Navigation, filtered by what the signed-in user may actually open.
@@ -13,63 +14,71 @@ import { useAuth } from '@/hooks/useAuth'
 const SECTIONS = [
   {
     title: null,
-    items: [{ to: '/', label: 'الرئيسية', icon: '⌂', end: true }],
+    items: [{ to: '/', label: 'nav.home', icon: '⌂', end: true }],
   },
   {
-    title: 'العيادة',
+    title: 'nav.group',
+    permission: 'is_owner',
+    items: [{ to: '/owner', label: 'nav.owner', icon: '▦' }],
+  },
+  {
+    title: 'nav.clinic',
     items: [
-      { to: '/patients', label: 'المرضى', icon: '👤' },
-      { to: '/appointments', label: 'المواعيد', icon: '📅' },
-      { to: '/queue', label: 'قائمة الانتظار', icon: '⏳' },
+      { to: '/patients', label: 'nav.patients', icon: '👤' },
+      { to: '/appointments', label: 'nav.appointments', icon: '📅' },
+      { to: '/queue', label: 'nav.queue', icon: '⏳' },
+      { to: '/patients/review', label: 'nav.review', icon: '📝', permission: 'front_desk' },
     ],
   },
   {
-    title: 'السجلات الطبية',
+    title: 'nav.medical',
     permission: 'view_clinical',
     items: [
-      { to: '/visits', label: 'الزيارات', icon: '🩺' },
-      { to: '/prescriptions', label: 'الروشتات', icon: '℞' },
-      { to: '/treatment-plans', label: 'خطط العلاج', icon: '📋' },
-      { to: '/procedures', label: 'الإجراءات', icon: '⚕' },
-      { to: '/lab-results', label: 'التحاليل', icon: '🧪' },
-      { to: '/attachments', label: 'المستندات', icon: '📎' },
+      { to: '/visits', label: 'nav.visits', icon: '🩺' },
+      { to: '/prescriptions', label: 'nav.prescriptions', icon: '℞' },
+      { to: '/treatment-plans', label: 'nav.treatment_plans', icon: '📋' },
+      { to: '/procedures', label: 'nav.procedures', icon: '⚕' },
+      { to: '/lab-results', label: 'nav.lab_results', icon: '🧪' },
+      { to: '/attachments', label: 'nav.attachments', icon: '📎' },
     ],
   },
   {
-    title: 'الحسابات',
+    title: 'nav.accounts',
     items: [
-      { to: '/payments', label: 'الدفعات', icon: '💵' },
-      { to: '/expenses', label: 'المصروفات', icon: '🧾', permission: 'manage_billing' },
-      { to: '/reports/financial', label: 'التقرير المالي', icon: '📊' },
+      { to: '/payments', label: 'nav.payments', icon: '💵' },
+      { to: '/expenses', label: 'nav.expenses', icon: '🧾', permission: 'manage_billing' },
+      { to: '/reports/financial', label: 'nav.financial_report', icon: '📊' },
     ],
   },
   {
-    title: 'الإدارة',
+    title: 'nav.admin',
     permission: 'is_admin',
     items: [
-      { to: '/staff', label: 'المستخدمون', icon: '👥' },
-      { to: '/employees', label: 'الموظفون', icon: '🧑‍⚕️' },
-      { to: '/branches', label: 'الفروع', icon: '🏥' },
-      { to: '/services', label: 'الخدمات', icon: '🗂' },
-      { to: '/subscription', label: 'الباقة والاشتراك', icon: '🎫' },
-      { to: '/settings', label: 'الإعدادات', icon: '⚙' },
+      { to: '/staff', label: 'nav.users', icon: '👥' },
+      { to: '/employees', label: 'nav.employees', icon: '🧑‍⚕️' },
+      { to: '/attendance', label: 'nav.attendance', icon: '🕘' },
+      { to: '/branches', label: 'nav.branches', icon: '🏥', permission: 'is_owner' },
+      { to: '/services', label: 'nav.services', icon: '🗂' },
+      { to: '/subscription', label: 'nav.subscription', icon: '🎫', permission: 'is_owner' },
+      { to: '/settings', label: 'nav.settings', icon: '⚙' },
     ],
   },
 ]
 
 export function Sidebar({ onNavigate }) {
   const { user, permissions } = useAuth()
+  const { t } = useT()
 
   const allowed = (entry) => !entry.permission || permissions[entry.permission]
 
   return (
-    <nav className="sidebar" aria-label="التنقل الرئيسي">
+    <nav className="sidebar" aria-label={t('nav.main')}>
       <div className="sidebar__brand">
         <span className="sidebar__mark" aria-hidden="true">
           ⊕
         </span>
         <span className="sidebar__clinic" title={user?.clinic || ''}>
-          {user?.clinic || 'العيادة'}
+          {user?.clinic || t('nav.clinic')}
         </span>
       </div>
 
@@ -79,9 +88,7 @@ export function Sidebar({ onNavigate }) {
           if (items.length === 0) return null
           return (
             <div className="sidebar__section" key={section.title ?? index}>
-              {section.title && (
-                <div className="sidebar__heading">{section.title}</div>
-              )}
+              {section.title && <div className="sidebar__heading">{t(section.title)}</div>}
               {items.map((item) => (
                 <NavLink
                   key={item.to}
@@ -95,7 +102,7 @@ export function Sidebar({ onNavigate }) {
                   <span className="sidebar__icon" aria-hidden="true">
                     {item.icon}
                   </span>
-                  <span>{item.label}</span>
+                  <span>{t(item.label)}</span>
                 </NavLink>
               ))}
             </div>
@@ -105,7 +112,7 @@ export function Sidebar({ onNavigate }) {
 
       {user?.branch && (
         <div className="sidebar__footer">
-          <span className="ui-muted">الفرع</span>
+          <span className="ui-muted">{t('nav.branch')}</span>
           <strong>{user.branch.name}</strong>
         </div>
       )}

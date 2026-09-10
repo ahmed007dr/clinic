@@ -12,7 +12,9 @@ from django.utils.text import slugify
 PASSWORD_ALPHABET = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 DEFAULT_ROLES = [
-    ("Admin", "System administrator"),
+    # The medical group's owner: every clinic, the group dashboard (accounts/roles.py).
+    ("Owner", "Medical group owner"),
+    ("Admin", "Clinic administrator"),
     ("Reception", "Reception staff"),
     # Clinical access is granted by role. Without this, a clinic has no account
     # that can record a diagnosis — see medical/permissions.py.
@@ -136,8 +138,10 @@ def create_tenant_admin(tenant, email, password=None, username="admin", branch=N
         password = get_random_string(14, allowed_chars=PASSWORD_ALPHABET)
 
     with tenant_context(tenant):
-        # provision_tenant_defaults guarantees this exists.
-        admin_role = ClinicRole.all_objects.get(tenant=tenant, name="Admin")
+        # The account a group is onboarded with is its owner — the person
+        # who bought the subscription. provision_tenant_defaults guarantees
+        # the role exists.
+        admin_role = ClinicRole.all_objects.get(tenant=tenant, name="Owner")
 
         user = User.objects.create_user(
             username=username,

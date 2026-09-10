@@ -219,6 +219,12 @@ No SMS provider is needed for this. Patient sessions use their own cookie,
 separate from staff sessions, and every clinical record a patient opens is
 written to the clinic's audit trail.
 
+### 5d. Roles after this release, and online registration
+
+`migrate` runs `accounts.0007_owner_role`, which turns every existing **Admin** into an **Owner** (the whole group). Admin now means *one clinic's* administrator. After upgrading, review the staff list and demote to Admin anyone who should only manage their own clinic. The account created by `create_tenant` is the group's Owner.
+
+Online self-registration for new patients is **off** for every group. The Owner turns it on under Settings → Patient portal, which then shows the registration link to share. Submissions wait under «طلبات التسجيل» until the front desk confirms, merges or rejects them.
+
 ## 6. Check the deployment
 
 ```bash

@@ -81,6 +81,11 @@ class ClinicViewSet(viewsets.ModelViewSet):
             extra[self.created_by_field] = self.request.user
         serializer.save(**extra)
 
+    def plan_limit_count(self):
+        """How many already count against the plan. Overridable, because not
+        every row is a counted one (a pending self-registration is not)."""
+        return self.queryset.model._default_manager.count()
+
     def enforce_plan_limit(self, tenant):
         """Refuse a create that would exceed the clinic's plan.
 
@@ -94,7 +99,7 @@ class ClinicViewSet(viewsets.ModelViewSet):
 
         model = self.queryset.model
         try:
-            check_limit(tenant, self.plan_limit, model._default_manager.count())
+            check_limit(tenant, self.plan_limit, self.plan_limit_count())
         except LimitReached as reached:
             raise PermissionDenied(
                 f"باقتك الحالية تسمح بـ {reached.allowed} فقط. "

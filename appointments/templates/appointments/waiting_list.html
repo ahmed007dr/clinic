@@ -21,7 +21,7 @@
             <th>الطبيب</th>
             <th>الخدمة</th>
             <th>التوقيت</th>
-            {% if user.role.name == 'Admin' %}
+            {% if is_clinic_admin %}
               <th>التاريخ</th>
               <th>الحالة</th>
               <th>إجراءات</th>
@@ -36,7 +36,7 @@
             <td>{{ appointment.doctor.name|default:"غير محدد" }}</td>
             <td>{{ appointment.service.name|default:"غير محدد" }}</td>
             <td>{{ appointment.scheduled_date|time:"H:i" }}</td>
-            {% if user.role.name == 'Admin' %}
+            {% if is_clinic_admin %}
               <td>{{ appointment.scheduled_date|date:"Y-m-d" }}</td>
               <td>{{ appointment.get_status_display|default:"غير محدد" }}</td>
               <td>
@@ -46,7 +46,7 @@
             {% endif %}
           </tr>
           {% empty %}
-          <tr><td colspan="{% if user.role.name == 'Admin' %}8{% else %}5{% endif %}">لا توجد مواعيد اليوم</td></tr>
+          <tr><td colspan="{% if is_clinic_admin %}8{% else %}5{% endif %}">لا توجد مواعيد اليوم</td></tr>
           {% endfor %}
         </tbody>
       </table>

@@ -44,6 +44,7 @@ export function AccountPage() {
   }
 
   const granted = Object.entries({
+    is_owner: 'مالك المجموعة',
     is_admin: 'إدارة العيادة',
     view_clinical: 'الاطلاع على السجلات الطبية',
     manage_billing: 'إدارة الحسابات',

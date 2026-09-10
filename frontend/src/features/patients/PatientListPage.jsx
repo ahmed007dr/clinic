@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { api } from '@/api'
 import { Badge, Button } from '@/components/ui'
@@ -6,6 +6,7 @@ import { ResourceTable } from '@/components/data/ResourceTable'
 import { ExportButtons } from '@/components/data/ExportButtons'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useAuth } from '@/hooks/useAuth'
+import { useT } from '@/i18n'
 import { formatDate } from '@/lib/format'
 
 const GENDER = { male: 'ذكر', female: 'أنثى' }
@@ -13,6 +14,8 @@ const GENDER = { male: 'ذكر', female: 'أنثى' }
 export function PatientListPage() {
   const navigate = useNavigate()
   const { permissions } = useAuth()
+  const { t } = useT()
+  const [search] = useSearchParams()
 
   const columns = [
     { key: 'serial_number', header: 'الرقم', numeric: true },
@@ -54,6 +57,9 @@ export function PatientListPage() {
         actions={
           <>
           <ExportButtons path="/patients/export/" />
+          {permissions.front_desk && (
+            <Button onClick={() => navigate('/patients/review')}>{t('nav.review')}</Button>
+          )}
           <Button variant="primary" onClick={() => navigate('/patients/new')}>
             تسجيل مريض
           </Button>
@@ -63,6 +69,8 @@ export function PatientListPage() {
       <ResourceTable
         resource={api.patients}
         columns={columns}
+        // The owner dashboard links here with a clinic selected.
+        params={{ branch: search.get('branch') || undefined }}
         searchPlaceholder="ابحث بالاسم أو الرقم أو الهاتف…"
         onRowClick={(row) => navigate(`/patients/${row.uuid}`)}
         empty={{

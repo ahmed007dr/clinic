@@ -27,7 +27,8 @@ class UsageLimitTests(TestCase):
     def setUp(self):
         self.tenant = Tenant.objects.first()
         with tenant_context(self.tenant):
-            self.admin_role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name="Admin")
+            # The group Owner: the plan page is group-wide.
+            self.admin_role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name="Owner")
             self.reception_role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name="Reception")
             self.branch = Branch.all_objects.create(tenant=self.tenant, name="Main", code="MN")
             self.doctor_type, _ = EmployeeType.all_objects.get_or_create(tenant=self.tenant, name="Doctor")

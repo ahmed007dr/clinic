@@ -23,11 +23,13 @@ const AuthContext = createContext(null)
 
 const NO_PERMISSIONS = {
   is_admin: false,
+  is_owner: false,
   view_clinical: false,
   manage_billing: false,
   manage_staff: false,
   manage_settings: false,
   all_branches: false,
+  front_desk: false,
 }
 
 export function AuthProvider({ children }) {

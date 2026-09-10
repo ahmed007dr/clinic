@@ -2,7 +2,7 @@
 
 from rest_framework.filters import OrderingFilter, SearchFilter
 
-from api.permissions import IsClinicAdmin, IsClinicMember, ReadOnlyForNonAdmin
+from api.permissions import IsClinicAdmin, IsClinicMember, ReadOnlyForNonAdmin, ReadOnlyForNonOwner
 from api.serializers.core import (
     BranchSerializer,
     DoctorBriefSerializer,
@@ -32,7 +32,8 @@ class BranchViewSet(ClinicViewSet):
 
     queryset = Branch.objects.all()
     serializer_class = BranchSerializer
-    permission_classes = [ReadOnlyForNonAdmin]
+    # Adding or reshaping clinics is the group owner's decision.
+    permission_classes = [ReadOnlyForNonOwner]
     plan_limit = "max_branches"
     branch_field = None
     filter_backends = [SearchFilter, OrderingFilter]
@@ -138,6 +139,6 @@ class DoctorViewSet(ReadOnlyClinicViewSet):
     ordering = ["name"]
 
     def filter_tenant_queryset(self, queryset):
-        return queryset.select_related("branch").filter(
+        return queryset.select_related("branch").prefetch_related("specializations").filter(
             employee_type__name="Doctor"
         )

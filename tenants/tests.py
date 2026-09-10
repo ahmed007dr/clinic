@@ -30,7 +30,7 @@ class DefaultTenantMigrationTests(TestCase):
         tenant = Tenant.objects.get()
         with tenant_context(tenant):
             names = set(ClinicRole.all_objects.filter(tenant=tenant).values_list('name', flat=True))
-        self.assertEqual(names, {'Admin', 'Reception', 'Doctor'})
+        self.assertEqual(names, {'Owner', 'Admin', 'Reception', 'Doctor'})
 
 
 class TenantOwnershipTests(TestCase):

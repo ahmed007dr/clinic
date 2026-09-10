@@ -8,6 +8,7 @@ import { PortalContext } from './PortalContext'
 import { PortalHomePage } from './PortalHomePage'
 import { PortalInvitePage } from './PortalInvitePage'
 import { PortalLoginPage } from './PortalLoginPage'
+import { PortalRegisterPage } from './PortalRegisterPage'
 import './portal.css'
 
 /**
@@ -43,6 +44,7 @@ export function PortalApp() {
       <Routes>
         <Route path="login" element={<PortalLoginPage />} />
         <Route path="invite" element={<PortalInvitePage />} />
+        <Route path="register" element={<PortalRegisterPage />} />
         <Route
           index
           element={loading ? <Loading /> : me ? <PortalHomePage /> : <Navigate to="login" replace />}

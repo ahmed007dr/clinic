@@ -139,7 +139,7 @@ class PlatformApiTests(TestCase):
             "email": "boss@new.local", "password": body["admin_password"],
         }, content_type="application/json")
         self.assertEqual(login.status_code, 200, login.content)
-        self.assertEqual(login.json()["user"]["role"], "Admin")
+        self.assertEqual(login.json()["user"]["role"], "Owner")
         self.assertEqual(login.json()["user"]["clinic"], "عيادة جديدة")
 
     def test_an_arabic_name_needs_an_explicit_slug(self):

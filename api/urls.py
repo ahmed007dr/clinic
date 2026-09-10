@@ -13,6 +13,7 @@ from .views import dashboard as dashboard_views
 from .views import notifications, patients
 from .views.subscription import SubscriptionView
 from .views.settings import ClinicSettingsView
+from .views import attendance, intake, meta, owner
 from . import platform
 
 router = DefaultRouter()
@@ -52,6 +53,8 @@ router.register("procedures", clinical.ProcedureViewSet, basename="procedure")
 router.register("lab-results", clinical.LabResultViewSet, basename="labresult")
 router.register("attachments", clinical.MedicalAttachmentViewSet, basename="attachment")
 router.register("allergies", clinical.AllergyViewSet, basename="allergy")
+router.register("intakes", intake.PatientIntakeViewSet, basename="intake")
+router.register("attendance", attendance.AttendanceViewSet, basename="attendance")
 
 # Administration
 router.register("staff", accounts.StaffUserViewSet, basename="staff")
@@ -70,6 +73,12 @@ urlpatterns = [
     path("dashboard/", dashboard_views.DashboardView.as_view(), name="dashboard"),
     path("subscription/", SubscriptionView.as_view(), name="subscription"),
     path("clinic-settings/", ClinicSettingsView.as_view(), name="clinic-settings"),
+    path("meta/choices/", meta.ChoicesView.as_view(), name="meta-choices"),
+    path("intake/register/", intake.IntakeRegistrationView.as_view(), name="intake-register"),
+    path("intake/duplicates/", intake.DuplicateCheckView.as_view(), name="intake-duplicates"),
+    path("patients/<uuid:uuid>/history/", intake.PatientHistoryView.as_view(), name="patient-history"),
+    # The group owner's dashboard (accounts/roles.py: Owner only).
+    path("owner/overview/", owner.OwnerOverviewView.as_view(), name="owner-overview"),
     # The patient portal: its own authentication, never a staff session.
     path("portal/<slug:slug>/", include("portal.urls")),
     # The owner portal. Gated by is_platform_staff; see api/platform.py.

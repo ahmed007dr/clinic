@@ -14,6 +14,9 @@ const STATUSES = [
   { value: 'called', label: 'تم الاتصال' },
   { value: 'quick', label: 'حجز سريع' },
   { value: 'requested', label: 'طلب من المريض' },
+  { value: 'completed', label: 'مكتمل' },
+  { value: 'cancelled', label: 'ملغي' },
+  { value: 'no_show', label: 'لم يحضر' },
 ]
 
 export function AppointmentListPage() {
@@ -66,7 +69,7 @@ export function AppointmentListPage() {
       <ResourceTable
         resource={api.appointments}
         columns={columns}
-        params={{ status, from, to, patient }}
+        params={{ status, from, to, patient, branch: search.get('branch') || undefined }}
         searchPlaceholder="ابحث برقم التذكرة أو اسم المريض…"
         onRowClick={(row) => navigate(`/appointments/${row.uuid}/edit`)}
         filters={

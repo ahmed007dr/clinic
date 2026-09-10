@@ -34,6 +34,7 @@ const NEXT_STEP = {
   waiting: { status: 'called', label: 'نداء' },
   called: { status: 'entered', label: 'دخول' },
   quick: { status: 'entered', label: 'دخول' },
+  entered: { status: 'completed', label: 'إنهاء الزيارة' },
 }
 
 export function QueuePage() {

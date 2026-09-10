@@ -107,3 +107,31 @@
   gap: var(--s1);
   flex-wrap: wrap;
 }
+
+/* The reported history card. */
+.history__conditions,
+.history__intakes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.history__intakes li {
+  padding-block-end: var(--s2);
+  border-block-end: 1px dashed var(--line);
+}
+
+.history__intakes li:last-child {
+  border-block-end: 0;
+}
+
+.history__intakes p {
+  margin: var(--s1) 0 0;
+}
+
+.history__heading {
+  margin-block: var(--s5) var(--s3);
+}

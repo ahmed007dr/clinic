@@ -25,7 +25,7 @@
             <th>الطبيب</th>
             <th>الخدمة</th>
             <th>التوقيت</th>
-            {% if user.role.name == 'Admin' %}
+            {% if is_clinic_admin %}
               <th>التاريخ</th>
               <th>الحالة</th>
               <th>السعر</th>
@@ -41,7 +41,7 @@
             <td>{{ appointment.doctor.name|default:"غير محدد" }}</td>
             <td>{{ appointment.service.name|default:"غير محدد" }}</td>
             <td>{{ appointment.scheduled_date|time:"H:i" }}</td>
-            {% if user.role.name == 'Admin' %}
+            {% if is_clinic_admin %}
               <td>{{ appointment.scheduled_date|date:"Y-m-d" }}</td>
               <td>{{ appointment.get_status_display|default:"غير محدد" }}</td>
               <td>{{ appointment.price|default:"غير محدد" }}</td>
@@ -53,7 +53,7 @@
             {% endif %}
           </tr>
           {% empty %}
-          <tr><td colspan="{% if user.role.name == 'Admin' %}9{% else %}5{% endif %}">لا توجد مواعيد</td></tr>
+          <tr><td colspan="{% if is_clinic_admin %}9{% else %}5{% endif %}">لا توجد مواعيد</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -82,7 +82,7 @@
           </ul>
         </nav>
       {% endif %}
-      {% if user.role.name == 'Admin' %}
+      {% if is_clinic_admin %}
         <a href="{% url 'appointments:appointment_create' %}" class="btn btn-primary mt-3">حجز موعد جديد</a>
       {% endif %}
     </div>

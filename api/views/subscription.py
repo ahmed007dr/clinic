@@ -8,7 +8,7 @@ job and stays there.
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from api.permissions import IsClinicAdmin
+from api.permissions import IsGroupOwner
 from subscriptions.entitlements import current_subscription, resolve_features
 from subscriptions.usage import limits_table
 from tenants.context import get_current_tenant
@@ -36,7 +36,7 @@ NOT_YET_BUILT = {
 
 
 class SubscriptionView(APIView):
-    permission_classes = [IsClinicAdmin]
+    permission_classes = [IsGroupOwner]
 
     def get(self, request):
         tenant = get_current_tenant()

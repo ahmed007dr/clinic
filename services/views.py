@@ -6,10 +6,11 @@ from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from utils.utils import export_pdf, export_excel
 from datetime import datetime
+from accounts.roles import is_clinic_admin
 
 @login_required
 def service_create(request):
-    if not (request.user.role and request.user.role.name == 'Admin'):
+    if not is_clinic_admin(request.user):
         messages.error(request, 'غير مصرح لك بإنشاء خدمة')
         return redirect('services:service_list')
     if request.method == 'POST':
@@ -39,7 +40,7 @@ def service_list(request):
 
 @login_required
 def service_update(request, uuid):
-    if not (request.user.role and request.user.role.name == 'Admin'):
+    if not is_clinic_admin(request.user):
         messages.error(request, 'غير مصرح لك بتعديل الخدمة')
         return redirect('services:service_list')
     service = get_object_or_404(Service, uuid=uuid)
@@ -60,7 +61,7 @@ def service_update(request, uuid):
 
 @login_required
 def service_delete(request, uuid):
-    if not (request.user.role and request.user.role.name == 'Admin'):
+    if not is_clinic_admin(request.user):
         messages.error(request, 'غير مصرح لك بحذف الخدمة')
         return redirect('services:service_list')
     service = get_object_or_404(Service, uuid=uuid)
@@ -75,7 +76,7 @@ def service_delete(request, uuid):
 
 @login_required
 def service_list_export(request):
-    if not (request.user.role and request.user.role.name == 'Admin'):
+    if not is_clinic_admin(request.user):
         messages.error(request, 'غير مصرح لك بتصدير البيانات')
         return redirect('services:service_list')
     export_format = request.GET.get('export')

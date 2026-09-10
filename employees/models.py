@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from django.core.validators import MinValueValidator
 from branches.models import Branch
@@ -52,3 +53,39 @@ class Employee(TenantOwnedModel):
 
     def __str__(self):
         return f"{self.serial_number} - {self.name}"
+
+
+class Attendance(TenantOwnedModel):
+    """One employee's day: present, late, absent or on leave.
+
+    One row per employee per day. `branch` is the clinic where it was recorded
+    — it decides who may see it, and lets the group compare clinics.
+    """
+
+    class Status(models.TextChoices):
+        PRESENT = "present", "Present"
+        LATE = "late", "Late"
+        ABSENT = "absent", "Absent"
+        LEAVE = "leave", "On leave"
+
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="attendance")
+    branch = models.ForeignKey(Branch, on_delete=models.SET_NULL, null=True, blank=True)
+    date = models.DateField()
+    status = models.CharField(max_length=10, choices=Status.choices)
+    check_in = models.TimeField(null=True, blank=True)
+    check_out = models.TimeField(null=True, blank=True)
+    minutes_late = models.PositiveIntegerField(null=True, blank=True)
+    notes = models.CharField(max_length=200, blank=True, default="")
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta(TenantOwnedModel.Meta):
+        constraints = [
+            models.UniqueConstraint(fields=["tenant", "employee", "date"], name="uniq_attendance_per_day")
+        ]
+        indexes = [models.Index(fields=["tenant", "branch", "date"], name="attendance_branch_date_idx")]
+
+    def __str__(self):
+        return f"{self.employee} {self.date} {self.status}"

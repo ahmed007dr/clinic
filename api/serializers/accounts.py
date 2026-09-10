@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from accounts.models import ClinicRole
+from accounts.roles import assignable_role_names, is_front_desk, is_owner
 from api.permissions import can_view_clinical, is_clinic_admin
 from api.relations import TenantScopedRelatedField
 from branches.models import Branch
@@ -64,17 +65,21 @@ class CurrentUserSerializer(serializers.ModelSerializer):
 
     def get_permissions(self, user):
         admin = is_clinic_admin(user)
+        owner = is_owner(user)
         return {
             "is_admin": admin,
+            # The group owner: every clinic, the group dashboard, the plan.
+            "is_owner": owner,
+            "front_desk": is_front_desk(user),
             "view_clinical": can_view_clinical(user),
             # Reception handles money and bookings; clinical staff do not need
             # the expense ledger to do their job.
             "manage_billing": admin or getattr(user.role, "name", None) == "Reception",
             "manage_staff": admin,
-            "manage_settings": admin,
+            "manage_settings": owner,
             # Clinic-wide rather than one branch — drives whether the UI offers
             # a branch filter at all.
-            "all_branches": admin,
+            "all_branches": owner,
         }
 
 
@@ -117,6 +122,21 @@ class StaffUserSerializer(ClinicSerializer):
         # `is_superuser` are deliberately absent from `Meta.fields` — a clinic
         # admin must not be able to grant either.
         return fields
+
+    def validate(self, attrs):
+        """A clinic Admin staffs their own clinic, and never creates an Owner.
+
+        Without this the staff screen would be the shortest path from running
+        one clinic to seeing every clinic's books.
+        """
+        actor = self.request_user
+        role = attrs.get("role")
+        if role is not None and role.name not in assignable_role_names(actor):
+            raise serializers.ValidationError({"role": "لا يمكنك منح هذا الدور."})
+        branch = attrs.get("branch")
+        if branch is not None and not is_owner(actor) and branch.pk != getattr(actor, "branch_id", None):
+            raise serializers.ValidationError({"branch": "يمكنك إدارة موظفي عيادتك فقط."})
+        return attrs
 
     def create(self, validated_data):
         password = validated_data.pop("password", "") or ""

@@ -252,7 +252,7 @@ class LimitEnforcementTests(TestCase):
         self.tenant = Tenant.objects.first()
         act_as_tenant(self, self.tenant)
         provision_tenant_defaults(self.tenant)
-        role = ClinicRole.all_objects.get(tenant=self.tenant, name="Admin")
+        role = ClinicRole.all_objects.get(tenant=self.tenant, name="Owner")
         self.branch = Branch.all_objects.create(
             tenant=self.tenant, name="Main", code="MN"
         )

@@ -6,13 +6,17 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator
 from subscriptions.entitlements import LimitReached, check_limit
 from subscriptions.usage import doctor_count, limit_message
+from accounts.roles import (
+    RECEPTION, can_view_patients, is_clinic_admin, is_front_desk, is_owner,
+    role_name, scope_queryset_to_user, sees_all_branches,
+)
 
 
 def _is_doctor_type(employee_type):
     return getattr(employee_type, 'name', None) == 'Doctor'
 
 def is_reception_or_admin(user):
-    return user.role.name in ['Reception', 'Admin'] if user.role else False
+    return is_front_desk(user)
 
 @login_required
 @user_passes_test(is_reception_or_admin)
@@ -49,8 +53,9 @@ def employee_create(request):
 @user_passes_test(is_reception_or_admin)
 def employee_list(request):
     employees = Employee.objects.all().order_by('-hire_date', '-serial_number')
-    if request.user.role.name == 'Reception' and request.user.branch:
-        employees = employees.filter(branch=request.user.branch).values('uuid', 'serial_number', 'name', 'employee_type__name', 'branch__name', 'specializations__name')
+    employees = scope_queryset_to_user(employees, request.user)
+    if role_name(request.user) == RECEPTION:
+        employees = employees.values('uuid', 'serial_number', 'name', 'employee_type__name', 'branch__name', 'specializations__name')
     paginator = Paginator(employees, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -62,9 +67,9 @@ def employee_list(request):
     return render(request, 'employees/list.html', context)
 
 @login_required
-@user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
+@user_passes_test(is_clinic_admin)
 def employee_update(request, uuid):
-    employee = get_object_or_404(Employee, uuid=uuid)
+    employee = get_object_or_404(scope_queryset_to_user(Employee.objects.all(), request.user), uuid=uuid)
     # Read before binding the form: ModelForm validation writes the submitted
     # values onto the instance, after which the old type is gone.
     was_doctor = _is_doctor_type(employee.employee_type)
@@ -92,9 +97,9 @@ def employee_update(request, uuid):
     return render(request, 'employees/update.html', context)
 
 @login_required
-@user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
+@user_passes_test(is_clinic_admin)
 def employee_delete(request, uuid):
-    employee = get_object_or_404(Employee, uuid=uuid)
+    employee = get_object_or_404(scope_queryset_to_user(Employee.objects.all(), request.user), uuid=uuid)
     if request.method == 'POST':
         employee.delete()
         messages.success(request, 'تم حذف الموظف بنجاح')
@@ -105,7 +110,7 @@ def employee_delete(request, uuid):
     return render(request, 'employees/delete.html', context)
 
 @login_required
-@user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
+@user_passes_test(is_clinic_admin)
 def employee_type_create(request):
     if request.method == 'POST':
         form = EmployeeTypeForm(request.POST)
@@ -125,7 +130,7 @@ def employee_type_create(request):
     return render(request, 'employees/employee_type_create.html', context)
 
 @login_required
-@user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
+@user_passes_test(is_clinic_admin)
 def employee_type_list(request):
     employee_types = EmployeeType.objects.all().order_by('name')
     context = {
@@ -134,7 +139,7 @@ def employee_type_list(request):
     return render(request, 'employees/employee_type_list.html', context)
 
 @login_required
-@user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
+@user_passes_test(is_clinic_admin)
 def employee_type_update(request, uuid):
     employee_type = get_object_or_404(EmployeeType, uuid=uuid)
     if request.method == 'POST':
@@ -153,7 +158,7 @@ def employee_type_update(request, uuid):
     return render(request, 'employees/employee_type_update.html', context)
 
 @login_required
-@user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
+@user_passes_test(is_clinic_admin)
 def employee_type_delete(request, uuid):
     employee_type = get_object_or_404(EmployeeType, uuid=uuid)
     if request.method == 'POST':
@@ -166,7 +171,7 @@ def employee_type_delete(request, uuid):
     return render(request, 'employees/employee_type_delete.html', context)
 
 @login_required
-@user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
+@user_passes_test(is_clinic_admin)
 def specialization_create(request):
     if request.method == 'POST':
         form = SpecializationForm(request.POST)
@@ -186,7 +191,7 @@ def specialization_create(request):
     return render(request, 'employees/specialization_create.html', context)
 
 @login_required
-@user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
+@user_passes_test(is_clinic_admin)
 def specialization_list(request):
     specializations = Specialization.objects.all().order_by('name')
     context = {
@@ -195,7 +200,7 @@ def specialization_list(request):
     return render(request, 'employees/specialization_list.html', context)
 
 @login_required
-@user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
+@user_passes_test(is_clinic_admin)
 def specialization_update(request, uuid):
     specialization = get_object_or_404(Specialization, uuid=uuid)
     if request.method == 'POST':
@@ -214,7 +219,7 @@ def specialization_update(request, uuid):
     return render(request, 'employees/specialization_update.html', context)
 
 @login_required
-@user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
+@user_passes_test(is_clinic_admin)
 def specialization_delete(request, uuid):
     specialization = get_object_or_404(Specialization, uuid=uuid)
     if request.method == 'POST':

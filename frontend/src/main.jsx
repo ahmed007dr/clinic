@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client'
 
 import { applyStoredTheme } from '@/components/layout/ThemeToggle'
 
+import { LanguageProvider } from '@/i18n'
+
 import App from './App'
 import './styles/global.css'
 
@@ -12,6 +14,8 @@ applyStoredTheme()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    <LanguageProvider>
+      <App />
+    </LanguageProvider>
   </StrictMode>,
 )

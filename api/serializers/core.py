@@ -98,9 +98,12 @@ class DoctorBriefSerializer(ClinicSerializer):
     the pickers must not leak salary figures to whoever is booking a visit.
     """
 
+    branch = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
     branch_name = serializers.CharField(source="branch.name", read_only=True)
+    # So a picker can narrow doctors to a specialty without a second request.
+    specializations = serializers.SlugRelatedField(slug_field="uuid", many=True, read_only=True)
 
     class Meta:
         model = Employee
-        fields = ["uuid", "name", "branch", "branch_name"]
+        fields = ["uuid", "name", "branch", "branch_name", "specializations"]
         read_only_fields = fields

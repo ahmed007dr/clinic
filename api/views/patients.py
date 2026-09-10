@@ -23,8 +23,25 @@ class PatientViewSet(ClinicViewSet):
     ordering_fields = ["name", "created_at", "serial_number"]
     ordering = ["-created_at"]
 
+    def plan_limit_count(self):
+        from patients.intake import confirmed_patients
+
+        return confirmed_patients().count()
+
     def filter_tenant_queryset(self, queryset):
-        return queryset.select_related("branch")
+        queryset = queryset.select_related("branch")
+        params = self.request.query_params
+        if params.get("needs_review") == "1":
+            queryset = queryset.filter(needs_review=True)
+        elif self.action == "list":
+            # A self-registration is not a patient until the desk confirms it:
+            # it waits on the review screen, not in the patient list.
+            queryset = queryset.filter(needs_review=False)
+        if params.get("branch"):
+            queryset = queryset.filter(branch__uuid=params["branch"])
+        if params.get("referral_source"):
+            queryset = queryset.filter(referral_source=params["referral_source"])
+        return queryset
 
     def get_serializer_class(self):
         # The list screen renders six columns; sending the full record for
@@ -183,4 +200,71 @@ class PatientViewSet(ClinicViewSet):
             account.is_active = False
             account.save(update_fields=["is_active"])
             account.revoke_sessions()
+        return Response(status=204)
+
+    # ------------------------------------------------ self-registration review
+
+    def _front_desk(self, request):
+        from rest_framework.exceptions import PermissionDenied
+
+        from accounts.roles import is_front_desk
+
+        if not is_front_desk(request.user):
+            raise PermissionDenied("مراجعة التسجيلات مقصورة على الاستقبال والإدارة.")
+
+    @action(detail=True, methods=["get"], url_path="review")
+    def review(self, request, uuid=None):
+        """A pending self-registration and the patients it might duplicate."""
+        from api.views.intake import duplicate_payload
+        from patients.intake import duplicate_candidates
+
+        self._front_desk(request)
+        patient = self.get_object()
+        candidates = duplicate_candidates(
+            phone=patient.phone1 or "", whatsapp=patient.whatsapp,
+            national_id=patient.national_id or "", exclude_pk=patient.pk,
+        ).filter(needs_review=False)
+        return Response({"patient": PatientSerializer(patient, context={"request": request}).data,
+                         **duplicate_payload(request.user, candidates)})
+
+    @action(detail=True, methods=["post"], url_path="confirm-registration")
+    def confirm_registration(self, request, uuid=None):
+        from patients.intake import confirm_registration
+        from subscriptions.entitlements import LimitReached
+        from subscriptions.usage import limit_message
+
+        self._front_desk(request)
+        try:
+            patient = confirm_registration(self.get_object(), get_current_tenant())
+        except LimitReached as reached:
+            return Response({"detail": limit_message(reached)}, status=403)
+        return Response(PatientSerializer(patient, context={"request": request}).data)
+
+    @action(detail=True, methods=["post"], url_path="merge-into")
+    def merge_into(self, request, uuid=None):
+        """Fold this self-registration into an existing patient (`target`)."""
+        from patients.intake import RegistrationError, merge_registration
+
+        self._front_desk(request)
+        source = self.get_object()
+        # The target is looked up through the same scoped queryset: a clinic's
+        # desk cannot merge into another clinic's patient.
+        target = self.get_queryset().filter(uuid=request.data.get("target"), needs_review=False).first()
+        if target is None:
+            return Response({"target": ["اختر المريض الذي تريد الدمج فيه."]}, status=400)
+        try:
+            merged = merge_registration(source, target)
+        except RegistrationError as error:
+            return Response({"detail": str(error)}, status=400)
+        return Response(PatientSerializer(merged, context={"request": request}).data)
+
+    @action(detail=True, methods=["post"], url_path="reject-registration")
+    def reject_registration(self, request, uuid=None):
+        from patients.intake import RegistrationError, reject_registration
+
+        self._front_desk(request)
+        try:
+            reject_registration(self.get_object())
+        except RegistrationError as error:
+            return Response({"detail": str(error)}, status=400)
         return Response(status=204)

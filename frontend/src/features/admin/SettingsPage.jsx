@@ -4,6 +4,7 @@ import { api } from '@/api'
 import { Tabs } from '@/components/ui'
 import { CrudPage } from '@/components/data/CrudPage'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { useAuth } from '@/hooks/useAuth'
 
 import { PortalSettings } from './PortalSettings'
 
@@ -62,6 +63,7 @@ const DEFAULT_FIELDS = [
 ]
 
 export function SettingsPage() {
+  const { permissions } = useAuth()
   const [tab, setTab] = useState('expense-categories')
   const section = SECTIONS[tab]
 
@@ -71,7 +73,11 @@ export function SettingsPage() {
 
       <div style={{ marginBottom: 'var(--s4)' }}>
         <Tabs
-          items={Object.entries(SECTIONS).map(([id, entry]) => ({
+          // Portal settings are group-wide, so the tab is the Owner's alone
+          // (the API refuses anyone else regardless).
+          items={Object.entries(SECTIONS)
+            .filter(([id]) => id !== 'portal' || permissions.is_owner)
+            .map(([id, entry]) => ({
             id,
             label: entry.label,
           }))}

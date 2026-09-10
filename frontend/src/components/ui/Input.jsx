@@ -105,8 +105,10 @@ export const Checkbox = forwardRef(function Checkbox(
   ref,
 ) {
   return (
-    <label className={`ui-row ${className}`} style={{ cursor: 'pointer' }}>
-      <input ref={ref} type="checkbox" {...rest} />
+    // A long label wraps beside the box; without `flexShrink: 0` a narrow
+    // phone screen squeezes the box itself to nothing.
+    <label className={`ui-row ${className}`} style={{ cursor: 'pointer', alignItems: 'flex-start' }}>
+      <input ref={ref} type="checkbox" style={{ flexShrink: 0, marginBlockStart: '0.3em' }} {...rest} />
       <span>{label}</span>
     </label>
   )

@@ -14,7 +14,7 @@
     <div class="card-body">
       <h4 class="card-title">سجل المرضى</h4>
       <div class="mb-3">
-        {% if user.role.name == 'Admin' %}
+        {% if is_clinic_admin %}
           <a href="{% url 'patients:patient_create' %}" class="btn btn-primary">إنشاء مريض جديد</a>
           <a href="{% url 'patients:patient_list_export' %}?export=pdf" class="btn btn-success">تصدير PDF</a>
           <a href="{% url 'patients:patient_list_export' %}?export=excel" class="btn btn-success">تصدير Excel</a>
@@ -27,7 +27,7 @@
             <th>الاسم</th>
             <th>رقم الهاتف</th>
             <th>الجنس</th>
-            {% if user.role.name == 'Admin' %}
+            {% if is_clinic_admin %}
               <th>تاريخ الميلاد</th>
               <th>الرقم القومي</th>
               <th>إجراءات</th>
@@ -41,7 +41,7 @@
             <td>{{ patient.name|default:"غير محدد" }}</td>
             <td>{{ patient.phone1|default:"غير محدد" }}</td>
             <td>{{ patient.get_gender_display|default:"غير محدد" }}</td>
-            {% if user.role.name == 'Admin' %}
+            {% if is_clinic_admin %}
               <td>{{ patient.birth_date|date:"Y-m-d"|default:"غير محدد" }}</td>
               <td>{{ patient.national_id|default:"غير محدد" }}</td>
               <td>
@@ -53,7 +53,7 @@
           </tr>
           {% empty %}
           <tr>
-            <td colspan="{% if user.role.name == 'Admin' %}7{% else %}4{% endif %}" class="text-center">لا توجد بيانات مرضى</td>
+            <td colspan="{% if is_clinic_admin %}7{% else %}4{% endif %}" class="text-center">لا توجد بيانات مرضى</td>
           </tr>
           {% endfor %}
         </tbody>

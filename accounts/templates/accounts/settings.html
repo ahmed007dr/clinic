@@ -61,7 +61,7 @@
               </div>
             </div>
           </div>
-          {% if request.user.role.name == 'Admin' %}
+          {% if is_owner %}
           <div class="col-md-6">
             <div class="form-group row">
               <label class="col-sm-3 col-form-label" for="{{ form.role.id_for_label }}">الدور</label>
@@ -72,7 +72,7 @@
           </div>
           {% endif %}
         </div>
-        {% if request.user.role.name == 'Admin' %}
+        {% if is_owner %}
         <div class="row">
           <div class="col-md-6">
             <div class="form-group row">

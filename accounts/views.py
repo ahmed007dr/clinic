@@ -7,6 +7,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from .forms import LoginForm, UserForm, UserSettingsForm
 from branches.models import Branch
 from audit.models import AuditLog
+from accounts.roles import is_owner
 
 User = get_user_model()
 
@@ -63,7 +64,7 @@ def user_logout(request):
 
 
 @login_required
-@user_passes_test(lambda u: u.role and u.role.name == 'Admin')
+@user_passes_test(is_owner)
 def user_create(request):
     if request.method == 'POST':
         form = UserForm(request.POST)
@@ -85,7 +86,7 @@ def user_create(request):
 
 
 @login_required
-@user_passes_test(lambda u: u.role and u.role.name == 'Admin')
+@user_passes_test(is_owner)
 def user_list(request):
     users = User.objects.all()
     context = {
@@ -95,7 +96,7 @@ def user_list(request):
 
 
 @login_required
-@user_passes_test(lambda u: u.role and u.role.name == 'Admin')
+@user_passes_test(is_owner)
 def user_update(request, uuid):
     user = get_object_or_404(User, uuid=uuid)
     if request.method == 'POST':
@@ -116,7 +117,7 @@ def user_update(request, uuid):
 
 
 @login_required
-@user_passes_test(lambda u: u.role and u.role.name == 'Admin')
+@user_passes_test(is_owner)
 def user_delete(request, uuid):
     user = get_object_or_404(User, uuid=uuid)
     if request.method == 'POST':
@@ -133,10 +134,14 @@ def user_delete(request, uuid):
 def user_settings(request):
     if request.method == 'POST':
         form = UserSettingsForm(request.POST, instance=request.user)
+        # Disabled *before* validation. Disabling after is_valid() came too
+        # late — the posted role had already been accepted — which let any
+        # user promote themselves from this form. A disabled field takes
+        # its value from the instance and ignores what was posted.
+        if not is_owner(request.user):
+            form.fields['role'].disabled = True
+            form.fields['branch'].disabled = True
         if form.is_valid():
-            if request.user.role and request.user.role.name != 'Admin':
-                form.fields['role'].disabled = True
-                form.fields['branch'].disabled = True
             form.save()
             messages.success(request, 'تم تحديث الإعدادات بنجاح')
             return redirect('dashboard:dashboard')
@@ -144,7 +149,7 @@ def user_settings(request):
             messages.error(request, 'خطأ في إدخال البيانات')
     else:
         form = UserSettingsForm(instance=request.user)
-        if request.user.role and request.user.role.name != 'Admin':
+        if not is_owner(request.user):
             form.fields['role'].disabled = True
             form.fields['branch'].disabled = True
 

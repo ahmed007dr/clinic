@@ -230,6 +230,7 @@ class Command(BaseCommand):
                 for name, code in spec["branches"]
             ]
 
+            owner_role = ClinicRole.objects.get(name="Owner")
             admin_role = ClinicRole.objects.get(name="Admin")
             reception_role = ClinicRole.objects.get(name="Reception")
             doctor_role = ClinicRole.objects.get(name="Doctor")
@@ -239,7 +240,9 @@ class Command(BaseCommand):
             )[0]
 
             users = [
-                self._user(tenant, f"admin@{spec['slug']}.local", "admin", admin_role, branches[0]),
+                # The group owner (every clinic) and one clinic admin (the first clinic).
+                self._user(tenant, f"admin@{spec['slug']}.local", "admin", owner_role, branches[0]),
+                self._user(tenant, f"clinicadmin@{spec['slug']}.local", "clinicadmin", admin_role, branches[0]),
                 self._user(tenant, f"reception@{spec['slug']}.local", "reception", reception_role, branches[0]),
                 # Log in as this one to see the clinical screens; the reception
                 # account is the one to log in as to confirm it cannot.

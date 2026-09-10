@@ -53,7 +53,8 @@ def usage_for(tenant):
         "max_branches": Branch.objects.count(),
         "max_doctors": doctor_count(),
         "max_staff": Employee.objects.count(),
-        "max_patients": Patient.objects.count(),
+        # A self-registration awaiting review is not yet anyone's patient.
+        "max_patients": Patient.objects.filter(needs_review=False).count(),
         # Rounded up, so a clinic at 0.2 MB shows 1 and not 0 — "nothing used"
         # would be false.
         "max_storage_mb": -(-storage_bytes() // MEGABYTE),

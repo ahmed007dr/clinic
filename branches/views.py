@@ -5,9 +5,11 @@ from subscriptions.entitlements import LimitReached, check_limit
 from django.contrib import messages
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required, user_passes_test
+from accounts.roles import is_owner
 
 def is_admin(user):
-    return user.role.name == 'Admin' if user.role else False
+    # Adding or reshaping clinics is the group owner's decision.
+    return is_owner(user)
 
 @login_required
 @user_passes_test(is_admin)

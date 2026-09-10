@@ -120,6 +120,8 @@ REST_FRAMEWORK = {
         # Password guessing is the only unauthenticated write in the API.
         "login": "10/min",
         "portal_login": "10/min",
+        # Public self-registration: generous for a family, useless for a bot.
+        "portal_register": "10/hour",
     },
     "UNAUTHENTICATED_USER": "django.contrib.auth.models.AnonymousUser",
 }
@@ -165,6 +167,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'utils.context_processors.clinic_branding',
+                'accounts.context_processors.roles',
             ],
         },
     },

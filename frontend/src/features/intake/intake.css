@@ -1,0 +1,288 @@
+/* The intake wizard. Logical properties throughout, so it flips with dir. */
+
+.intake {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  max-width: 56rem;
+}
+
+.intake__title {
+  font-size: var(--text-lg);
+  margin-bottom: var(--s2);
+}
+
+.intake__hint,
+.intake__note {
+  font-size: var(--text-sm);
+  margin: 0 0 var(--s3);
+}
+
+.intake__note {
+  padding: var(--s3) var(--s4);
+  border-radius: var(--radius);
+  background: var(--info-soft);
+  color: var(--info);
+}
+
+.intake__fieldset {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--s3) var(--s4) var(--s4);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.intake__fieldset legend {
+  font-weight: 700;
+  padding: 0 var(--s2);
+}
+
+.intake__actions {
+  display: flex;
+  gap: var(--s2);
+  justify-content: flex-end;
+  margin-top: var(--s5);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--line);
+}
+
+/* ---------------------------------------------------------------- progress */
+
+.wizard-progress__count {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  margin-bottom: var(--s2);
+}
+
+.wizard-progress__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--s2);
+}
+
+.wizard-progress__button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s2);
+  border: 0;
+  border-block-end: 3px solid var(--line);
+  background: none;
+  font: inherit;
+  color: var(--ink-muted);
+  text-align: start;
+  cursor: pointer;
+}
+
+.wizard-progress__button:disabled {
+  cursor: default;
+}
+
+.wizard-progress__number {
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--surface-sunken);
+  font-weight: 700;
+  font-size: var(--text-sm);
+}
+
+.wizard-progress__label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wizard-progress__step--done .wizard-progress__button {
+  border-block-end-color: var(--primary);
+  color: var(--ink);
+}
+
+.wizard-progress__step--done .wizard-progress__number {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.wizard-progress__step--current .wizard-progress__button {
+  border-block-end-color: var(--primary);
+  color: var(--primary);
+}
+
+.wizard-progress__step--current .wizard-progress__number {
+  background: var(--primary);
+  color: var(--primary-ink);
+}
+
+/* On a phone the bar is numbers only — the step's name is the heading right
+   below it — so six steps always fit without the page scrolling sideways. */
+@media (max-width: 48rem) {
+  .wizard-progress__label {
+    display: none;
+  }
+  .wizard-progress__button {
+    justify-content: center;
+  }
+}
+
+/* ------------------------------------------------------------- conditions */
+
+.condition-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: var(--s2);
+}
+
+.condition {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--s2) var(--s3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.condition--on {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.condition__details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.allergy-row {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1fr auto;
+  gap: var(--s2);
+  align-items: end;
+}
+
+@media (max-width: 40rem) {
+  .allergy-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* -------------------------------------------------------------- segmented */
+
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.segmented__option {
+  flex: 1 1 10rem;
+  padding: var(--s3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.segmented__option--on {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+/* ----------------------------------------------------------------- review */
+
+.review {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.review__section {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.review__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s2) var(--s4);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-sunken);
+}
+
+.review__header h3 {
+  font-size: var(--text-md);
+}
+
+.review__list {
+  margin: 0;
+  padding: var(--s3) var(--s4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.review__row {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) 2fr;
+  gap: var(--s3);
+}
+
+.review__row dt {
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.review__row dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* -------------------------------------------------------------- duplicates */
+
+.duplicate-notice {
+  padding: var(--s4);
+  border-radius: var(--radius);
+  border: 1px solid var(--warn);
+  background: var(--warn-soft);
+  margin-bottom: var(--s4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.duplicate-notice__list {
+  margin: 0;
+  padding-inline-start: var(--s5);
+}
+
+.intake-success {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s6) var(--s4);
+}
+
+.intake-success__mark {
+  font-size: 2.5rem;
+  color: var(--ok);
+  line-height: 1;
+}

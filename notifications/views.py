@@ -3,9 +3,10 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.core.paginator import Paginator
 from .models import Notification
+from accounts.roles import is_front_desk
 
 def is_reception_or_admin(user):
-    return user.role.name in ['Reception', 'Admin'] if user.role else False
+    return is_front_desk(user)
 
 @login_required
 @user_passes_test(is_reception_or_admin)

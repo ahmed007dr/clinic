@@ -15,7 +15,7 @@
       <div class="row">
         <div class="col-md-6">
           <p><strong>الاسم:</strong> {{ patient.name }}</p>
-          {% if user.role.name == 'Admin' %}
+          {% if is_clinic_admin %}
             <p><strong>رقم الهاتف الأساسي:</strong> {{ patient.phone1|default:'غير محدد' }}</p>
             <p><strong>رقم الهاتف الإضافي:</strong> {{ patient.phone2|default:'غير محدد' }}</p>
             <p><strong>تاريخ الميلاد:</strong> {{ patient.birth_date|default:'غير محدد' }}</p>
@@ -23,7 +23,7 @@
           {% endif %}
         </div>
         <div class="col-md-6">
-          {% if user.role.name == 'Admin' %}
+          {% if is_clinic_admin %}
             <p><strong>الجنس:</strong> {{ patient.get_gender_display|default:'غير محدد' }}</p>
             <p><strong>الحالة الاجتماعية:</strong> {{ patient.marital_status|default:'غير محدد' }}</p>
             <p><strong>البريد الإلكتروني:</strong> {{ patient.email|default:'غير محدد' }}</p>
@@ -39,7 +39,7 @@
             <th>رقم التذكرة</th>
             <th>الطبيب</th>
             <th>الخدمة</th>
-            {% if user.role.name == 'Admin' %}
+            {% if is_clinic_admin %}
               <th>التاريخ</th>
               <th>الحالة</th>
               <th>السعر</th>
@@ -52,18 +52,18 @@
             <td>{{ appointment.serial_number }}</td>
             <td>{{ appointment.doctor__name|default:'غير محدد' }}</td>
             <td>{{ appointment.service__name|default:'غير محدد' }}</td>
-            {% if user.role.name == 'Admin' %}
+            {% if is_clinic_admin %}
               <td>{{ appointment.scheduled_date|date:"Y-m-d H:i:s" }}</td>
               <td>{{ appointment.status.name|default:'غير محدد' }}</td>
               <td>{{ appointment.price }}</td>
             {% endif %}
           </tr>
           {% empty %}
-          <tr><td colspan="{% if user.role.name == 'Admin' %}6{% else %}3{% endif %}">لا توجد مواعيد</td></tr>
+          <tr><td colspan="{% if is_clinic_admin %}6{% else %}3{% endif %}">لا توجد مواعيد</td></tr>
           {% endfor %}
         </tbody>
       </table>
-      {% if user.role.name == 'Admin' %}
+      {% if is_clinic_admin %}
         <h5 class="mt-4">سجل الدفعات</h5>
         <table class="table table-striped">
           <thead>
@@ -89,7 +89,7 @@
         </table>
       {% endif %}
       <a href="{% url 'patients:patient_list' %}" class="btn btn-primary mt-3">رجوع إلى قائمة المرضى</a>
-      {% if user.role.name == 'Admin' %}
+      {% if is_clinic_admin %}
         <a href="{% url 'patients:patient_update' patient.uuid %}" class="btn btn-primary mt-3">تعديل</a>
         <a href="{% url 'patients:patient_delete' patient.uuid %}" class="btn btn-danger mt-3">حذف</a>
       {% endif %}

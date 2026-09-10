@@ -1,1 +1,0 @@
-import{j as s}from"./index-B5_C4aKL.js";function n({path:e}){return s.jsxs("div",{className:"ui-row",children:[s.jsx("a",{className:"ui-btn ui-btn--secondary ui-btn--sm",href:`${e}?export=pdf`,children:"PDF"}),s.jsx("a",{className:"ui-btn ui-btn--secondary ui-btn--sm",href:`${e}?export=excel`,children:"Excel"})]})}export{n as E};

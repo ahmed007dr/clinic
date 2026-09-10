@@ -2,7 +2,7 @@
 
 from django.urls import path
 
-from . import views
+from . import registration, views
 
 app_name = "portal"
 
@@ -11,6 +11,8 @@ urlpatterns = [
     path("auth/login/", views.LoginView.as_view(), name="login"),
     path("auth/logout/", views.LogoutView.as_view(), name="logout"),
     path("me/", views.MeView.as_view(), name="me"),
+    path("register/options/", registration.RegisterOptionsView.as_view(), name="register-options"),
+    path("register/", registration.RegisterView.as_view(), name="register"),
     path("appointments/", views.AppointmentsView.as_view(), name="appointments"),
     path("visits/", views.VisitsView.as_view(), name="visits"),
     path("prescriptions/", views.PrescriptionsView.as_view(), name="prescriptions"),

@@ -158,3 +158,9 @@
     display: none;
   }
 }
+
+/* The portal header stays pinned; anything scrolled into view (a focused
+   field, the consent box) must land below it, not under it. */
+html:has(.portal__header) {
+  scroll-padding-top: 5rem;
+}

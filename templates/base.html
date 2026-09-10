@@ -54,7 +54,7 @@
               <a class="navbar-brand brand-logo-mini" href="{% url 'dashboard:dashboard' %}"><img src="{% static 'images/logo-mini.svg' %}" alt="logo"/></a>
             </div>
             <ul class="navbar-nav navbar-nav-right">
-              {% if request.user.role.name == 'Admin' %}
+              {% if is_clinic_admin %}
               <li class="nav-item dropdown d-lg-flex d-none">
                 <a class="dropdown-toggle show-dropdown-arrow btn btn-inverse-primary btn-sm" id="nreportDropdown" href="#" data-bs-toggle="dropdown">
                   تقارير
@@ -128,13 +128,15 @@
                 <span class="menu-title">الإشعارات</span>
               </a>
             </li>
-            {% if request.user.role.name == 'Admin' %}
+            {% if is_clinic_admin %}
+{% if is_owner %}
             <li class="nav-item">
               <a href="{% url 'accounts:user_list' %}" class="nav-link">
                 <i class="mdi mdi-account menu-icon"></i>
                 <span class="menu-title">إدارة المستخدمين</span>
               </a>
             </li>
+{% endif %}
             <li class="nav-item">
               <a href="{% url 'billing:financial_report' %}" class="nav-link">
                 <i class="mdi mdi-file-chart menu-icon"></i>
@@ -159,12 +161,14 @@
                 <span class="menu-title">إدارة الموظفين</span>
               </a>
             </li>
+{% if is_owner %}
             <li class="nav-item">
               <a href="{% url 'branches:branch_list' %}" class="nav-link">
                 <i class="mdi mdi-hospital-building menu-icon"></i>
                 <span class="menu-title">إدارة الفروع</span>
               </a>
             </li>
+{% endif %}
             <li class="nav-item">
               <a href="{% url 'services:service_list' %}" class="nav-link">
                 <i class="mdi mdi-medical-bag menu-icon"></i>

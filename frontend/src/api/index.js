@@ -28,6 +28,14 @@ export const patients = {
   portalStatus: (uuid) => http.get(`/patients/${uuid}/portal/`),
   portalInvite: (uuid) => http.post(`/patients/${uuid}/portal-invite/`),
   portalRevoke: (uuid) => http.post(`/patients/${uuid}/portal-revoke/`),
+  /** The history the patient reported — clinical roles only. */
+  history: (uuid) => http.get(`/patients/${uuid}/history/`),
+  saveHistory: (uuid, body) => http.put(`/patients/${uuid}/history/`, body),
+  /** Self-registrations waiting for the front desk. */
+  review: (uuid) => http.get(`/patients/${uuid}/review/`),
+  confirmRegistration: (uuid) => http.post(`/patients/${uuid}/confirm-registration/`),
+  mergeInto: (uuid, target) => http.post(`/patients/${uuid}/merge-into/`, { target }),
+  rejectRegistration: (uuid) => http.post(`/patients/${uuid}/reject-registration/`),
 }
 
 export const appointments = {
@@ -112,6 +120,35 @@ export const dashboard = {
   get: () => http.get('/dashboard/'),
 }
 
+/* The codes behind every choice list, fetched once per page load: they only
+   change with a deployment. A failed fetch is forgotten so the next caller retries. */
+let choicesRequest = null
+export const meta = {
+  choices: () =>
+    (choicesRequest ??= http.get('/meta/choices/').catch((error) => {
+      choicesRequest = null
+      throw error
+    })),
+}
+
+/* First-visit intake */
+export const intake = {
+  register: (body) => http.post('/intake/register/', body),
+  duplicates: (params) => http.get('/intake/duplicates/', params),
+}
+export const intakes = createResource('intakes')
+
+/* The group owner's overview of every clinic */
+export const owner = {
+  overview: (params) => http.get('/owner/overview/', params),
+}
+
+export const attendance = {
+  ...createResource('attendance'),
+  sheet: (params) => http.get('/attendance/sheet/', params),
+  saveSheet: (body) => http.post('/attendance/sheet/', body),
+}
+
 export const api = {
   branches,
   services,
@@ -143,6 +180,11 @@ export const api = {
   subscription,
   platform,
   clinicSettings,
+  meta,
+  intake,
+  intakes,
+  owner,
+  attendance,
 }
 
 export default api

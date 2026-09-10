@@ -289,6 +289,12 @@ Found while building the portal: DRF copies the authenticated principal onto the
 
 Not done: OTP login by SMS/WhatsApp (needs a provider), scheduled reports (WIRE-006), the audit log screen in React.
 
+* **Group owner, clinic admin, intake, owner dashboard, attendance, languages** (docs/14). A new Owner role holds the whole group; Admin is now one clinic's admin (existing Admins were promoted to Owner by migration, so nobody lost access). First-visit intake as a six-step wizard for the front desk and — opt-in — for patients online, stored as structured records (medical profile, one row per chronic condition, allergies, a per-visit intake), with consent, duplicate detection that never shows another clinic's patient, and a review queue for online submissions. The owner dashboard aggregates every clinic without double counting; attendance per employee per day. Arabic/English with RTL/LTR switching; choice lists come from the server as codes.
+
+Found while doing it: the old settings form accepted a posted role (a clinic user could promote themselves); the old financial report double counted a branch with both payments and expenses, and the old dashboard's totals ignored branch scoping and compared a datetime to a date; duplicate detection missed numbers stored with spaces; on a phone the wizard's progress bar pushed the page sideways, and a long checkbox label squeezed the box itself away.
+
+Not done: the screens built before this batch are still Arabic-only in their own text (the shell around them is translated); no scheduling or payroll on top of attendance.
+
 ## Deploy note for SEC-009 — existing staff log in differently afterwards
 
 `accounts.0005_email_login` makes email the login credential. Accounts created under the old username-based login may have a blank or duplicated email, so the migration backfills before applying the unique constraint:

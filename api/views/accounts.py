@@ -4,7 +4,8 @@ from django.contrib.auth import get_user_model
 from rest_framework.filters import OrderingFilter, SearchFilter
 
 from accounts.models import ClinicRole
-from api.permissions import IsClinicAdmin, ReadOnlyForNonAdmin
+from accounts.roles import OWNER, scope_queryset_to_user, sees_all_branches
+from api.permissions import IsClinicAdmin, ReadOnlyForNonOwner
 from api.serializers.accounts import ClinicRoleSerializer, StaffUserSerializer
 from api.viewsets import ClinicViewSet
 from tenants.context import get_current_tenant
@@ -15,7 +16,8 @@ User = get_user_model()
 class ClinicRoleViewSet(ClinicViewSet):
     queryset = ClinicRole.objects.all()
     serializer_class = ClinicRoleSerializer
-    permission_classes = [ReadOnlyForNonAdmin]
+    # Roles are the group's structure: only the Owner reshapes them.
+    permission_classes = [ReadOnlyForNonOwner]
     branch_field = None
     ordering = ["name"]
 
@@ -42,7 +44,7 @@ class StaffUserViewSet(ClinicViewSet):
         tenant = get_current_tenant()
         if tenant is None:
             return User.objects.none()
-        return (
+        queryset = (
             User.objects.filter(tenant=tenant)
             # Platform operators are never clinic staff and must not appear in
             # a clinic's user list, let alone be editable from it.
@@ -50,10 +52,18 @@ class StaffUserViewSet(ClinicViewSet):
             .select_related("role", "branch")
             .order_by("username")
         )
+        if not sees_all_branches(self.request.user):
+            # A clinic Admin manages their own clinic, and never an Owner —
+            # who could otherwise be reset or deactivated from below.
+            queryset = scope_queryset_to_user(queryset, self.request.user).exclude(role__name=OWNER)
+        return queryset
 
     def perform_create(self, serializer):
         tenant = get_current_tenant()
-        serializer.save(tenant=tenant, clinic_code=(tenant.slug or "")[:20].upper())
+        extra = {}
+        if not sees_all_branches(self.request.user):
+            extra["branch"] = self.request.user.branch
+        serializer.save(tenant=tenant, clinic_code=(tenant.slug or "")[:20].upper(), **extra)
 
     def perform_destroy(self, instance):
         """Deactivate rather than delete.

@@ -1,13 +1,15 @@
 import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 
 import { Button, Input } from '@/components/ui'
 import { useDocumentTitle } from '@/hooks/useDebounce'
+import { useT } from '@/i18n'
 
 import { usePortal } from './PortalContext'
 
 export function PortalLoginPage() {
   const { api, me, setMe, slug } = usePortal()
+  const { t } = useT()
   const navigate = useNavigate()
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
@@ -48,6 +50,9 @@ export function PortalLoginPage() {
         </form>
         <p className="portal-auth__note">
           ليس لديك حساب أو نسيت كلمة المرور؟ اطلب رابط دعوة جديداً من استقبال العيادة.
+        </p>
+        <p className="portal-auth__note">
+          <Link to={`/portal/${slug}/register`}>{t('intake.portal_register_link')}</Link>
         </p>
       </main>
     </div>

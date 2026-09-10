@@ -17,6 +17,10 @@ const page = (loader, name) =>
 const DashboardPage = page(() => import('@/features/dashboard/DashboardPage'), 'DashboardPage')
 const PatientListPage = page(() => import('@/features/patients/PatientListPage'), 'PatientListPage')
 const PatientFormPage = page(() => import('@/features/patients/PatientFormPage'), 'PatientFormPage')
+const StaffIntakePage = page(() => import('@/features/intake/StaffIntakePage'), 'StaffIntakePage')
+const RegistrationReviewPage = page(() => import('@/features/patients/RegistrationReviewPage'), 'RegistrationReviewPage')
+const OwnerDashboardPage = page(() => import('@/features/owner/OwnerDashboardPage'), 'OwnerDashboardPage')
+const AttendanceSheetPage = page(() => import('@/features/attendance/AttendanceSheetPage'), 'AttendanceSheetPage')
 const PatientDetailPage = page(() => import('@/features/patients/PatientDetailPage'), 'PatientDetailPage')
 const AppointmentListPage = page(() => import('@/features/appointments/AppointmentListPage'), 'AppointmentListPage')
 const AppointmentFormPage = page(() => import('@/features/appointments/AppointmentFormPage'), 'AppointmentFormPage')
@@ -44,9 +48,12 @@ const NotFoundPage = page(() => import('@/features/misc/NotFoundPage'), 'NotFoun
 
 export const routes = [
   { index: true, element: DashboardPage },
+  { path: 'owner', element: OwnerDashboardPage, permission: 'is_owner' },
 
   { path: 'patients', element: PatientListPage },
-  { path: 'patients/new', element: PatientFormPage },
+  // New patients come in through the intake wizard; the plain form stays for edits.
+  { path: 'patients/new', element: StaffIntakePage, permission: 'front_desk' },
+  { path: 'patients/review', element: RegistrationReviewPage, permission: 'front_desk' },
   { path: 'patients/:uuid', element: PatientDetailPage },
   { path: 'patients/:uuid/edit', element: PatientFormPage },
 
@@ -72,10 +79,11 @@ export const routes = [
 
   { path: 'staff', element: StaffListPage, permission: 'is_admin' },
   { path: 'employees', element: EmployeeListPage, permission: 'is_admin' },
-  { path: 'branches', element: BranchListPage, permission: 'is_admin' },
+  { path: 'attendance', element: AttendanceSheetPage, permission: 'is_admin' },
+  { path: 'branches', element: BranchListPage, permission: 'is_owner' },
   { path: 'services', element: ServiceListPage, permission: 'is_admin' },
   { path: 'settings', element: SettingsPage, permission: 'is_admin' },
-  { path: 'subscription', element: SubscriptionPage, permission: 'is_admin' },
+  { path: 'subscription', element: SubscriptionPage, permission: 'is_owner' },
 
   { path: 'settings/account', element: AccountPage },
   { path: 'notifications', element: NotificationListPage },

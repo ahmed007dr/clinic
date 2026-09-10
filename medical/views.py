@@ -37,6 +37,7 @@ from subscriptions.entitlements import LimitReached
 from subscriptions.usage import check_storage, limit_message
 
 from .permissions import can_view_clinical, scoped_to_user
+from accounts.roles import sees_all_branches
 
 clinical_required = user_passes_test(can_view_clinical)
 
@@ -45,7 +46,7 @@ def _get_patient(request, patient_uuid):
     """Tenant scoping comes from the manager; this adds the branch layer."""
     patient = get_object_or_404(Patient, uuid=patient_uuid)
     role = request.user.role
-    if role and role.name != "Admin" and request.user.branch_id:
+    if not sees_all_branches(request.user) and request.user.branch_id:
         if patient.branch_id != request.user.branch_id:
             raise Http404
     return patient

@@ -23,6 +23,9 @@ class Tenant(models.Model):
     # Patient portal: may patients read the diagnosis text? Off by default;
     # each clinic decides (docs/12, decision D2).
     portal_show_diagnosis = models.BooleanField(default=False)
+    # Public self-registration from the portal. Off by default: a group that
+    # never turns it on has no public write path at all (portal/registration.py).
+    portal_self_registration = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["name"]

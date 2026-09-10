@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 
 import { Button, Input, Loading } from '@/components/ui'
+import { LanguageToggle } from '@/components/layout/LanguageToggle'
 import { ThemeToggle } from '@/components/layout/ThemeToggle'
 import { useAuth } from '@/hooks/useAuth'
 import { useDocumentTitle } from '@/hooks/useDebounce'
@@ -48,6 +49,7 @@ export function LoginPage() {
   return (
     <div className="login">
       <div className="login__theme">
+        <LanguageToggle />
         <ThemeToggle />
       </div>
 

@@ -37,7 +37,7 @@ class CrossTenantIsolationTests(TestCase):
         self.b = Tenant.objects.create(name='Rival Clinic', slug='rival-clinic', status=Tenant.Status.ACTIVE)
 
         with tenant_context(self.a):
-            role_a, _ = ClinicRole.all_objects.get_or_create(tenant=self.a, name='Admin')
+            role_a, _ = ClinicRole.all_objects.get_or_create(tenant=self.a, name='Owner')
             branch_a = Branch.all_objects.create(tenant=self.a, name='A Main', code='AM')
         self.user_a = User.objects.create_user(
             username='a-admin', email='aadmin@t.local', password='pass12345',

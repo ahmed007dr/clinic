@@ -11,6 +11,10 @@ class Appointment(TenantOwnedModel):
         ("quick", "حجز سريع"),
         # From the patient portal; reception confirms it (docs/12, D3).
         ("requested", "طلب من المريض"),
+        # Outcomes, so the group dashboard can count what actually happened.
+        ("completed", "مكتمل"),
+        ("cancelled", "ملغي"),
+        ("no_show", "لم يحضر"),
     ]
 
     patient = models.ForeignKey('patients.Patient', on_delete=models.CASCADE)
@@ -35,6 +39,10 @@ class Appointment(TenantOwnedModel):
     class Meta(TenantOwnedModel.Meta):
         constraints = [
             models.UniqueConstraint(fields=["tenant", "serial_number"], name="uniq_appointment_serial_per_tenant")
+        ]
+        indexes = [
+            models.Index(fields=["tenant", "scheduled_date"], name="appointment_date_idx"),
+            models.Index(fields=["tenant", "branch", "status"], name="appointment_branch_status_idx"),
         ]
 
     def save(self, *args, **kwargs):

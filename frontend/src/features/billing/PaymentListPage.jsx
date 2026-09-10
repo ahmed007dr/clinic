@@ -48,7 +48,12 @@ export function PaymentListPage() {
       <ResourceTable
         resource={api.payments}
         columns={columns}
-        params={{ from, to, patient: search.get('patient') || undefined }}
+        params={{
+          from,
+          to,
+          patient: search.get('patient') || undefined,
+          branch: search.get('branch') || undefined,
+        }}
         searchPlaceholder="ابحث برقم الإيصال أو اسم المريض…"
         onRowClick={(row) => navigate(`/payments/${row.uuid}/edit`)}
         filters={

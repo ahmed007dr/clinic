@@ -16,7 +16,7 @@ class BranchAuthorizationTests(TestCase):
         self.tenant = Tenant.objects.first()  # created by tenants.0002 data migration
         act_as_tenant(self, self.tenant)
         self.branch_a = Branch.all_objects.create(tenant=self.tenant, name='Branch A', code='A')
-        self.admin_role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Admin')
+        self.admin_role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Owner')
         self.reception_role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Reception')
 
         self.admin = User.objects.create_user(username='admin', email='admin@t.local', password='pass12345', tenant=self.tenant, role=self.admin_role, branch=self.branch_a)

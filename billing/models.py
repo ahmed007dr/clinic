@@ -37,6 +37,8 @@ class Payment(TenantOwnedModel):
         constraints = [
             models.UniqueConstraint(fields=["tenant", "receipt_number"], name="uniq_payment_receipt_per_tenant")
         ]
+        # Every revenue report is a date range, usually per clinic.
+        indexes = [models.Index(fields=["tenant", "branch", "date"], name="payment_branch_date_idx")]
 
     def __str__(self):
         return f"Payment {self.receipt_number} - {self.amount} EGP"
@@ -67,6 +69,9 @@ class Expense(TenantOwnedModel):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True
     )
     notes = models.TextField(blank=True, null=True)
+
+    class Meta(TenantOwnedModel.Meta):
+        indexes = [models.Index(fields=["tenant", "branch", "date"], name="expense_branch_date_idx")]
 
     def __str__(self):
         return f"{self.category.name if self.category else 'غير محدد'} - {self.amount}"

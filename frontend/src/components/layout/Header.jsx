@@ -4,11 +4,14 @@ import { Link, useNavigate } from 'react-router-dom'
 import { api } from '@/api'
 import { Avatar, Badge, Button } from '@/components/ui'
 import { useAuth } from '@/hooks/useAuth'
+import { useT } from '@/i18n'
 
+import { LanguageToggle } from './LanguageToggle'
 import { ThemeToggle } from './ThemeToggle'
 
 export function Header({ onToggleMenu, menuOpen }) {
   const { user, logout } = useAuth()
+  const { t } = useT()
   const navigate = useNavigate()
   const [unread, setUnread] = useState(0)
   const [menu, setMenu] = useState(false)
@@ -50,7 +53,7 @@ export function Header({ onToggleMenu, menuOpen }) {
         icon
         className="header__menu"
         onClick={onToggleMenu}
-        aria-label="القائمة"
+        aria-label={t('header.menu')}
         aria-expanded={menuOpen}
       >
         ☰
@@ -58,9 +61,10 @@ export function Header({ onToggleMenu, menuOpen }) {
 
       <div className="header__spacer" />
 
+      <LanguageToggle />
       <ThemeToggle />
 
-      <Link to="/notifications" className="header__bell" aria-label="الإشعارات">
+      <Link to="/notifications" className="header__bell" aria-label={t('header.notifications')}>
         <span aria-hidden="true">🔔</span>
         {unread > 0 && (
           <Badge tone="urgent" className="header__badge">
@@ -87,7 +91,7 @@ export function Header({ onToggleMenu, menuOpen }) {
         {menu && (
           <div className="header__menu-panel" role="menu">
             <Link to="/settings/account" role="menuitem" onClick={() => setMenu(false)}>
-              حسابي
+              {t('header.account')}
             </Link>
             <button
               type="button"
@@ -98,7 +102,7 @@ export function Header({ onToggleMenu, menuOpen }) {
                 navigate('/login', { replace: true })
               }}
             >
-              تسجيل الخروج
+              {t('header.logout')}
             </button>
           </div>
         )}

@@ -1,0 +1,58 @@
+@import '../intake/intake.css';
+
+.attendance-filters {
+  display: flex;
+  gap: var(--s4);
+  flex-wrap: wrap;
+}
+
+.attendance-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  margin-top: var(--s4);
+}
+
+.attendance-row {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) minmax(0, 2fr);
+  gap: var(--s3) var(--s4);
+  align-items: center;
+}
+
+.attendance-row__who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.attendance-row__times {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: var(--s2);
+}
+
+.attendance-row__status .segmented__option {
+  flex: 1 1 5rem;
+  padding: var(--s2);
+}
+
+/* A state worth noticing gets its semantic colour when selected. */
+.attendance-status--absent.segmented__option--on {
+  border-color: var(--urgent);
+  background: var(--urgent-soft);
+  color: var(--urgent);
+}
+
+.attendance-status--late.segmented__option--on {
+  border-color: var(--warn);
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+@media (max-width: 40rem) {
+  .attendance-row {
+    grid-template-columns: 1fr;
+  }
+}

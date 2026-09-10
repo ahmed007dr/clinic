@@ -20,6 +20,9 @@ import { useAuth } from '@/hooks/useAuth'
 import { formatDate, formatMoney } from '@/lib/format'
 
 import { AllergyPanel } from '@/features/clinical/AllergyPanel'
+import { useT } from '@/i18n'
+
+import { MedicalHistoryCard } from './MedicalHistoryCard'
 import { PortalCard } from './PortalCard'
 
 import { PatientTimeline } from './PatientTimeline'
@@ -40,6 +43,7 @@ export function PatientDetailPage() {
   const { uuid } = useParams()
   const navigate = useNavigate()
   const { permissions } = useAuth()
+  const { t } = useT()
   const [tab, setTab] = useState('timeline')
 
   const { record: patient, loading, error, reload } = useRecord(api.patients, uuid)
@@ -98,7 +102,7 @@ export function PatientDetailPage() {
       />
 
       <div className="patient__layout">
-        <div className="patient__main">
+        <div className="patient__main ui-stack">
           <Card>
             <CardBody flush>
               <div style={{ padding: '0 var(--s4)' }}>
@@ -140,6 +144,44 @@ export function PatientDetailPage() {
                         ) : null,
                       },
                       { label: 'البريد الإلكتروني', value: patient.email },
+                      {
+                        label: t('intake.whatsapp'),
+                        value: patient.whatsapp ? <span dir="ltr">{patient.whatsapp}</span> : null,
+                      },
+                      {
+                        label: t('intake.governorate'),
+                        value: [patient.governorate, patient.area].filter(Boolean).join(' — ') || null,
+                      },
+                      {
+                        label: t('intake.emergency_title'),
+                        value:
+                          [patient.emergency_contact_name, patient.emergency_contact_relation, patient.emergency_contact_phone]
+                            .filter(Boolean)
+                            .join(' · ') || null,
+                      },
+                      {
+                        label: t('patient.referral'),
+                        value: patient.referral_source
+                          ? [t(`choices.referral_source.${patient.referral_source}`), patient.referring_doctor_name, patient.referral_detail]
+                              .filter(Boolean)
+                              .join(' — ')
+                          : null,
+                      },
+                      { label: t('patient.recommended_doctor'), value: patient.recommended_doctor_name },
+                      {
+                        label: t('patient.contact_prefs'),
+                        value:
+                          ['phone', 'whatsapp', 'sms', 'email']
+                            .filter((channel) => patient[`contact_by_${channel}`])
+                            .map((channel) => t(`intake.contact_${channel}`))
+                            .join('، ') || null,
+                      },
+                      {
+                        label: t('patient.consent'),
+                        value: patient.consent_data_processing_at
+                          ? formatDate(patient.consent_data_processing_at)
+                          : t('patient.consent_missing'),
+                      },
                       { label: 'الفرع', value: patient.branch_name },
                       { label: 'العنوان', value: patient.address, span: 2 },
                       { label: 'ملاحظات', value: patient.notes, span: 2 },
@@ -153,6 +195,7 @@ export function PatientDetailPage() {
               </div>
             </CardBody>
           </Card>
+          {permissions.view_clinical && <MedicalHistoryCard patientUuid={uuid} />}
         </div>
 
         <aside className="patient__side ui-stack">
