@@ -23,4 +23,9 @@ private/
 venv/
 *.env
 *.bak
-setting.md
+setting.md# React front end: dependencies are reinstalled from package-lock.json.
+# frontend/dist/ is deliberately NOT ignored — cPanel shared hosting has no
+# guaranteed Node toolchain, so the compiled build is committed and deployment
+# stays "git pull + collectstatic". Rebuild (npm run build) and commit it
+# whenever frontend/src changes.
+frontend/node_modules/

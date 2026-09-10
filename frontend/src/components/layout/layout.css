@@ -1,0 +1,339 @@
+/* The application frame: sidebar, header, content column. */
+
+.shell {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.shell__skip {
+  position: absolute;
+  inset-inline-start: -9999px;
+  top: 0;
+  z-index: 300;
+  padding: var(--s3) var(--s4);
+  background: var(--primary);
+  color: var(--primary-ink);
+  border-radius: 0 0 var(--radius) 0;
+}
+
+.shell__skip:focus {
+  inset-inline-start: 0;
+}
+
+.shell__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.shell__content {
+  flex: 1;
+  padding: var(--s5);
+  /* Long enough to be comfortable, capped so a table on a 27" monitor does
+     not stretch into an unreadable ribbon. */
+  max-width: 90rem;
+  width: 100%;
+  margin-inline: auto;
+}
+
+.shell__scrim {
+  position: fixed;
+  inset: 0;
+  background: rgb(12 16 17 / 0.5);
+  z-index: 49;
+}
+
+/* ---------------------------------------------------------------- sidebar */
+
+.sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  background: var(--surface);
+  border-inline-start: 0;
+  border-inline-end: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: 0 var(--s4);
+  height: var(--header-height);
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.sidebar__mark {
+  color: var(--primary);
+  font-size: var(--text-xl);
+  line-height: 1;
+}
+
+.sidebar__clinic {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar__scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--s3) var(--s2);
+}
+
+.sidebar__section + .sidebar__section {
+  margin-top: var(--s4);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line);
+}
+
+.sidebar__heading {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--ink-faint);
+  padding: var(--s1) var(--s3) var(--s2);
+  letter-spacing: 0.02em;
+}
+
+.sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s2) var(--s3);
+  border-radius: var(--radius);
+  color: var(--ink-muted);
+  font-weight: 600;
+  font-size: var(--text-base);
+}
+
+.sidebar__link:hover {
+  background: var(--surface-sunken);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.sidebar__link--active {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.sidebar__icon {
+  width: 1.25rem;
+  text-align: center;
+  flex-shrink: 0;
+  font-size: var(--text-base);
+}
+
+.sidebar__footer {
+  padding: var(--s3) var(--s4);
+  border-top: 1px solid var(--line);
+  font-size: var(--text-sm);
+  display: flex;
+  gap: var(--s2);
+  align-items: baseline;
+  flex-shrink: 0;
+}
+
+/* ----------------------------------------------------------------- header */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  height: var(--header-height);
+  padding: 0 var(--s5);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.header__spacer {
+  flex: 1;
+}
+
+.header__menu {
+  display: none;
+}
+
+.header__bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius);
+  color: var(--ink-muted);
+}
+
+.header__bell:hover {
+  background: var(--surface-sunken);
+  text-decoration: none;
+}
+
+.header__badge {
+  position: absolute;
+  top: 0;
+  inset-inline-end: 0;
+  transform: translate(-25%, -15%);
+  padding: 0 4px;
+  min-width: 1.1rem;
+  justify-content: center;
+}
+
+.header__user {
+  position: relative;
+}
+
+.header__trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  border: 0;
+  background: none;
+  cursor: pointer;
+  padding: var(--s1) var(--s2);
+  border-radius: var(--radius);
+  font: inherit;
+  color: inherit;
+}
+
+.header__trigger:hover {
+  background: var(--surface-sunken);
+}
+
+.header__name {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.25;
+  font-size: var(--text-sm);
+}
+
+.header__menu-panel {
+  position: absolute;
+  inset-inline-end: 0;
+  top: calc(100% + 6px);
+  min-width: 11rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: var(--s1);
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+}
+
+.header__menu-panel a,
+.header__menu-panel button {
+  padding: var(--s2) var(--s3);
+  border: 0;
+  background: none;
+  text-align: start;
+  font: inherit;
+  color: var(--ink);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.header__menu-panel a:hover,
+.header__menu-panel button:hover {
+  background: var(--surface-sunken);
+  text-decoration: none;
+}
+
+/* ------------------------------------------------------------ page header */
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s4);
+  margin-bottom: var(--s5);
+  flex-wrap: wrap;
+}
+
+.page-header__title {
+  font-size: var(--text-2xl);
+}
+
+.page-header__subtitle {
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+  margin-top: 2px;
+}
+
+.page-header__back {
+  display: inline-block;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  margin-bottom: var(--s1);
+  font-weight: 600;
+}
+
+.page-header__actions {
+  display: flex;
+  gap: var(--s2);
+  flex-wrap: wrap;
+}
+
+/* ------------------------------------------------------------------ small */
+
+@media (max-width: 60rem) {
+  .header__menu {
+    display: inline-flex;
+  }
+
+  .shell__content {
+    padding: var(--s4);
+  }
+
+  .sidebar {
+    position: fixed;
+    inset-block: 0;
+    /* The start edge — the right, in Arabic — which is where the sidebar sits
+       on a wide screen too. This was `inset-inline-end`, which in RTL is the
+       LEFT edge: translating it "off-canvas" then pushed it onto the page, on
+       top of the header, and the menu button could not be pressed. Found by
+       driving the app at phone width; no desktop check would have shown it. */
+    inset-inline-start: 0;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.18s ease;
+    box-shadow: var(--shadow);
+  }
+
+  [dir='rtl'] .sidebar {
+    transform: translateX(100%);
+  }
+
+  .shell--drawer-open .sidebar {
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 30rem) {
+  .header {
+    padding: 0 var(--s3);
+  }
+
+  .header__name {
+    display: none;
+  }
+
+  .shell__content {
+    padding: var(--s3);
+  }
+}

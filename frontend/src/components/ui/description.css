@@ -1,0 +1,30 @@
+.dl {
+  display: grid;
+  grid-template-columns: repeat(var(--dl-columns, 2), minmax(0, 1fr));
+  gap: var(--s4) var(--s5);
+  margin: 0;
+}
+
+@media (max-width: 48rem) {
+  .dl {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dl__item {
+  min-width: 0;
+}
+
+.dl__label {
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.dl__value {
+  margin: 0;
+  /* Free-text clinical notes are long and may contain no spaces at all. */
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}

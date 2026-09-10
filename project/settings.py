@@ -87,7 +87,39 @@ INSTALLED_APPS = [
     "notifications",
     'dashboard',
 
+    # REST API consumed by the React front end in frontend/. Mounted under
+    # /api/; the server-rendered screens keep their own URLs and keep working.
+    "rest_framework",
+    "api",
+
 ]
+
+REST_FRAMEWORK = {
+    # Session authentication, deliberately, and not tokens. TenantMiddleware
+    # binds the tenant — and with it the PostgreSQL row-level security
+    # context — from request.user, and middleware runs before the view. DRF
+    # token authentication runs *inside* the view, so the tenant would be
+    # bound while the user was still anonymous and every query in the request
+    # would return nothing. See api/views/auth.py.
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    # Fails closed: a view that forgets to declare permissions is closed, not
+    # open. Every clinic viewset narrows this further.
+    "DEFAULT_PERMISSION_CLASSES": [
+        "api.permissions.IsClinicMember",
+    ],
+    "DEFAULT_PAGINATION_CLASS": "api.pagination.ClinicPagination",
+    "PAGE_SIZE": 25,
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        # Password guessing is the only unauthenticated write in the API.
+        "login": "10/min",
+    },
+    "UNAUTHENTICATED_USER": "django.contrib.auth.models.AnonymousUser",
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -183,6 +215,10 @@ USE_TZ = False
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     BASE_DIR / "static",
+    # The React build (frontend/dist/spa/*), served from /static/spa/. Source
+    # stays in frontend/; only the compiled output is collected, so deploying
+    # the new front end is the same collectstatic step as before.
+    BASE_DIR / "frontend" / "dist",
 ]
 # collectstatic target for deployment. Generated output — gitignored.
 # Env-configurable because shared hosting decides where these live. On cPanel

@@ -1,0 +1,52 @@
+.rx {
+  margin-top: var(--s5);
+  border-top: 1px solid var(--line);
+  padding-top: var(--s4);
+}
+
+.rx__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--s3);
+}
+
+.rx__item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2);
+  padding: var(--s2) 0;
+  border-bottom: 1px dashed var(--line);
+}
+
+.rx__item:last-child {
+  border-bottom: 0;
+}
+
+.rx__number {
+  width: 1.5rem;
+  height: 2.25rem;
+  display: grid;
+  place-items: center;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.rx__fields {
+  flex: 1;
+  display: grid;
+  /* The medicine name gets the most room; the rest are short. */
+  grid-template-columns: 2fr 1fr 1fr 1fr 1.5fr;
+  gap: var(--s2);
+  min-width: 0;
+}
+
+@media (max-width: 52rem) {
+  .rx__fields {
+    grid-template-columns: 1fr 1fr;
+  }
+  .rx__fields > :first-child {
+    grid-column: span 2;
+  }
+}

@@ -67,6 +67,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='treatmentsession',
-            constraint=models.CheckConstraint(check=models.Q(('discount__lte', django.db.models.expressions.CombinedExpression(models.F('unit_price'), '*', models.F('quantity')))), name='session_discount_within_total'),
+            constraint=models.CheckConstraint(condition=models.Q(('discount__lte', django.db.models.expressions.CombinedExpression(models.F('unit_price'), '*', models.F('quantity')))), name='session_discount_within_total'),
         ),
     ]

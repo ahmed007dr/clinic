@@ -1,7 +1,9 @@
 
 # project/urls.py
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import include, path, re_path
+
+from api.spa import spa_index
 from django.conf.urls.static import static
 from django.conf import settings
 from django.shortcuts import redirect
@@ -15,7 +17,17 @@ def home_redirect(request):
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    
+
+    # The REST API the React front end talks to. It must stay above the
+    # catch-all at the bottom of this list, which redirects every unmatched
+    # path to the login page — an API call that gets a 302 to an HTML form
+    # instead of a 401 is the kind of thing a client reports as "it hangs".
+    path('api/', include('api.urls')),
+
+    # The React application. Every path under /app/ returns the same shell so
+    # client-side routes survive a reload; see api/spa.py.
+    re_path(r'^app(?:/(?P<path>.*))?$', spa_index, name='spa'),
+
     path('accounts/', include(('accounts.urls', 'accounts'), namespace="accounts")),
     path('patients/', include(('patients.urls', 'patients'), namespace="patients")),
     path('appointments/', include(('appointments.urls', 'appointments'), namespace='appointments')),

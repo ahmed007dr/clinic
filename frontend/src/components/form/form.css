@@ -1,0 +1,39 @@
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s4);
+}
+
+@media (max-width: 40rem) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  /* A field asking to span two columns must not overflow a one-column grid. */
+  .form-grid__cell {
+    grid-column: span 1 !important;
+  }
+}
+
+.form-check {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  cursor: pointer;
+  min-height: 2.25rem;
+}
+
+.form-error {
+  padding: var(--s3) var(--s4);
+  border-radius: var(--radius);
+  background: var(--urgent-soft);
+  color: var(--urgent);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  margin-bottom: var(--s4);
+}
+
+.form-actions {
+  display: flex;
+  gap: var(--s2);
+  margin-top: var(--s5);
+}

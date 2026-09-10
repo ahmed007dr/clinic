@@ -25,6 +25,10 @@ asgiref==3.9.2
 sqlparse==0.5.3
 tzdata==2025.2
 
+# The REST API under /api/ that the React front end (frontend/) talks to. Added
+# 2026-09-10 with the SPA; session authentication only, see api/views/auth.py.
+djangorestframework==3.16.1
+
 # Reads DATABASE_URL and the rest of settings from .env — project/settings.py.
 django-environ==0.12.0
 

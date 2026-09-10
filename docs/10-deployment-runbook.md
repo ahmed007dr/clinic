@@ -158,6 +158,24 @@ venv/bin/python manage.py collectstatic --noinput
 Expect roughly 266 static files. The migrations install the isolation policies
 and seed the subscription catalogue (Basic / Professional / Enterprise).
 
+### 5a. The React front end
+
+The React application (`frontend/`) is served at **`/app/`**; the original
+server-rendered screens keep working at their own URLs alongside it.
+
+Its compiled build, `frontend/dist/spa/`, is **committed to the repository**,
+and `frontend/dist` is in `STATICFILES_DIRS` — so the `collectstatic` above
+already deployed it. **No Node is needed on the server**, which matters on
+cPanel, where it is not guaranteed.
+
+The consequence is a rule for whoever changes the front end: **rebuild and
+commit `dist/` in the same commit as the source change** (`cd frontend && npm ci
+&& npm run build`). A stale build is served silently.
+
+If `/app/` shows "واجهة React لم تُبنَ بعد", the build is missing from the clone
+— the page names the command that fixes it. Full instructions:
+[`frontend/README.md`](../frontend/README.md).
+
 ## 6. Check the deployment
 
 ```bash

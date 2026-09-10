@@ -1,0 +1,147 @@
+/*
+  Design tokens.
+
+  Every colour in the application is defined here and used through a variable.
+  Nothing downstream writes a literal hex value, which is what makes the dark
+  theme a redefinition of ten lines instead of an audit of every component.
+
+  The palette is built around a deep clinical teal rather than the default
+  blue, on a warm off-white rather than pure white — a screen that is looked at
+  for nine hours should not glare. Burnt orange is spent on exactly one thing:
+  a clinical result that needs a human. If it appears anywhere decorative it
+  stops working where it matters.
+*/
+
+:root {
+  /* Surfaces, warm-neutral rather than grey */
+  --ground: #f7f6f3;
+  --surface: #ffffff;
+  --surface-sunken: #f1efeb;
+  --surface-raised: #ffffff;
+
+  /* Ink */
+  --ink: #1a1f21;
+  --ink-muted: #5f6c6e;
+  --ink-faint: #8b9698;
+  --ink-inverse: #ffffff;
+
+  /* Lines — hairlines, not shadows */
+  --line: #e3e1db;
+  --line-strong: #cfccc4;
+
+  /* Brand */
+  --primary: #0e6e63;
+  --primary-hover: #0a564d;
+  --primary-soft: #e2efec;
+  --primary-ink: #ffffff;
+
+  /* Semantic. Distinct from the brand hue on purpose: state must not be
+     confused with emphasis. */
+  --ok: #2e7d4f;
+  --ok-soft: #e4f1e9;
+  --warn: #a6720e;
+  --warn-soft: #f8efdc;
+  --urgent: #b5401c;
+  --urgent-soft: #f9e7e0;
+  --info: #2b5f8a;
+  --info-soft: #e4eef6;
+
+  --focus: #0e6e63;
+
+  /* Type */
+  --font: 'Cairo', 'Segoe UI', 'Tahoma', system-ui, sans-serif;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+
+  /* Spacing — a 4px base, so alignment is arithmetic rather than taste */
+  --s1: 0.25rem;
+  --s2: 0.5rem;
+  --s3: 0.75rem;
+  --s4: 1rem;
+  --s5: 1.5rem;
+  --s6: 2rem;
+  --s7: 3rem;
+
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-lg: 14px;
+
+  /* Used sparingly: menus and dialogs, which genuinely float. */
+  --shadow: 0 1px 2px rgb(26 31 33 / 0.06), 0 8px 24px rgb(26 31 33 / 0.08);
+
+  --sidebar-width: 15rem;
+  --header-height: 3.5rem;
+}
+
+/* System dark. Guarded so an explicit light choice still wins. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --ground: #15181a;
+    --surface: #1d2124;
+    --surface-sunken: #191d1f;
+    --surface-raised: #232829;
+
+    --ink: #e8eae9;
+    --ink-muted: #a0abac;
+    --ink-faint: #75807f;
+    --ink-inverse: #15181a;
+
+    --line: #2c3236;
+    --line-strong: #3d4448;
+
+    --primary: #35a396;
+    --primary-hover: #4bb9ab;
+    --primary-soft: #17302d;
+    --primary-ink: #08201d;
+
+    --ok: #56b57e;
+    --ok-soft: #16291f;
+    --warn: #d4a24a;
+    --warn-soft: #2a2317;
+    --urgent: #e2795a;
+    --urgent-soft: #2e1c16;
+    --info: #6ba3d0;
+    --info-soft: #17242e;
+
+    --focus: #4bb9ab;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.45);
+  }
+}
+
+/* Explicit dark choice wins over a light OS. */
+:root[data-theme='dark'] {
+  --ground: #15181a;
+  --surface: #1d2124;
+  --surface-sunken: #191d1f;
+  --surface-raised: #232829;
+
+  --ink: #e8eae9;
+  --ink-muted: #a0abac;
+  --ink-faint: #75807f;
+  --ink-inverse: #15181a;
+
+  --line: #2c3236;
+  --line-strong: #3d4448;
+
+  --primary: #35a396;
+  --primary-hover: #4bb9ab;
+  --primary-soft: #17302d;
+  --primary-ink: #08201d;
+
+  --ok: #56b57e;
+  --ok-soft: #16291f;
+  --warn: #d4a24a;
+  --warn-soft: #2a2317;
+  --urgent: #e2795a;
+  --urgent-soft: #2e1c16;
+  --info: #6ba3d0;
+  --info-soft: #17242e;
+
+  --focus: #4bb9ab;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.45);
+}

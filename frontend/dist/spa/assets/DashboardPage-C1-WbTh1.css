@@ -1,0 +1,1 @@
+.dashboard__tiles{grid-template-columns:repeat(auto-fill,minmax(14rem,1fr))}.dashboard__split{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:var(--s4);align-items:start}@media (max-width: 64rem){.dashboard__split{grid-template-columns:1fr}}

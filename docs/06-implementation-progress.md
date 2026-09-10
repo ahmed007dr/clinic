@@ -260,6 +260,14 @@ The system could schedule and bill, but a doctor had nowhere to record what happ
 
 The form-queryset bug above was invisible because the only tests touching those forms asserted they were *invalid* — `test_payment_form_rejects_negative_amount` was passing for entirely the wrong reason. Fixed with `TenantScopedFormMixin` (`tenants/forms.py`), which rebinds relation querysets per instance at request time, reconstructing them the way `ForeignKey.formfield()` does so `limit_choices_to` survives. Applied to all 14 ModelForms, with regression tests asserting choices are actually *populated* and still tenant-scoped.
 
+## Batch 4 — Frontend/backend wiring (planned 2026-09-10)
+
+Plan: [11-frontend-backend-wiring.md](11-frontend-backend-wiring.md). Nothing started yet — no code written for this batch.
+
+A two-way connectivity audit on 2026-09-09 checked every backend route for a way to reach it from the UI, and every link, form and template for a route behind it. The application is almost fully wired: 87 routes across 12 apps, every view routed, every app template rendered by a view, no AJAX and so no hidden endpoints. Ten specific breaks came out of it, tracked as WIRE-001..010.
+
+The three that matter are not links. `subscriptions/entitlements.py` defines five limits and enforces two, and defines six features and enforces none — so a tenant on the smallest plan can create unlimited doctors, unlimited staff and unlimited storage today. That closes out as WIRE-002..005. The rest are a 500 on the specialization edit screen (WIRE-001), PLAT-006's uninvoked report generators (WIRE-006), FE-026's missing tenant-facing subscription screen (WIRE-007), three reachable-only-by-typing-the-URL screens (WIRE-008), and a state-changing GET on mark-notification-read (WIRE-009).
+
 ## Deploy note for SEC-009 — existing staff log in differently afterwards
 
 `accounts.0005_email_login` makes email the login credential. Accounts created under the old username-based login may have a blank or duplicated email, so the migration backfills before applying the unique constraint:

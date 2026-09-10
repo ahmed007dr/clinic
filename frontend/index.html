@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="referrer" content="same-origin" />
+    <title>نظام إدارة العيادة</title>
+    <!--
+      Cairo is served from the Django static tree, which the deployment
+      already collects and the clinic already has offline. A Google Fonts link
+      would put a third-party request between the front desk and a working
+      screen every morning.
+    -->
+    <link rel="preconnect" href="/static/" />
+    <style>
+      @font-face {
+        font-family: 'Cairo';
+        /* The subset first: it is a fraction of the size and covers Arabic and
+           Latin. The full face is the fallback for anything it misses. */
+        src: url('/static/fonts/cairo/Cairo-subset.woff2') format('woff2'),
+             url('/static/fonts/cairo/Cairo.ttf') format('truetype-variations');
+        font-weight: 200 1000;
+        font-display: swap;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

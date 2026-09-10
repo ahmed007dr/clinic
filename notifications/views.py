@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -24,7 +24,11 @@ def notification_list(request):
 @login_required
 @user_passes_test(is_reception_or_admin)
 def notification_mark_read(request, uuid):
-    notification = Notification.objects.get(uuid=uuid, user=request.user)
+    # get_object_or_404, not .get(): a notification that does not exist — or
+    # belongs to someone else — was raising DoesNotExist and returning a 500
+    # instead of a 404. The user filter already prevents reading another
+    # user's notification; this makes the refusal an ordinary 404.
+    notification = get_object_or_404(Notification, uuid=uuid, user=request.user)
     notification.is_read = True
     notification.save()
     messages.success(request, 'تم تحديد الإشعار كمقروء')

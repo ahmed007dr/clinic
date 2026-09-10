@@ -1,0 +1,20 @@
+/* Wide enough for a full amount — "44,400.00 ج.م" — at display size. The
+   shared 11rem grid gave five columns of ~150px here, and money either wrapped
+   the currency onto its own line or was truncated; neither is acceptable for a
+   figure someone reconciles against a till. */
+.dashboard__tiles {
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+}
+
+.dashboard__split {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--s4);
+  align-items: start;
+}
+
+@media (max-width: 64rem) {
+  .dashboard__split {
+    grid-template-columns: 1fr;
+  }
+}
