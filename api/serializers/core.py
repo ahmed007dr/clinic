@@ -1,5 +1,6 @@
 """Branches, services and staff — the reference data everything else points at."""
 
+from django.utils import timezone
 from rest_framework import serializers
 
 from api.relations import TenantScopedRelatedField
@@ -63,6 +64,11 @@ class EmployeeSerializer(ClinicSerializer):
     specializations = TenantScopedRelatedField(
         model=Specialization, many=True, required=False
     )
+
+    # The model defaults this to `timezone.now`, which is a *datetime*: an
+    # employee created without a hire date then held a datetime in a DateField
+    # and the response failed to render. A date, from the start.
+    hire_date = serializers.DateField(default=lambda: timezone.now().date())
 
     employee_type_name = serializers.CharField(
         source="employee_type.name", read_only=True, default=None

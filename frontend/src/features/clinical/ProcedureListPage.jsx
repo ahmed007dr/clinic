@@ -66,6 +66,9 @@ export function ProcedureListPage() {
           resource: api.visits,
           searchable: true,
           labelKey: 'serial_number',
+          required: true,
+          params: (values) => ({ patient: values.patient || undefined }),
+          hint: 'زيارات المريض المختار فقط',
         },
         {
           name: 'performed_at',

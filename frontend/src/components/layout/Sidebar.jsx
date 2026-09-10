@@ -51,6 +51,7 @@ const SECTIONS = [
       { to: '/employees', label: 'الموظفون', icon: '🧑‍⚕️' },
       { to: '/branches', label: 'الفروع', icon: '🏥' },
       { to: '/services', label: 'الخدمات', icon: '🗂' },
+      { to: '/subscription', label: 'الباقة والاشتراك', icon: '🎫' },
       { to: '/settings', label: 'الإعدادات', icon: '⚙' },
     ],
   },

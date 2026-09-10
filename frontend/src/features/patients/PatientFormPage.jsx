@@ -47,6 +47,7 @@ const FIELDS = [
   },
   { name: 'address', label: 'العنوان', type: 'textarea', rows: 2, span: 2 },
   { name: 'notes', label: 'ملاحظات', type: 'textarea', span: 2 },
+  { name: 'photo', label: 'صورة المريض', type: 'file', accept: 'image/*', span: 2 },
 ]
 
 export function PatientFormPage() {
@@ -68,6 +69,7 @@ export function PatientFormPage() {
           FIELDS.map((field) => [field.name, record?.[field.name] ?? '']),
         ),
         birth_date: record?.birth_date ?? '',
+        photo: null,
       }
     : {
         ...Object.fromEntries(
@@ -88,7 +90,14 @@ export function PatientFormPage() {
   const submit = async (event) => {
     event.preventDefault()
     try {
-      const saved = await save.run(form.payload(nullableNames(FIELDS)))
+      // Multipart only when a photo was chosen: JSON cannot carry a file, and
+      // multipart cannot express "clear this field", so each is used for the
+      // case it handles.
+      const body =
+        form.values.photo instanceof File
+          ? form.formData()
+          : (({ photo, ...rest }) => rest)(form.payload(nullableNames(FIELDS)))
+      const saved = await save.run(body)
       toast.success(editing ? 'تم حفظ بيانات المريض' : 'تم تسجيل المريض')
       navigate(`/patients/${saved.uuid}`, { replace: true })
     } catch {

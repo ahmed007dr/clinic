@@ -4,6 +4,12 @@ from .models import Employee, EmployeeType, Specialization
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator
+from subscriptions.entitlements import LimitReached, check_limit
+from subscriptions.usage import doctor_count, limit_message
+
+
+def _is_doctor_type(employee_type):
+    return getattr(employee_type, 'name', None) == 'Doctor'
 
 def is_reception_or_admin(user):
     return user.role.name in ['Reception', 'Admin'] if user.role else False
@@ -14,6 +20,16 @@ def employee_create(request):
     if request.method == 'POST':
         form = EmployeeForm(request.POST)
         if form.is_valid():
+            # Checked after is_valid (the employee type is only known once the
+            # form has cleaned it) and before save — the same shape as
+            # branch_create and patient_create (WIRE-003).
+            try:
+                check_limit(request.user.tenant, 'max_staff', Employee.objects.count())
+                if _is_doctor_type(form.cleaned_data.get('employee_type')):
+                    check_limit(request.user.tenant, 'max_doctors', doctor_count())
+            except LimitReached as reached:
+                messages.error(request, limit_message(reached))
+                return redirect('employees:employee_list')
             employee = form.save(commit=False)
             employee.tenant = request.user.tenant
             employee.save()
@@ -49,9 +65,20 @@ def employee_list(request):
 @user_passes_test(lambda u: u.role.name == 'Admin' if u.role else False)
 def employee_update(request, uuid):
     employee = get_object_or_404(Employee, uuid=uuid)
+    # Read before binding the form: ModelForm validation writes the submitted
+    # values onto the instance, after which the old type is gone.
+    was_doctor = _is_doctor_type(employee.employee_type)
     if request.method == 'POST':
         form = EmployeeForm(request.POST, instance=employee)
         if form.is_valid():
+            # Moving someone *into* the Doctor type crosses the same limit by
+            # a different door; a limit that only guards create has a bypass.
+            if _is_doctor_type(form.cleaned_data.get('employee_type')) and not was_doctor:
+                try:
+                    check_limit(request.user.tenant, 'max_doctors', doctor_count())
+                except LimitReached as reached:
+                    messages.error(request, limit_message(reached))
+                    return redirect('employees:employee_list')
             form.save()
             messages.success(request, f'تم تعديل الموظف {employee.name} بنجاح')
             return redirect('employees:employee_list')

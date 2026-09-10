@@ -268,6 +268,23 @@ A two-way connectivity audit on 2026-09-09 checked every backend route for a way
 
 The three that matter are not links. `subscriptions/entitlements.py` defines five limits and enforces two, and defines six features and enforces none — so a tenant on the smallest plan can create unlimited doctors, unlimited staff and unlimited storage today. That closes out as WIRE-002..005. The rest are a 500 on the specialization edit screen (WIRE-001), PLAT-006's uninvoked report generators (WIRE-006), FE-026's missing tenant-facing subscription screen (WIRE-007), three reachable-only-by-typing-the-URL screens (WIRE-008), and a state-changing GET on mark-notification-read (WIRE-009).
 
+## Batch 5 — React front end, allergies, plan limits, owner portal (2026-09-10)
+
+The user chose a full React SPA over the Django templates. Built as `frontend/` (Vite, served at `/app/`, build committed to `frontend/dist/` because cPanel has no guaranteed Node) on a new DRF API in `api/` with session authentication only — token auth would bind the tenant, and with it RLS, before DRF had authenticated anyone. Old screens still work at their own URLs. Instructions: `frontend/README.md`.
+
+Done in this batch, each with tests:
+
+* **Staff and clinic-admin screens in React**, with a unified patient timeline (§19) and a one-click waiting queue.
+* **Allergies** in the API and the patient file; prescriptions return the server's own `allergy_conflicts` warnings. Prescription printing, PDF/Excel export and patient photo upload reachable from React.
+* **Plan limits** — doctors, staff and storage now enforced at both doors (WIRE-002/003/004), and the API enforces the patient and branch limits the templates already did — its first version did not.
+* **The clinic's own plan page**; unbuilt features shown as «قريباً».
+* **Owner portal** at `/app/platform` on `api/platform.py`: list, inspect (audited), suspend/activate, change plan, onboard a clinic. `create_platform_admin` creates the first operator.
+* **Suspension is immediate** — the API checks the clinic's status on every request, not only at sign-in.
+
+Found by driving the app in a browser rather than by tests: the RTL mobile drawer covered the page, form layout CSS missing from lazy chunks, money figures wrapping or truncating, and a dashboard count that disagreed with the list it linked to. Found by a serializer-vs-model contract test: `Prescription.visit` and `Procedure.visit` are NOT NULL but the API called them optional (a 500 on save); also added a check that a record's visit belongs to its patient.
+
+Not done: the patient portal (design in `docs/12-patient-portal-design.md`, awaiting decisions D1–D5), scheduled reports (WIRE-006), the audit log screen in React.
+
 ## Deploy note for SEC-009 — existing staff log in differently afterwards
 
 `accounts.0005_email_login` makes email the login credential. Accounts created under the old username-based login may have a blank or duplicated email, so the migration backfills before applying the unique constraint:

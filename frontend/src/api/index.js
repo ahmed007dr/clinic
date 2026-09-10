@@ -53,6 +53,7 @@ export const labResults = {
   ...createResource('lab-results'),
   acknowledge: (uuid) => http.post(`/lab-results/${uuid}/acknowledge/`),
 }
+export const allergies = createResource('allergies')
 export const attachments = {
   ...createResource('attachments'),
   /** The file is streamed by an authenticated view — the storage has no URL. */
@@ -84,6 +85,19 @@ export const auth = {
     }),
 }
 
+export const subscription = {
+  get: () => http.get('/subscription/'),
+}
+
+export const platform = {
+  tenants: (params) => http.get('/platform/tenants/', params),
+  tenant: (uuid) => http.get(`/platform/tenants/${uuid}/`),
+  createTenant: (body) => http.post('/platform/tenants/', body),
+  setStatus: (uuid, status) => http.post(`/platform/tenants/${uuid}/status/`, { status }),
+  setPlan: (uuid, plan) => http.post(`/platform/tenants/${uuid}/plan/`, { plan }),
+  plans: () => http.get('/platform/plans/'),
+}
+
 export const dashboard = {
   get: () => http.get('/dashboard/'),
 }
@@ -110,11 +124,14 @@ export const api = {
   procedures,
   labResults,
   attachments,
+  allergies,
   staff,
   roles,
   notifications,
   auth,
   dashboard,
+  subscription,
+  platform,
 }
 
 export default api

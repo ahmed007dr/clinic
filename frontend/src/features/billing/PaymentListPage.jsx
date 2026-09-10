@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '@/api'
 import { Button, Input } from '@/components/ui'
 import { ResourceTable } from '@/components/data/ResourceTable'
+import { ExportButtons } from '@/components/data/ExportButtons'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { formatDateTime, formatMoney } from '@/lib/format'
 
@@ -36,9 +37,12 @@ export function PaymentListPage() {
       <PageHeader
         title="الدفعات"
         actions={
+          <>
+          <ExportButtons path="/billing/export/" />
           <Button variant="primary" onClick={() => navigate('/payments/new')}>
             تسجيل دفعة
           </Button>
+          </>
         }
       />
       <ResourceTable

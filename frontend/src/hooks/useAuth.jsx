@@ -32,6 +32,10 @@ const NO_PERMISSIONS = {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
+  // A platform operator: signed in, belongs to no clinic, sees only the
+  // owner portal. Kept apart from `user` so no clinic screen ever renders
+  // for them by accident.
+  const [platformUser, setPlatformUser] = useState(null)
   // `loading` starts true so the router never flashes the login screen at
   // someone who is already signed in.
   const [loading, setLoading] = useState(true)
@@ -40,9 +44,11 @@ export function AuthProvider({ children }) {
     try {
       const data = await api.auth.session()
       setUser(data.authenticated ? data.user : null)
+      setPlatformUser(data.authenticated ? data.platform_user ?? null : null)
       return data.user ?? null
     } catch {
       setUser(null)
+      setPlatformUser(null)
       return null
     } finally {
       setLoading(false)
@@ -55,12 +61,20 @@ export function AuthProvider({ children }) {
 
   // A session that expires server-side must not leave the app rendering a
   // shell full of failing requests.
-  useEffect(() => onSessionLost(() => setUser(null)), [])
+  useEffect(
+    () =>
+      onSessionLost(() => {
+        setUser(null)
+        setPlatformUser(null)
+      }),
+    [],
+  )
 
   const login = useCallback(async (email, password) => {
     const data = await api.auth.login(email, password)
-    setUser(data.user)
-    return data.user
+    setUser(data.user ?? null)
+    setPlatformUser(data.platform_user ?? null)
+    return { user: data.user ?? null, platform: data.platform_user ?? null }
   }, [])
 
   const logout = useCallback(async () => {
@@ -70,6 +84,7 @@ export function AuthProvider({ children }) {
       // Cleared even if the call fails: the user asked to be signed out, and
       // leaving them apparently signed in is the worse of the two outcomes.
       setUser(null)
+      setPlatformUser(null)
     }
   }, [])
 
@@ -81,11 +96,13 @@ export function AuthProvider({ children }) {
       logout,
       refresh,
       isAuthenticated: Boolean(user),
+      platformUser,
+      isPlatform: Boolean(platformUser),
       permissions: user?.permissions ?? NO_PERMISSIONS,
       branch: user?.branch ?? null,
       role: user?.role ?? null,
     }),
-    [user, loading, login, logout, refresh],
+    [user, platformUser, loading, login, logout, refresh],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

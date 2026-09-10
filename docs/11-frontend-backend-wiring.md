@@ -22,15 +22,15 @@ The ordering below is by consequence, not by effort.
 
 | ID | Task | Priority | Status |
 |---|---|---|---|
-| WIRE-001 | A page that 500s, and the test that would have caught it | P0 | TODO |
-| WIRE-002 | One place that counts usage against a plan | P1 | TODO |
-| WIRE-003 | Enforce `max_doctors` and `max_staff` | P1 | TODO |
-| WIRE-004 | Storage accounting, and `max_storage_mb` | P1 | TODO |
-| WIRE-005 | Features: enforce the one that exists, fail the suite on the rest | P1 | TODO |
+| WIRE-001 | A page that 500s, and the test that would have caught it | P0 | DONE — namespace fixed; `dashboard/test_screens.py` scans every `{% url %}` |
+| WIRE-002 | One place that counts usage against a plan | P1 | DONE — `subscriptions/usage.py`; owner portal and clinic page both call it |
+| WIRE-003 | Enforce `max_doctors` and `max_staff` | P1 | DONE — server-rendered views and API, create and update |
+| WIRE-004 | Storage accounting, and `max_storage_mb` | P1 | DONE — checked before the file is written |
+| WIRE-005 | Features: enforce the one that exists, fail the suite on the rest | P1 | PARTIAL — unbuilt features shown as «قريباً», never «مفعّلة»; the registry test is not written |
 | WIRE-006 | PLAT-006 — something actually invokes the report generators | P2 | TODO |
-| WIRE-007 | FE-026 — a clinic can see its own plan, limits and usage | P2 | TODO |
-| WIRE-008 | FE-027 entry — reachable audit log, subscription and operator portal | P2 | TODO |
-| WIRE-009 | Marking a notification read is a GET that changes state | P2 | TODO |
+| WIRE-007 | FE-026 — a clinic can see its own plan, limits and usage | P2 | DONE — in the React app (`/app/subscription`), not a Django template |
+| WIRE-008 | FE-027 entry — reachable audit log, subscription and operator portal | P2 | PARTIAL — subscription and owner portal reachable in the React app; audit log still server-rendered only |
+| WIRE-009 | Marking a notification read is a GET that changes state | P2 | PARTIAL — the API is POST-only; the server-rendered link is still a GET |
 | WIRE-010 | Cleanup: namespace mismatch, dead theme files | P3 | TODO |
 
 ---
@@ -228,4 +228,5 @@ So this is not a stray file. It is a state-changing GET with no CSRF protection,
 - **Gating `advanced_analytics`, `packages`, `whatsapp`, `online_payments`, `ai`.** No implementation to gate, and flipping working screens behind a default-`False` flag is a regression. See WIRE-005.
 - **Self-serve plan upgrades and payment.** Blocked on a gateway and credentials (P4), not on this batch.
 - **A job runner (PLAT-005).** Cron is sufficient for WIRE-006 and correct for the cPanel target.
-- **The Patient Portal, and any React.** The architectural direction is settled: the staff application stays on Django templates.
+- **The Patient Portal.** Design in [12-patient-portal-design.md](12-patient-portal-design.md), awaiting decisions D1–D5.
+- ~~Any React — the staff application stays on Django templates.~~ **Superseded 2026-09-10:** the user chose a full React SPA on a DRF API (`frontend/`, `api/`). See Batch 5 in [06-implementation-progress.md](06-implementation-progress.md).

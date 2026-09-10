@@ -28,11 +28,16 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from api.permissions import IsClinicMember
+from platform_admin.permissions import is_platform_staff
 from api.serializers.accounts import (
     CurrentUserSerializer,
     LoginSerializer,
     PasswordChangeSerializer,
 )
+
+
+def platform_payload(user):
+    return {"username": user.username, "email": user.email}
 
 
 class LoginRateThrottle(AnonRateThrottle):
@@ -61,11 +66,14 @@ class SessionView(APIView):
         if not user.is_authenticated:
             return Response({"authenticated": False, "user": None})
         if getattr(user, "tenant_id", None) is None:
-            # Platform staff have their own audited route; the clinic app is
-            # not it. Reported plainly so the UI can say so.
-            return Response(
-                {"authenticated": True, "user": None, "detail": "حساب تشغيل المنصة."}
-            )
+            # Platform staff get the owner portal and nothing else: `user` stays
+            # None, so every clinic screen and endpoint still refuses them.
+            if is_platform_staff(user):
+                return Response({
+                    "authenticated": True, "user": None,
+                    "platform_user": platform_payload(user),
+                })
+            return Response({"authenticated": True, "user": None})
         return Response(
             {"authenticated": True, "user": CurrentUserSerializer(user).data}
         )
@@ -94,6 +102,9 @@ class LoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if getattr(user, "tenant_id", None) is None:
+            if is_platform_staff(user):
+                login(request, user)
+                return Response({"user": None, "platform_user": platform_payload(user)})
             return Response(
                 {"detail": "هذا الحساب غير مرتبط بعيادة."},
                 status=status.HTTP_403_FORBIDDEN,

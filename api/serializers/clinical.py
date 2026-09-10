@@ -12,6 +12,7 @@ from api.relations import TenantScopedRelatedField
 from branches.models import Branch
 from employees.models import Employee
 from medical.models import (
+    Allergy,
     LabResult,
     MedicalAttachment,
     Procedure,
@@ -25,6 +26,26 @@ from patients.models import Patient
 from services.models import Service
 
 from .common import ClinicSerializer
+
+
+class VisitMatchesPatient:
+    """A clinical record's visit must be the same patient's visit.
+
+    Nothing in the schema ties the two together, so without this a
+    prescription for one patient can be filed under another patient's visit —
+    and then appears in the wrong person's history, which is worse than being
+    lost.
+    """
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        visit = attrs.get("visit", getattr(self.instance, "visit", None))
+        patient = attrs.get("patient") or getattr(self.instance, "patient", None)
+        if visit and patient and visit.patient_id != patient.pk:
+            raise serializers.ValidationError(
+                {"visit": "الزيارة المختارة لا تخص هذا المريض."}
+            )
+        return attrs
 
 
 class VisitSerializer(ClinicSerializer):
@@ -66,7 +87,7 @@ class PrescriptionItemSerializer(ClinicSerializer):
         ]
 
 
-class PrescriptionSerializer(ClinicSerializer):
+class PrescriptionSerializer(VisitMatchesPatient, ClinicSerializer):
     """A prescription and its medicines in one request.
 
     Nested and writable on purpose: a prescription with no items is not a
@@ -74,7 +95,7 @@ class PrescriptionSerializer(ClinicSerializer):
     how you end up with one when the second request fails.
     """
 
-    visit = TenantScopedRelatedField(model=Visit, required=False, allow_null=True)
+    visit = TenantScopedRelatedField(model=Visit, branch_field="branch")
     patient = TenantScopedRelatedField(model=Patient, branch_field="branch")
     doctor = TenantScopedRelatedField(model=Employee, required=False, allow_null=True)
     items = PrescriptionItemSerializer(many=True)
@@ -83,6 +104,7 @@ class PrescriptionSerializer(ClinicSerializer):
     doctor_name = serializers.CharField(
         source="doctor.name", read_only=True, default=None
     )
+    allergy_warnings = serializers.SerializerMethodField()
 
     class Meta:
         model = Prescription
@@ -91,6 +113,25 @@ class PrescriptionSerializer(ClinicSerializer):
             "visit", "patient", "patient_name",
             "doctor", "doctor_name",
             "issued_at", "notes", "items", "created_at",
+            "allergy_warnings",
+        ]
+
+    def get_allergy_warnings(self, prescription):
+        """Medicines on this prescription that mention a recorded allergen.
+
+        The same `allergy_conflicts` the server-rendered screens use — one
+        definition of "this clashes", so the two front ends cannot disagree on
+        a patient-safety check. It warns and does not block: §26 keeps the
+        decision with the doctor.
+        """
+        from medical.models import allergy_conflicts
+
+        return [
+            {"medication": medication, "allergen": allergen}
+            for medication, allergen in allergy_conflicts(
+                prescription.patient,
+                [item.medication for item in prescription.items.all()],
+            )
         ]
 
     def validate_items(self, items):
@@ -134,9 +175,11 @@ class PrescriptionSerializer(ClinicSerializer):
         return instance
 
 
-class TreatmentPlanSerializer(ClinicSerializer):
+class TreatmentPlanSerializer(VisitMatchesPatient, ClinicSerializer):
     patient = TenantScopedRelatedField(model=Patient, branch_field="branch")
-    visit = TenantScopedRelatedField(model=Visit, required=False, allow_null=True)
+    visit = TenantScopedRelatedField(
+        model=Visit, branch_field="branch", required=False, allow_null=True
+    )
     doctor = TenantScopedRelatedField(model=Employee, required=False, allow_null=True)
     branch = TenantScopedRelatedField(model=Branch, required=False, allow_null=True)
     service = TenantScopedRelatedField(model=Service, required=False, allow_null=True)
@@ -208,8 +251,8 @@ class TreatmentSessionSerializer(ClinicSerializer):
         return attrs
 
 
-class ProcedureSerializer(ClinicSerializer):
-    visit = TenantScopedRelatedField(model=Visit, required=False, allow_null=True)
+class ProcedureSerializer(VisitMatchesPatient, ClinicSerializer):
+    visit = TenantScopedRelatedField(model=Visit, branch_field="branch")
     patient = TenantScopedRelatedField(model=Patient, branch_field="branch")
     doctor = TenantScopedRelatedField(model=Employee, required=False, allow_null=True)
     branch = TenantScopedRelatedField(model=Branch, required=False, allow_null=True)
@@ -235,9 +278,11 @@ class ProcedureSerializer(ClinicSerializer):
         ]
 
 
-class LabResultSerializer(ClinicSerializer):
+class LabResultSerializer(VisitMatchesPatient, ClinicSerializer):
     patient = TenantScopedRelatedField(model=Patient, branch_field="branch")
-    visit = TenantScopedRelatedField(model=Visit, required=False, allow_null=True)
+    visit = TenantScopedRelatedField(
+        model=Visit, branch_field="branch", required=False, allow_null=True
+    )
     ordered_by = TenantScopedRelatedField(
         model=Employee, required=False, allow_null=True
     )
@@ -270,9 +315,11 @@ class LabResultSerializer(ClinicSerializer):
         read_only_fields = ["acknowledged_by", "acknowledged_at"]
 
 
-class MedicalAttachmentSerializer(ClinicSerializer):
+class MedicalAttachmentSerializer(VisitMatchesPatient, ClinicSerializer):
     patient = TenantScopedRelatedField(model=Patient, branch_field="branch")
-    visit = TenantScopedRelatedField(model=Visit, required=False, allow_null=True)
+    visit = TenantScopedRelatedField(
+        model=Visit, branch_field="branch", required=False, allow_null=True
+    )
     lab_result = TenantScopedRelatedField(
         model=LabResult, required=False, allow_null=True
     )
@@ -347,3 +394,39 @@ class MedicalAttachmentSerializer(ClinicSerializer):
     def update(self, instance, validated_data):
         validated_data.update(getattr(self, "_detected", {}))
         return super().update(instance, validated_data)
+
+
+class AllergySerializer(ClinicSerializer):
+    """A standing fact about the patient, shown on every encounter."""
+
+    patient = TenantScopedRelatedField(model=Patient, branch_field="branch")
+    patient_name = serializers.CharField(source="patient.name", read_only=True)
+    severity_label = serializers.CharField(source="get_severity_display", read_only=True)
+    recorded_by_name = serializers.CharField(
+        source="recorded_by.username", read_only=True, default=None
+    )
+
+    class Meta:
+        model = Allergy
+        fields = [
+            "uuid", "patient", "patient_name", "substance", "reaction",
+            "severity", "severity_label", "notes",
+            "recorded_by_name", "recorded_at",
+        ]
+        read_only_fields = ["recorded_at"]
+
+    def validate(self, attrs):
+        """One row per substance per patient — the constraint exists in the
+        database, and without this check it surfaces as a 500 instead of a
+        message the doctor can act on."""
+        patient = attrs.get("patient") or getattr(self.instance, "patient", None)
+        substance = (attrs.get("substance") or getattr(self.instance, "substance", "")).strip()
+        if patient and substance:
+            clash = Allergy.objects.filter(patient=patient, substance__iexact=substance)
+            if self.instance:
+                clash = clash.exclude(pk=self.instance.pk)
+            if clash.exists():
+                raise serializers.ValidationError(
+                    {"substance": "هذه الحساسية مسجلة بالفعل لهذا المريض."}
+                )
+        return attrs

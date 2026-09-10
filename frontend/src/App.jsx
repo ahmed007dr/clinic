@@ -2,13 +2,13 @@ import { Suspense } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 
 import { Loading } from '@/components/ui'
-import { AppShell, RequireAuth, RequirePermission } from '@/components/layout'
+import { AppShell, RequireAuth, RequirePermission, RequirePlatform } from '@/components/layout'
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { AuthProvider } from '@/hooks/useAuth'
 import { ToastProvider } from '@/hooks/useToast'
 
-import { routes } from './routes'
+import { platformRoutes, PlatformShell, routes } from './routes'
 
 /**
  * Django mounts the application at `/app/` (see `api/spa.py`), so the router
@@ -37,6 +37,23 @@ export default function App() {
             <Suspense fallback={<Loading />}>
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
+                <Route
+                  path="/platform"
+                  element={
+                    <RequirePlatform>
+                      <PlatformShell />
+                    </RequirePlatform>
+                  }
+                >
+                  {platformRoutes.map((route) => {
+                    const Element = route.element
+                    return route.index ? (
+                      <Route key="index" index element={<Element />} />
+                    ) : (
+                      <Route key={route.path} path={route.path} element={<Element />} />
+                    )
+                  })}
+                </Route>
                 <Route
                   path="/"
                   element={

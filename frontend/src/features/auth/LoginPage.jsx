@@ -9,7 +9,7 @@ import { useDocumentTitle } from '@/hooks/useDebounce'
 import './login.css'
 
 export function LoginPage() {
-  const { login, isAuthenticated, loading } = useAuth()
+  const { login, isAuthenticated, isPlatform, loading } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [email, setEmail] = useState('')
@@ -23,6 +23,8 @@ export function LoginPage() {
 
   // Someone who is already signed in and navigates here should land on the
   // application, not on a form asking them to sign in again.
+  if (isPlatform) return <Navigate to="/platform" replace />
+
   if (isAuthenticated) {
     return <Navigate to={location.state?.from?.pathname || '/'} replace />
   }
@@ -32,8 +34,10 @@ export function LoginPage() {
     setSubmitting(true)
     setError(null)
     try {
-      await login(email, password)
-      navigate(location.state?.from?.pathname || '/', { replace: true })
+      const result = await login(email, password)
+      navigate(result.platform ? '/platform' : location.state?.from?.pathname || '/', {
+        replace: true,
+      })
     } catch (caught) {
       setError(caught.message)
     } finally {

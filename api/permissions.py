@@ -81,11 +81,20 @@ class IsClinicMember(permissions.BasePermission):
 
     def has_permission(self, request, view):
         user = request.user
-        return bool(
+        if not (
             user
             and user.is_authenticated
             and getattr(user, "tenant_id", None) is not None
-        )
+        ):
+            return False
+        # Checked on every request, not only at sign-in: suspending a clinic
+        # must stop its staff now, not whenever their sessions happen to
+        # expire — otherwise "suspend" means "stop new logins" and a clinic
+        # that is not paying keeps working for weeks.
+        if not user.tenant.is_usable:
+            self.message = "اشتراك العيادة غير نشط. يرجى التواصل مع الدعم."
+            return False
+        return True
 
 
 class IsClinicAdmin(IsClinicMember):

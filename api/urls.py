@@ -11,6 +11,8 @@ from rest_framework.routers import DefaultRouter
 from .views import accounts, appointments, auth, billing, clinical, core
 from .views import dashboard as dashboard_views
 from .views import notifications, patients
+from .views.subscription import SubscriptionView
+from . import platform
 
 router = DefaultRouter()
 
@@ -48,6 +50,7 @@ router.register(
 router.register("procedures", clinical.ProcedureViewSet, basename="procedure")
 router.register("lab-results", clinical.LabResultViewSet, basename="labresult")
 router.register("attachments", clinical.MedicalAttachmentViewSet, basename="attachment")
+router.register("allergies", clinical.AllergyViewSet, basename="allergy")
 
 # Administration
 router.register("staff", accounts.StaffUserViewSet, basename="staff")
@@ -64,5 +67,12 @@ urlpatterns = [
     path("auth/logout/", auth.LogoutView.as_view(), name="logout"),
     path("auth/password/", auth.PasswordChangeView.as_view(), name="password-change"),
     path("dashboard/", dashboard_views.DashboardView.as_view(), name="dashboard"),
+    path("subscription/", SubscriptionView.as_view(), name="subscription"),
+    # The owner portal. Gated by is_platform_staff; see api/platform.py.
+    path("platform/plans/", platform.PlanListView.as_view(), name="platform-plans"),
+    path("platform/tenants/", platform.TenantListView.as_view(), name="platform-tenants"),
+    path("platform/tenants/<uuid:uuid>/", platform.TenantDetailView.as_view(), name="platform-tenant"),
+    path("platform/tenants/<uuid:uuid>/status/", platform.TenantStatusView.as_view(), name="platform-tenant-status"),
+    path("platform/tenants/<uuid:uuid>/plan/", platform.TenantPlanView.as_view(), name="platform-tenant-plan"),
     path("", include(router.urls)),
 ]

@@ -15,12 +15,15 @@ import { useAuth } from '@/hooks/useAuth'
  */
 
 export function RequireAuth({ children }) {
-  const { isAuthenticated, loading } = useAuth()
+  const { isAuthenticated, isPlatform, loading } = useAuth()
   const location = useLocation()
 
   // The session check is one request; rendering the login form before it
   // returns would bounce an already-signed-in user out of a link they opened.
   if (loading) return <Loading message="جارٍ التحقق من الجلسة…" />
+
+  // An operator has no clinic; the clinic screens are not theirs.
+  if (!isAuthenticated && isPlatform) return <Navigate to="/platform" replace />
 
   if (!isAuthenticated) {
     // `state.from` so signing in returns to the page that was asked for,
@@ -45,4 +48,14 @@ export function RequirePermission({ permission, children }) {
   }
 
   return children
+}
+
+/** The owner portal. Clinic users are sent back to their own app. */
+export function RequirePlatform({ children }) {
+  const { isPlatform, isAuthenticated, loading } = useAuth()
+  const location = useLocation()
+  if (loading) return <Loading message="جارٍ التحقق من الجلسة…" />
+  if (isPlatform) return children
+  if (isAuthenticated) return <Navigate to="/" replace />
+  return <Navigate to="/login" replace state={{ from: location }} />
 }

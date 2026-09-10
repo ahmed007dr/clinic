@@ -1,0 +1,41 @@
+/* Present allergies get the urgent rail: this is exactly the "needs a human"
+   case the colour is reserved for. An empty panel stays quiet. */
+.allergy--present {
+  border-inline-start: 3px solid var(--urgent);
+}
+
+.allergy__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.allergy__item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s2);
+}
+
+.allergy__reaction {
+  font-size: var(--text-sm);
+}
+
+.allergy__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  margin-top: var(--s3);
+}
+
+.allergy__banner {
+  padding: var(--s3) var(--s4);
+  border-radius: var(--radius);
+  background: var(--urgent-soft);
+  color: var(--urgent);
+  font-size: var(--text-sm);
+  margin-bottom: var(--s4);
+}

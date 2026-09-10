@@ -28,6 +28,7 @@ from employees.models import Employee
 from medical.models import Visit
 from patients.models import Patient
 from subscriptions.entitlements import LIMITS, current_subscription, resolve_features
+from subscriptions.usage import limits_table, usage_for
 from subscriptions.models import Plan, Subscription
 from tenants.context import tenant_context
 from tenants.models import Tenant
@@ -81,15 +82,9 @@ def tenant_detail(request, uuid):
 
     with tenant_context(tenant):
         subscription = current_subscription(tenant)
-        usage = {
-            "max_branches": Branch.objects.count(),
-            "max_doctors": Employee.objects.filter(
-                employee_type__name="Doctor"
-            ).count(),
-            "max_staff": Employee.objects.count(),
-            "max_patients": Patient.objects.count(),
-            "max_storage_mb": None,  # storage accounting is not implemented yet
-        }
+        # One definition of every count, shared with the clinic's own page and
+        # every limit check (subscriptions/usage.py, WIRE-002).
+        usage = usage_for(tenant)
         snapshot = {
             "appointments": Appointment.objects.count(),
             "visits": Visit.objects.count(),
@@ -106,19 +101,7 @@ def tenant_detail(request, uuid):
         model_name="Tenant", object_id=tenant.pk,
     )
 
-    limits = []
-    for field, label in LIMITS.items():
-        allowed = getattr(subscription.plan, field) if subscription else 0
-        used = usage.get(field)
-        limits.append({
-            "label": label,
-            "used": used,
-            "allowed": allowed,
-            "unlimited": allowed is None,
-            "over": (
-                allowed is not None and used is not None and used > allowed
-            ),
-        })
+    limits = limits_table(tenant, subscription, usage)
 
     return render(request, "platform_admin/tenant_detail.html", {
         "tenant": tenant,

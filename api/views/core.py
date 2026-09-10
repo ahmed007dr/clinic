@@ -13,6 +13,10 @@ from api.serializers.core import (
     SpecializationSerializer,
 )
 from api.viewsets import ClinicViewSet, ReadOnlyClinicViewSet
+from rest_framework.exceptions import PermissionDenied
+from subscriptions.entitlements import LimitReached, check_limit
+from subscriptions.usage import doctor_count, limit_message
+from tenants.context import get_current_tenant
 from branches.models import Branch
 from employees.models import Employee, EmployeeType, SalaryType, Specialization
 from services.models import Service
@@ -96,6 +100,31 @@ class EmployeeViewSet(ClinicViewSet):
         return queryset.select_related(
             "employee_type", "branch", "salary_type"
         ).prefetch_related("specializations")
+
+    # The same two limits the server-rendered employee screens enforce
+    # (WIRE-003). Counted clinic-wide, never through the caller's branch view.
+    @staticmethod
+    def _is_doctor(employee_type):
+        return getattr(employee_type, "name", None) == "Doctor"
+
+    def _refuse(self, limit, count):
+        try:
+            check_limit(get_current_tenant(), limit, count)
+        except LimitReached as reached:
+            raise PermissionDenied(limit_message(reached))
+
+    def perform_create(self, serializer):
+        self._refuse("max_staff", Employee.objects.count())
+        if self._is_doctor(serializer.validated_data.get("employee_type")):
+            self._refuse("max_doctors", doctor_count())
+        super().perform_create(serializer)
+
+    def perform_update(self, serializer):
+        before = serializer.instance.employee_type
+        after = serializer.validated_data.get("employee_type", before)
+        if self._is_doctor(after) and not self._is_doctor(before):
+            self._refuse("max_doctors", doctor_count())
+        super().perform_update(serializer)
 
 
 class DoctorViewSet(ReadOnlyClinicViewSet):

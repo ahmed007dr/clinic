@@ -19,6 +19,8 @@ import { useRecord } from '@/hooks/useApi'
 import { useAuth } from '@/hooks/useAuth'
 import { formatDate, formatMoney } from '@/lib/format'
 
+import { AllergyPanel } from '@/features/clinical/AllergyPanel'
+
 import { PatientTimeline } from './PatientTimeline'
 import './patient.css'
 
@@ -152,7 +154,8 @@ export function PatientDetailPage() {
           </Card>
         </div>
 
-        <aside className="patient__side">
+        <aside className="patient__side ui-stack">
+          {permissions.view_clinical && <AllergyPanel patientUuid={uuid} />}
           <PatientSummary uuid={uuid} canViewClinical={permissions.view_clinical} />
         </aside>
       </div>

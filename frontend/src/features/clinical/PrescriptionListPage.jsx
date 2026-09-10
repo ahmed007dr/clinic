@@ -11,6 +11,7 @@ import { useMutation } from '@/hooks/useApi'
 import { useToast } from '@/hooks/useToast'
 import { formatDateTime, toDateTimeInput } from '@/lib/format'
 
+import { AllergyBanner } from './AllergyPanel'
 import './prescription.css'
 
 const BLANK_ITEM = {
@@ -89,13 +90,17 @@ export function PrescriptionListPage() {
       return
     }
     try {
-      await save.run({
+      const saved = await save.run({
         ...form.values,
-        visit: form.values.visit || null,
         doctor: form.values.doctor || null,
         items: filled,
       })
       toast.success('تم حفظ الروشتة')
+      // The server's own check, the same one the printed prescription uses.
+      // A warning, never a block — the doctor decides (§26).
+      ;(saved?.allergy_warnings ?? []).forEach((warning) =>
+        toast.error(`تنبيه حساسية: «${warning.medication}» يطابق حساسية مسجلة من «${warning.allergen}».`),
+      )
       setEditing(null)
       setRefreshKey((value) => value + 1)
     } catch {
@@ -129,9 +134,21 @@ export function PrescriptionListPage() {
       key: '__actions',
       actions: true,
       render: (row) => (
-        <Button size="sm" variant="ghost" onClick={() => open(row)}>
-          تعديل
-        </Button>
+        <div className="ui-row">
+          {/* The server-rendered print page: the browser shapes Arabic and
+              lays out RTL correctly, which a generated PDF does not. */}
+          <a
+            className="ui-btn ui-btn--ghost ui-btn--sm"
+            href={`/medical/prescription/${row.uuid}/print/`}
+            target="_blank"
+            rel="noopener"
+          >
+            طباعة
+          </a>
+          <Button size="sm" variant="ghost" onClick={() => open(row)}>
+            تعديل
+          </Button>
+        </div>
       ),
     },
   ]
@@ -180,6 +197,7 @@ export function PrescriptionListPage() {
       >
         <form onSubmit={submit}>
           {save.formError && <div className="form-error">{save.formError}</div>}
+          <AllergyBanner patientUuid={form.values.patient} />
 
           <div className="form-grid">
             <div className="form-grid__cell">
@@ -205,9 +223,12 @@ export function PrescriptionListPage() {
             <div className="form-grid__cell">
               <RelationSelect
                 label="الزيارة"
+                required
                 resource={api.visits}
                 searchable
                 labelKey="serial_number"
+                params={{ patient: form.values.patient || undefined }}
+                hint="زيارات المريض المختار فقط"
                 value={form.values.visit}
                 error={save.fieldErrors.visit}
                 onChange={(value) => form.setValue('visit', value)}

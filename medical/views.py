@@ -33,6 +33,9 @@ from .models import (
     allergy_conflicts,
 )
 from .attachments import ALLOWED_EXTENSIONS
+from subscriptions.entitlements import LimitReached
+from subscriptions.usage import check_storage, limit_message
+
 from .permissions import can_view_clinical, scoped_to_user
 
 clinical_required = user_passes_test(can_view_clinical)
@@ -307,6 +310,13 @@ def attachment_upload(request, patient_uuid):
     if request.method == "POST":
         form = MedicalAttachmentForm(request.POST, request.FILES)
         if form.is_valid():
+            # Before anything is written: the size is known from the upload,
+            # and refusing afterwards would leave the file on disk (WIRE-004).
+            try:
+                check_storage(request.user.tenant, form.cleaned_data["file"].size)
+            except LimitReached as reached:
+                messages.error(request, limit_message(reached))
+                return redirect("patients:patient_detail", uuid=patient.uuid)
             attachment = form.save(commit=False)
             attachment.tenant = request.user.tenant
             attachment.patient = patient

@@ -6,8 +6,14 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
+from rest_framework.exceptions import PermissionDenied
+
 from api.permissions import CanViewClinical
+from subscriptions.entitlements import LimitReached
+from subscriptions.usage import check_storage, limit_message
+from tenants.context import get_current_tenant
 from api.serializers.clinical import (
+    AllergySerializer,
     LabResultSerializer,
     MedicalAttachmentSerializer,
     PrescriptionSerializer,
@@ -18,6 +24,7 @@ from api.serializers.clinical import (
 )
 from api.viewsets import ClinicViewSet
 from medical.models import (
+    Allergy,
     LabResult,
     MedicalAttachment,
     Procedure,
@@ -175,6 +182,15 @@ class MedicalAttachmentViewSet(ClinicalViewSet):
     search_fields = ["serial_number", "title", "patient__name", "original_filename"]
     ordering = ["-created_at"]
 
+    def perform_create(self, serializer):
+        # Before the file is written — refusing afterwards leaves it on disk.
+        upload = serializer.validated_data.get("file")
+        try:
+            check_storage(get_current_tenant(), getattr(upload, "size", 0) or 0)
+        except LimitReached as reached:
+            raise PermissionDenied(limit_message(reached))
+        super().perform_create(serializer)
+
     def filter_tenant_queryset(self, queryset):
         queryset = queryset.select_related("patient", "visit", "lab_result")
         category = self.request.query_params.get("category")
@@ -208,3 +224,23 @@ class MedicalAttachmentViewSet(ClinicalViewSet):
         )
         response["X-Content-Type-Options"] = "nosniff"
         return response
+
+
+class AllergyViewSet(ClinicalViewSet):
+    """Allergies. Scoped through the patient's branch — the record has none of
+    its own, and a doctor must not read another branch's patients by listing
+    their allergies."""
+
+    queryset = Allergy.objects.all()
+    serializer_class = AllergySerializer
+    branch_field = "patient__branch"
+    created_by_field = "recorded_by"
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ["substance", "patient__name"]
+    ordering = ["substance"]
+    # The whole list for one patient fits on a banner; paging it would hide
+    # the allergy that matters on page two.
+    pagination_class = None
+
+    def filter_tenant_queryset(self, queryset):
+        return self.patient_filtered(queryset.select_related("patient", "recorded_by"))

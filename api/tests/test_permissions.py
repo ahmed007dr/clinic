@@ -262,13 +262,17 @@ class PlatformStaffTests(TestCase):
         response = self.client.get(reverse("api:patient-list"))
         self.assertEqual(response.status_code, 403)
 
-    def test_they_cannot_sign_in_to_the_clinic_app_at_all(self):
+    def test_signing_in_gives_the_owner_portal_and_no_clinic(self):
         response = self.client.post(
             reverse("api:login"),
             {"email": "ops@platform.local", "password": "pass12345"},
             content_type="application/json",
         )
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json()["user"])
+        self.assertEqual(response.json()["platform_user"]["email"], "ops@platform.local")
+        # Signed in, and still refused by the clinic API.
+        self.assertEqual(self.client.get(reverse("api:patient-list")).status_code, 403)
 
 
 class SuspendedClinicTests(TestCase):

@@ -37,6 +37,7 @@ const EmployeeListPage = page(() => import('@/features/admin/EmployeeListPage'),
 const BranchListPage = page(() => import('@/features/admin/BranchListPage'), 'BranchListPage')
 const ServiceListPage = page(() => import('@/features/admin/ServiceListPage'), 'ServiceListPage')
 const SettingsPage = page(() => import('@/features/admin/SettingsPage'), 'SettingsPage')
+const SubscriptionPage = page(() => import('@/features/admin/SubscriptionPage'), 'SubscriptionPage')
 const AccountPage = page(() => import('@/features/account/AccountPage'), 'AccountPage')
 const NotificationListPage = page(() => import('@/features/notifications/NotificationListPage'), 'NotificationListPage')
 const NotFoundPage = page(() => import('@/features/misc/NotFoundPage'), 'NotFoundPage')
@@ -74,9 +75,21 @@ export const routes = [
   { path: 'branches', element: BranchListPage, permission: 'is_admin' },
   { path: 'services', element: ServiceListPage, permission: 'is_admin' },
   { path: 'settings', element: SettingsPage, permission: 'is_admin' },
+  { path: 'subscription', element: SubscriptionPage, permission: 'is_admin' },
 
   { path: 'settings/account', element: AccountPage },
   { path: 'notifications', element: NotificationListPage },
 
   { path: '*', element: NotFoundPage },
+]
+
+/* The owner portal — a separate section with its own frame, loaded only by
+   platform operators. */
+export const PlatformShell = page(() => import('@/features/platform/PlatformShell'), 'PlatformShell')
+const PlatformTenantsPage = page(() => import('@/features/platform/PlatformTenantsPage'), 'PlatformTenantsPage')
+const PlatformTenantPage = page(() => import('@/features/platform/PlatformTenantPage'), 'PlatformTenantPage')
+
+export const platformRoutes = [
+  { index: true, element: PlatformTenantsPage },
+  { path: 'tenants/:uuid', element: PlatformTenantPage },
 ]

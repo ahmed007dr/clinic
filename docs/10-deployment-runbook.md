@@ -176,6 +176,29 @@ If `/app/` shows "واجهة React لم تُبنَ بعد", the build is missing
 — the page names the command that fixes it. Full instructions:
 [`frontend/README.md`](../frontend/README.md).
 
+### 5b. The owner portal (`/app/platform`)
+
+Where the platform owner onboards clinics, suspends or reactivates them, and
+moves them between plans. Create the owner's account once:
+
+```bash
+venv/bin/python manage.py create_platform_admin owner@your-company.example
+```
+
+The password is generated and **printed once**. The account belongs to no
+clinic: signing in with it opens the owner portal, and every clinic screen and
+endpoint refuses it. Everything it does — including merely opening a clinic's
+page — is written to that clinic's audit trail.
+
+Onboarding a clinic from the portal is the same as `create_tenant` (section 7):
+the clinic, its roles, its first branch, its administrator and a 30-day Basic
+trial, in one transaction. The administrator's password is shown once, on
+screen.
+
+**Suspending a clinic takes effect immediately**, including for staff who are
+already signed in — the API checks the clinic's status on every request, not
+only at sign-in.
+
 ## 6. Check the deployment
 
 ```bash

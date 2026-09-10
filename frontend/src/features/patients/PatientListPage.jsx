@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '@/api'
 import { Badge, Button } from '@/components/ui'
 import { ResourceTable } from '@/components/data/ResourceTable'
+import { ExportButtons } from '@/components/data/ExportButtons'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useAuth } from '@/hooks/useAuth'
 import { formatDate } from '@/lib/format'
@@ -51,9 +52,12 @@ export function PatientListPage() {
       <PageHeader
         title="المرضى"
         actions={
+          <>
+          <ExportButtons path="/patients/export/" />
           <Button variant="primary" onClick={() => navigate('/patients/new')}>
             تسجيل مريض
           </Button>
+          </>
         }
       />
       <ResourceTable
