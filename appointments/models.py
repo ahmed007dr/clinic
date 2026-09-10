@@ -9,6 +9,8 @@ class Appointment(TenantOwnedModel):
         ("waiting", "الانتظار"),
         ("called", "تم الاتصال بالهاتف"),
         ("quick", "حجز سريع"),
+        # From the patient portal; reception confirms it (docs/12, D3).
+        ("requested", "طلب من المريض"),
     ]
 
     patient = models.ForeignKey('patients.Patient', on_delete=models.CASCADE)

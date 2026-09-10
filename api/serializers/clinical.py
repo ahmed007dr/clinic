@@ -309,10 +309,13 @@ class LabResultSerializer(VisitMatchesPatient, ClinicSerializer):
             "ordered_at", "resulted_at",
             "acknowledged_by", "acknowledged_by_name", "acknowledged_at",
             "notes", "created_at", "updated_at",
+            "released_to_patient", "released_at",
         ]
         # Acknowledgement is an act with a named actor and a timestamp, not two
         # fields a client fills in. It has its own endpoint.
-        read_only_fields = ["acknowledged_by", "acknowledged_at"]
+        read_only_fields = [
+            "acknowledged_by", "acknowledged_at", "released_to_patient", "released_at",
+        ]
 
 
 class MedicalAttachmentSerializer(VisitMatchesPatient, ClinicSerializer):
@@ -342,6 +345,7 @@ class MedicalAttachmentSerializer(VisitMatchesPatient, ClinicSerializer):
             "category", "category_label",
             "file", "original_filename", "content_type", "size_bytes", "checksum",
             "notes", "uploaded_by_name", "created_at",
+            "released_to_patient", "released_at",
         ]
         # The stored file is private and streamed by an authenticated view;
         # `file` is accepted on upload and never rendered as a URL, because
@@ -349,6 +353,7 @@ class MedicalAttachmentSerializer(VisitMatchesPatient, ClinicSerializer):
         extra_kwargs = {"file": {"write_only": True}}
         read_only_fields = [
             "original_filename", "content_type", "size_bytes", "checksum",
+            "released_to_patient", "released_at",
         ]
 
     def validate_file(self, uploaded):

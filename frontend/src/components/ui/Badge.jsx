@@ -19,6 +19,8 @@ export const APPOINTMENT_TONES = {
   entered: 'ok',
   called: 'info',
   quick: 'neutral',
+  // From the patient portal, waiting for reception to confirm.
+  requested: 'primary',
 }
 
 /** Lab flags. `normal` is deliberately quiet — only the rest should draw an eye,

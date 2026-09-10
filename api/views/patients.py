@@ -8,6 +8,9 @@ from api.permissions import IsClinicMember, can_view_clinical
 from api.serializers.patients import PatientListSerializer, PatientSerializer
 from api.viewsets import ClinicViewSet
 from patients.models import Patient
+from django.utils import timezone
+from portal.models import PatientAccount, PortalInvitation
+from tenants.context import get_current_tenant
 
 
 class PatientViewSet(ClinicViewSet):
@@ -130,3 +133,54 @@ class PatientViewSet(ClinicViewSet):
 
         entries.sort(key=lambda entry: entry["at"], reverse=True)
         return Response({"patient": patient.name, "entries": entries})
+
+    # ------------------------------------------------------ patient portal
+
+    @action(detail=True, methods=["get"], url_path="portal")
+    def portal_status(self, request, uuid=None):
+        patient = self.get_object()
+        account = PatientAccount.objects.filter(patient=patient).first()
+        invite = (
+            PortalInvitation.objects.filter(
+                patient=patient, used_at__isnull=True, expires_at__gt=timezone.now()
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        return Response({
+            "has_account": account is not None,
+            "is_active": bool(account and account.is_active),
+            "last_login": account.last_login if account else None,
+            "invite_expires_at": invite.expires_at if invite else None,
+        })
+
+    @action(detail=True, methods=["post"], url_path="portal-invite")
+    def portal_invite(self, request, uuid=None):
+        """A single-use link for the patient to set a portal password.
+
+        The token travels in the URL *fragment* (after `#`), which browsers
+        never send to a server — so it cannot end up in an access log. It is
+        shown to staff once and stored only as a hash.
+        """
+        patient = self.get_object()
+        if not patient.phone1:
+            return Response(
+                {"detail": "سجّل رقم هاتف المريض أولاً — الدخول إلى البوابة يتم برقم الهاتف."},
+                status=400,
+            )
+        invitation, token = PortalInvitation.issue(patient, created_by=request.user)
+        slug = get_current_tenant().slug
+        url = request.build_absolute_uri(f"/app/portal/{slug}/invite") + f"#{token}"
+        response = Response({"url": url, "expires_at": invitation.expires_at})
+        response["Cache-Control"] = "no-store"
+        return response
+
+    @action(detail=True, methods=["post"], url_path="portal-revoke")
+    def portal_revoke(self, request, uuid=None):
+        patient = self.get_object()
+        account = PatientAccount.objects.filter(patient=patient).first()
+        if account:
+            account.is_active = False
+            account.save(update_fields=["is_active"])
+            account.revoke_sessions()
+        return Response(status=204)

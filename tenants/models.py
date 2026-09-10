@@ -20,6 +20,10 @@ class Tenant(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.TRIAL)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Patient portal: may patients read the diagnosis text? Off by default;
+    # each clinic decides (docs/12, decision D2).
+    portal_show_diagnosis = models.BooleanField(default=False)
+
     class Meta:
         ordering = ["name"]
         verbose_name = "مستأجر"

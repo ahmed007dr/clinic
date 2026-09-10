@@ -102,6 +102,7 @@ export function LabResultListPage() {
       : api.labResults.update(editing.uuid, values),
   )
   const acknowledge = useMutation((uuid) => api.labResults.acknowledge(uuid))
+  const release = useMutation((uuid, released) => api.labResults.release(uuid, released))
 
   const initial =
     editing && editing !== 'new'
@@ -196,6 +197,28 @@ export function LabResultListPage() {
             تسجيل الاطلاع
           </Button>
         ),
+    },
+    {
+      key: 'released',
+      header: 'للمريض',
+      render: (row) => (
+        <Button
+          size="sm"
+          variant={row.released_to_patient ? 'ghost' : 'secondary'}
+          disabled={release.submitting}
+          onClick={async () => {
+            try {
+              await release.run(row.uuid, !row.released_to_patient)
+              toast.success(row.released_to_patient ? 'أُخفيت عن المريض' : 'أصبحت متاحة للمريض في البوابة')
+              refresh()
+            } catch (error) {
+              toast.error(error.message)
+            }
+          }}
+        >
+          {row.released_to_patient ? '✓ متاحة — إخفاء' : 'إصدار للمريض'}
+        </Button>
+      ),
     },
     {
       key: '__actions',

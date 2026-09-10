@@ -3,7 +3,8 @@
 from django.http import FileResponse, Http404
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
-from rest_framework.parsers import FormParser, MultiPartParser
+from django.utils import timezone
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from rest_framework.exceptions import PermissionDenied
@@ -44,6 +45,22 @@ class ClinicalViewSet(ClinicViewSet):
     def patient_filtered(self, queryset):
         patient = self.request.query_params.get("patient")
         return queryset.filter(patient__uuid=patient) if patient else queryset
+
+
+class ReleaseToPatientMixin:
+    """`POST …/release/ {released}` — show or hide a record in the patient
+    portal. A clinical act with a named actor, so it is its own endpoint and
+    not a field any edit can flip."""
+
+    @action(detail=True, methods=["post"], url_path="release")
+    def release(self, request, uuid=None):
+        record = self.get_object()
+        released = request.data.get("released", True) is True
+        record.released_to_patient = released
+        record.released_at = timezone.now() if released else None
+        record.released_by = request.user if released else None
+        record.save(update_fields=["released_to_patient", "released_at", "released_by"])
+        return Response(self.get_serializer(record).data)
 
 
 class VisitViewSet(ClinicalViewSet):
@@ -128,7 +145,7 @@ class ProcedureViewSet(ClinicalViewSet):
         )
 
 
-class LabResultViewSet(ClinicalViewSet):
+class LabResultViewSet(ReleaseToPatientMixin, ClinicalViewSet):
     queryset = LabResult.objects.all()
     serializer_class = LabResultSerializer
     filter_backends = [SearchFilter, OrderingFilter]
@@ -173,11 +190,11 @@ class LabResultViewSet(ClinicalViewSet):
         )
 
 
-class MedicalAttachmentViewSet(ClinicalViewSet):
+class MedicalAttachmentViewSet(ReleaseToPatientMixin, ClinicalViewSet):
     queryset = MedicalAttachment.objects.all()
     serializer_class = MedicalAttachmentSerializer
     created_by_field = "uploaded_by"
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ["serial_number", "title", "patient__name", "original_filename"]
     ordering = ["-created_at"]

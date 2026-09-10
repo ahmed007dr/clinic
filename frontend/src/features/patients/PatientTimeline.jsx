@@ -22,6 +22,14 @@ const KINDS = {
   payment: { label: 'دفعة', icon: '💵', tone: 'ok' },
 }
 
+// The timeline sends the flag's code; the screen shows the model's Arabic label
+// for it (medical.LabResult.Flag), never the raw English word.
+const LAB_FLAG_LABELS = {
+  normal: 'طبيعي',
+  abnormal: 'غير طبيعي',
+  critical: 'حرج',
+}
+
 const LAB_FLAG_TONES = {
   critical: 'urgent',
   abnormal: 'urgent',
@@ -67,7 +75,7 @@ export function PatientTimeline({ uuid }) {
                 <strong className="timeline__title">{entry.title}</strong>
                 {entry.flag && (
                   <Badge tone={LAB_FLAG_TONES[entry.flag] ?? 'neutral'}>
-                    {entry.flag}
+                    {LAB_FLAG_LABELS[entry.flag] ?? entry.flag}
                   </Badge>
                 )}
               </div>

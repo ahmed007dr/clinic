@@ -91,6 +91,8 @@ INSTALLED_APPS = [
     # /api/; the server-rendered screens keep their own URLs and keep working.
     "rest_framework",
     "api",
+    # Patient portal — its own accounts and sessions; see docs/12.
+    "portal",
 
 ]
 
@@ -117,6 +119,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         # Password guessing is the only unauthenticated write in the API.
         "login": "10/min",
+        "portal_login": "10/min",
     },
     "UNAUTHENTICATED_USER": "django.contrib.auth.models.AnonymousUser",
 }

@@ -12,6 +12,7 @@ from .views import accounts, appointments, auth, billing, clinical, core
 from .views import dashboard as dashboard_views
 from .views import notifications, patients
 from .views.subscription import SubscriptionView
+from .views.settings import ClinicSettingsView
 from . import platform
 
 router = DefaultRouter()
@@ -68,6 +69,9 @@ urlpatterns = [
     path("auth/password/", auth.PasswordChangeView.as_view(), name="password-change"),
     path("dashboard/", dashboard_views.DashboardView.as_view(), name="dashboard"),
     path("subscription/", SubscriptionView.as_view(), name="subscription"),
+    path("clinic-settings/", ClinicSettingsView.as_view(), name="clinic-settings"),
+    # The patient portal: its own authentication, never a staff session.
+    path("portal/<slug:slug>/", include("portal.urls")),
     # The owner portal. Gated by is_platform_staff; see api/platform.py.
     path("platform/plans/", platform.PlanListView.as_view(), name="platform-plans"),
     path("platform/tenants/", platform.TenantListView.as_view(), name="platform-tenants"),

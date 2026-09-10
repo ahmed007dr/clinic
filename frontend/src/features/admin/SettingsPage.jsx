@@ -5,6 +5,8 @@ import { Tabs } from '@/components/ui'
 import { CrudPage } from '@/components/data/CrudPage'
 import { PageHeader } from '@/components/layout/PageHeader'
 
+import { PortalSettings } from './PortalSettings'
+
 /**
  * The five short reference lists, behind one set of tabs.
  *
@@ -35,6 +37,7 @@ const SECTIONS = {
     createLabel: 'إضافة نوع',
     note: 'النوع «Doctor» مطلوب لحجز المواعيد مع الأطباء — لا تحذفه.',
   },
+  portal: { label: 'بوابة المرضى' },
   'salary-types': {
     label: 'أنواع الرواتب',
     resource: api.salaryTypes,
@@ -80,6 +83,9 @@ export function SettingsPage() {
       {/* Keyed so switching tabs remounts the page: without it the previous
           section's rows stay on screen while the new ones load, and for a
           moment the wrong list is shown under the right heading. */}
+      {tab === 'portal' ? (
+        <PortalSettings />
+      ) : (
       <CrudPage
         key={tab}
         title={section.label}
@@ -90,6 +96,7 @@ export function SettingsPage() {
         createLabel={section.createLabel}
         emptyMessage="لا توجد عناصر بعد."
       />
+      )}
     </>
   )
 }

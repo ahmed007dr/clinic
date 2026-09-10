@@ -8,7 +8,7 @@ import { LoginPage } from '@/features/auth/LoginPage'
 import { AuthProvider } from '@/hooks/useAuth'
 import { ToastProvider } from '@/hooks/useToast'
 
-import { platformRoutes, PlatformShell, routes } from './routes'
+import { platformRoutes, PlatformShell, PortalApp, routes } from './routes'
 
 /**
  * Django mounts the application at `/app/` (see `api/spa.py`), so the router
@@ -37,6 +37,8 @@ export default function App() {
             <Suspense fallback={<Loading />}>
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
+                {/* The patient portal: its own sign-in, never the staff one. */}
+                <Route path="/portal/:slug/*" element={<PortalApp />} />
                 <Route
                   path="/platform"
                   element={

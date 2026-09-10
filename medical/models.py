@@ -629,6 +629,16 @@ class LabResult(TenantOwnedModel):
 
     notes = models.TextField(blank=True, verbose_name="ملاحظات")
 
+    # Visible in the patient portal only once a clinician releases it — a
+    # result is not the patient's to read the moment it is typed; a doctor may
+    # need to call them first (docs/12 §4, decision D3).
+    released_to_patient = models.BooleanField(default=False, verbose_name="متاح للمريض")
+    released_at = models.DateTimeField(null=True, blank=True)
+    released_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+
     serial_number = models.CharField(max_length=20, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
@@ -765,6 +775,16 @@ class MedicalAttachment(TenantOwnedModel):
     checksum = models.CharField(max_length=64, blank=True, verbose_name="بصمة الملف")
 
     notes = models.TextField(blank=True, verbose_name="ملاحظات")
+
+    # Visible in the patient portal only once a clinician releases it — a
+    # result is not the patient's to read the moment it is typed; a doctor may
+    # need to call them first (docs/12 §4, decision D3).
+    released_to_patient = models.BooleanField(default=False, verbose_name="متاح للمريض")
+    released_at = models.DateTimeField(null=True, blank=True)
+    released_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
 
     serial_number = models.CharField(max_length=20, blank=True)
     uploaded_by = models.ForeignKey(

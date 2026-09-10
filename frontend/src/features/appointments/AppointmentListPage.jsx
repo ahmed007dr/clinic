@@ -13,6 +13,7 @@ const STATUSES = [
   { value: 'entered', label: 'تم الدخول' },
   { value: 'called', label: 'تم الاتصال' },
   { value: 'quick', label: 'حجز سريع' },
+  { value: 'requested', label: 'طلب من المريض' },
 ]
 
 export function AppointmentListPage() {

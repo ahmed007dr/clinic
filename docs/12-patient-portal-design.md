@@ -1,6 +1,11 @@
 # 12 — Patient Portal: architecture and design
 
-Status: **design for review**. Nothing in this document is implemented yet.
+Status: **implemented 2026-09-10** with the recommended answer to every
+decision in section 8 (D1 invite + password, D2 diagnosis off by default per
+clinic, D3 request-and-confirm, release by clinician). Code: `portal/` (models,
+auth, views, isolation tests), `api/views/settings.py`, the release and invite
+actions in `api/views/`, and `frontend/src/features/portal/`. Phase 2 (OTP by
+SMS/WhatsApp) is still open: it needs a provider.
 
 The requirement, as stated from the start:
 

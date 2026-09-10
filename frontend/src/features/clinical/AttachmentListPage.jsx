@@ -47,6 +47,7 @@ export function AttachmentListPage() {
 
   const upload = useMutation((body) => api.attachments.create(body))
   const download = useMutation((uuid, name) => api.attachments.download(uuid, name))
+  const release = useMutation((uuid, released) => api.attachments.release(uuid, released))
 
   const set = (key, value) => setValues((current) => ({ ...current, [key]: value }))
 
@@ -98,6 +99,28 @@ export function AttachmentListPage() {
       key: 'created_at',
       header: 'الرفع',
       render: (row) => formatDateTime(row.created_at),
+    },
+    {
+      key: 'released',
+      header: 'للمريض',
+      render: (row) => (
+        <Button
+          size="sm"
+          variant={row.released_to_patient ? 'ghost' : 'secondary'}
+          disabled={release.submitting}
+          onClick={async () => {
+            try {
+              await release.run(row.uuid, !row.released_to_patient)
+              toast.success(row.released_to_patient ? 'أُخفيت عن المريض' : 'أصبحت متاحة للمريض في البوابة')
+              setRefreshKey((value) => value + 1)
+            } catch (error) {
+              toast.error(error.message)
+            }
+          }}
+        >
+          {row.released_to_patient ? '✓ متاحة — إخفاء' : 'إصدار للمريض'}
+        </Button>
+      ),
     },
     {
       key: '__actions',

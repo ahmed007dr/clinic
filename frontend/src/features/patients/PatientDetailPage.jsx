@@ -20,6 +20,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { formatDate, formatMoney } from '@/lib/format'
 
 import { AllergyPanel } from '@/features/clinical/AllergyPanel'
+import { PortalCard } from './PortalCard'
 
 import { PatientTimeline } from './PatientTimeline'
 import './patient.css'
@@ -156,6 +157,7 @@ export function PatientDetailPage() {
 
         <aside className="patient__side ui-stack">
           {permissions.view_clinical && <AllergyPanel patientUuid={uuid} />}
+          <PortalCard patientUuid={uuid} hasPhone={Boolean(patient.phone1)} />
           <PatientSummary uuid={uuid} canViewClinical={permissions.view_clinical} />
         </aside>
       </div>

@@ -17,6 +17,31 @@ from .middleware import get_current_request
 EXCLUDED_MODELS = {"AuditLog", "Session", "ContentType", "Migration"}
 
 
+def _staff_user(user):
+    """The request's user, if it is a real staff account — else None.
+
+    `AuditLog.user` is a foreign key to `accounts.User`. The patient portal
+    authenticates a *patient*, and DRF copies whatever it authenticated onto the
+    underlying Django request, so this signal can receive an object that is
+    `is_authenticated` without being a User. Assigning it raised and turned a
+    patient's appointment request into a 500.
+    """
+    from django.contrib.auth import get_user_model
+
+    if isinstance(user, get_user_model()) and user.is_authenticated:
+        return user
+    return None
+
+
+def _attributed(user, description):
+    """Name the patient in the entry when the actor came through the portal,
+    since there is no staff user to record."""
+    patient = getattr(user, "patient", None) if _staff_user(user) is None else None
+    if patient is not None:
+        return f"[portal] patient {patient.serial_number}: {description}".strip()
+    return description
+
+
 def create_audit_log(user, action, instance, description=""):
     """Write one audit row, and never break the caller's transaction.
 
@@ -53,11 +78,11 @@ def create_audit_log(user, action, instance, description=""):
                 # Same lesson as BUG-001: auditing must never be able to break
                 # the operation it is observing.
                 tenant_id=getattr(instance, "tenant_id", None),
-                user=user if user and getattr(user, "is_authenticated", False) else None,
+                user=_staff_user(user),
                 action=action,
                 model_name=model_name,
                 object_id=str(object_id),
-                description=description,
+                description=_attributed(user, description),
                 ip_address=ip,
                 user_agent=agent,
                 created_at=timezone.now(),

@@ -93,3 +93,6 @@ export const platformRoutes = [
   { index: true, element: PlatformTenantsPage },
   { path: 'tenants/:uuid', element: PlatformTenantPage },
 ]
+
+/* The patient portal — patients only, mobile-first. */
+export const PortalApp = page(() => import('@/features/portal/PortalApp'), 'PortalApp')

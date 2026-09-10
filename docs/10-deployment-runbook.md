@@ -199,6 +199,26 @@ screen.
 already signed in — the API checks the clinic's status on every request, not
 only at sign-in.
 
+### 5c. The patient portal (`/app/portal/<clinic-slug>/`)
+
+Patients sign in with their **phone number and a password**. There is no
+self-registration: the clinic invites each patient from the patient's file
+(«دعوة للبوابة»), which produces a single-use link valid for 72 hours. Hand it
+over on the clinic's WhatsApp or by SMS; the patient opens it and chooses a
+password. A new invitation cancels the previous one; «إيقاف الوصول» signs the
+patient out everywhere.
+
+What a patient sees is set in the design (docs/12) and in the clinic's
+settings: appointments, prescriptions, payments, treatment progress and
+allergies always; lab results and documents only once a doctor presses
+«إصدار للمريض»; the diagnosis text only if the clinic turns it on under
+الإعدادات → بوابة المرضى. Appointment requests from the portal arrive at
+reception with status «طلب من المريض» to confirm.
+
+No SMS provider is needed for this. Patient sessions use their own cookie,
+separate from staff sessions, and every clinical record a patient opens is
+written to the clinic's audit trail.
+
 ## 6. Check the deployment
 
 ```bash

@@ -283,7 +283,11 @@ Done in this batch, each with tests:
 
 Found by driving the app in a browser rather than by tests: the RTL mobile drawer covered the page, form layout CSS missing from lazy chunks, money figures wrapping or truncating, and a dashboard count that disagreed with the list it linked to. Found by a serializer-vs-model contract test: `Prescription.visit` and `Procedure.visit` are NOT NULL but the API called them optional (a 500 on save); also added a check that a record's visit belongs to its patient.
 
-Not done: the patient portal (design in `docs/12-patient-portal-design.md`, awaiting decisions D1–D5), scheduled reports (WIRE-006), the audit log screen in React.
+* **Patient portal** (`/app/portal/<slug>/`, docs/12): its own accounts, sessions and cookie — a patient is never a `User`. Clinic-issued single-use invitations (token in the URL fragment, stored hashed), phone + password login with lockout, and every read filtered to the signed-in patient at the queryset, so another patient's UUID is a 404 identical to a missing one. Lab results and documents appear only once a clinician releases them; the diagnosis only if the clinic enables it; appointment requests reach reception as «طلب من المريض». Staff side: invite/revoke on the patient file, release buttons, and a clinic setting. RLS policies extended to the three portal tables (`tenants.0013`).
+
+Found while building the portal: DRF copies the authenticated principal onto the Django request, so the audit signal received a *patient* where it expected a staff `User` and a patient's appointment request 500'd — after the row had been written. Fixed in `audit/signals.py` (only real staff users are stored; portal actions are attributed to the patient's file number) and the request is now atomic.
+
+Not done: OTP login by SMS/WhatsApp (needs a provider), scheduled reports (WIRE-006), the audit log screen in React.
 
 ## Deploy note for SEC-009 — existing staff log in differently afterwards
 

@@ -25,6 +25,9 @@ export const patients = {
   ...createResource('patients'),
   /** §19 — the unified history the system never had a screen for. */
   timeline: (uuid) => http.get(`/patients/${uuid}/timeline/`),
+  portalStatus: (uuid) => http.get(`/patients/${uuid}/portal/`),
+  portalInvite: (uuid) => http.post(`/patients/${uuid}/portal-invite/`),
+  portalRevoke: (uuid) => http.post(`/patients/${uuid}/portal-revoke/`),
 }
 
 export const appointments = {
@@ -52,6 +55,7 @@ export const procedures = createResource('procedures')
 export const labResults = {
   ...createResource('lab-results'),
   acknowledge: (uuid) => http.post(`/lab-results/${uuid}/acknowledge/`),
+  release: (uuid, released) => http.post(`/lab-results/${uuid}/release/`, { released }),
 }
 export const allergies = createResource('allergies')
 export const attachments = {
@@ -59,6 +63,7 @@ export const attachments = {
   /** The file is streamed by an authenticated view — the storage has no URL. */
   download: (uuid, filename) =>
     http.download(`/attachments/${uuid}/download/`, filename),
+  release: (uuid, released) => http.post(`/attachments/${uuid}/release/`, { released }),
 }
 
 /* Administration */
@@ -98,6 +103,11 @@ export const platform = {
   plans: () => http.get('/platform/plans/'),
 }
 
+export const clinicSettings = {
+  get: () => http.get('/clinic-settings/'),
+  update: (body) => http.patch('/clinic-settings/', body),
+}
+
 export const dashboard = {
   get: () => http.get('/dashboard/'),
 }
@@ -132,6 +142,7 @@ export const api = {
   dashboard,
   subscription,
   platform,
+  clinicSettings,
 }
 
 export default api
