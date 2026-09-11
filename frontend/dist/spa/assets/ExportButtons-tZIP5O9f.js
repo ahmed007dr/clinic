@@ -1,0 +1,1 @@
+import{j as s,s as r}from"./index-CXMRqScx.js";function t({path:e}){return s.jsxs("div",{className:"ui-row",children:[s.jsx("a",{className:"ui-btn ui-btn--secondary ui-btn--sm",href:r(`${e}?export=pdf`),children:"PDF"}),s.jsx("a",{className:"ui-btn ui-btn--secondary ui-btn--sm",href:r(`${e}?export=excel`),children:"Excel"})]})}export{t as E};
