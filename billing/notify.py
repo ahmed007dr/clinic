@@ -14,14 +14,9 @@ nothing is sent at all.
 
 import logging
 
-from django.conf import settings
-from django.core.mail import EmailMessage, get_connection
+from django.core.mail import EmailMessage
 
 logger = logging.getLogger(__name__)
-
-#: Seconds before giving up on the mail server. Django's default is to wait
-#: forever, which on a hung SMTP host would hang the request with it.
-TIMEOUT = 10
 
 
 def _recipient(doctor):
@@ -34,15 +29,19 @@ def _recipient(doctor):
 
 
 def _send(doctor, subject, lines):
+    from platform_admin.mailer import sender_for
+
     to = _recipient(doctor)
-    # No mail server configured: nothing to send through. (The in-memory
-    # backend the test runner installs needs none.)
-    configured = bool(getattr(settings, "EMAIL_HOST", None)) or "locmem" in settings.EMAIL_BACKEND
-    if not to or not configured:
+    if not to:
         return False
     try:
-        connection = get_connection(timeout=TIMEOUT)
-        EmailMessage(subject, "\n".join(lines), to=[to], connection=connection).send()
+        # The doctor's clinic's own mail settings from the developer portal,
+        # else its group's, else the platform's, else the settings file
+        # (platform_admin/mailer.py). None anywhere: nothing is sent.
+        connection, sender = sender_for(branch=doctor.branch, customer=getattr(doctor.branch, "tenant", None))
+        if connection is None:
+            return False
+        EmailMessage(subject, "\n".join(lines), from_email=sender, to=[to], connection=connection).send()
         return True
     except Exception:  # noqa: BLE001 — see the module docstring
         logger.exception("Could not email doctor %s", getattr(doctor, "pk", None))

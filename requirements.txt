@@ -50,6 +50,11 @@ pillow==12.3.0
 # type in by hand instead.
 qrcode==8.0
 
+# Encrypts the keys and passwords operators enter in the developer portal
+# (platform_admin/vault.py) — mail servers, cPanel, payment gateways, Google
+# Drive. Fernet (AES + HMAC); the key comes from PLATFORM_VAULT_KEY.
+cryptography>=42
+
 # PDF export (utils/export_pdf.py) and Excel export (utils/utils.py).
 #
 # charset-normalizer used to be pinned here too. It is not imported anywhere in

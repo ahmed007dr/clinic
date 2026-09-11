@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/useToast'
 import { formatDate, formatMoney, formatNumber } from '@/lib/format'
 
 import { STATUS_TONES } from './PlatformTenantsPage'
+import { TenantBilling } from './TenantBilling'
 import { TenantPeople } from './TenantPeople'
 
 const STATUSES = [
@@ -141,6 +142,8 @@ export function PlatformTenantPage() {
         </div>
 
         <TenantPeople tenant={uuid} />
+
+        <TenantBilling tenant={uuid} />
 
         <Card>
           <CardHeader title="الاستهلاك مقابل الباقة" />

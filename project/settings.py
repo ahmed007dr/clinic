@@ -276,3 +276,6 @@ EMAIL_USE_SSL = env.bool('EMAIL_USE_SSL', default=True)
 EMAIL_HOST_USER = env('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER)
+
+# Encrypts the developer portal's stored keys (platform_admin/vault.py).
+PLATFORM_VAULT_KEY = env('PLATFORM_VAULT_KEY', default='')

@@ -127,6 +127,20 @@ credential. Generate the secret key rather than inventing one:
 venv/bin/python -c "from django.core.management.utils import get_random_secret_key as k; print(k())"
 ```
 
+**`PLATFORM_VAULT_KEY`** encrypts every key and password entered in the
+developer portal (email, cPanel, payment gateways, Google Drive). Generate it
+once and keep it with the database backups — without it those settings cannot
+be read back:
+
+```bash
+venv/bin/python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Left unset, a key is derived from `DJANGO_SECRET_KEY`, which then cannot be
+rotated without re-entering every integration. **No integration key goes in
+`.env` or any file**: they are entered only in the developer portal
+(«المفاتيح والتكاملات»), each with a test and a production set.
+
 `DJANGO_DEBUG` **must** be `False`. With it on, Django serves `MEDIA_ROOT` with
 no authentication at all, and patient photographs become readable by anyone who
 guesses a URL.
@@ -198,6 +212,27 @@ screen.
 **Suspending a clinic takes effect immediately**, including for staff who are
 already signed in — the API checks the clinic's status on every request, not
 only at sign-in.
+
+**Integrations, billing and mailboxes** (docs/06 PLAT-002), all from the portal:
+
+* «المفاتيح والتكاملات»: SMTP, cPanel, Paymob, Fawry, Vodafone Cash (through
+  Paymob's wallet integration) and Google Drive — for the whole platform, one
+  owner group or one clinic, each with a **test** and a **production** set and
+  a switch for which is live. The page shows the callback URL to paste into
+  each gateway's dashboard (`https://<host>/api/pay/<gateway>/callback/`).
+  Run one real payment in the test environment per gateway before switching to
+  production. The platform's gateway keys collect subscriptions; a clinic's
+  (or its group's) collect from its patients, and never fall back to the
+  platform's.
+* «الإيميلات»: creates a mailbox on the platform's cPanel for a group or a
+  clinic and can make it that group's/clinic's sender.
+* «الاشتراكات والأرصدة» and each group's page: cycle, negotiated price,
+  time-limited discounts, invoices, cash/transfer payments, late notes.
+  Invoices due are issued by a daily cron entry:
+
+```cron
+15 6 * * *  cd ~/app && venv/bin/python manage.py issue_platform_invoices >> ~/logs/invoices.log 2>&1
+```
 
 ### 5c. The patient portal (`/app/portal/<clinic-slug>/`)
 

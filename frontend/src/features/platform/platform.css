@@ -93,6 +93,89 @@
   user-select: all;
 }
 
+/* ---- Developer portal, phase 2: keys, mailboxes, billing, plans ---- */
+
+.scope-picker,
+.integrations__fields,
+.integrations__controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
+  gap: var(--s3);
+  align-items: end;
+}
+
+.integrations__fields {
+  margin-block: var(--s4);
+}
+
+.integrations__controls {
+  margin-block-start: var(--s3);
+}
+
+.integrations__order {
+  margin-block: var(--s3) 0;
+  font-size: var(--text-sm);
+}
+
+.integrations__actions {
+  margin-block-start: var(--s4);
+  flex-wrap: wrap;
+}
+
+.integrations__callback {
+  display: grid;
+  gap: var(--s1);
+  padding: var(--s3);
+  border-radius: var(--radius);
+  background: var(--surface-sunken);
+  border: 1px dashed var(--line);
+  font-size: var(--text-sm);
+}
+
+.integrations__callback code {
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.integrations__missing,
+.integrations__ok {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  margin-block: var(--s3) 0;
+  padding: var(--s2) var(--s3);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+}
+
+.integrations__missing {
+  background: var(--warn-soft);
+  border: 1px solid var(--warn);
+}
+
+.integrations__ok {
+  background: var(--ok-soft);
+  border: 1px solid var(--ok);
+}
+
+.tenant-billing__title {
+  margin: var(--s4) 0 0;
+  font-size: var(--text-lg);
+}
+
+.plan-form__group {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--s3);
+  margin: 0;
+}
+
+.plan-form__group legend {
+  padding-inline: var(--s1);
+  font-weight: 600;
+}
+
 @media (max-width: 40rem) {
   .platform__who {
     display: none;

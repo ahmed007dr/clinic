@@ -28,7 +28,6 @@ FEATURE_LABELS = {
 #: implementation and removing the entry happen in the same change.
 NOT_YET_BUILT = {
     "whatsapp",          # PLAT-004 — no provider chosen
-    "online_payments",   # FIN-004/005 — no gateway
     "advanced_analytics",
     "ai",
     "reports",           # generators exist; nothing schedules them (WIRE-006)

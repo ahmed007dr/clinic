@@ -126,6 +126,9 @@ export const shifts = {
 
 export const subscription = {
   get: () => http.get('/subscription/'),
+  /* The group's invoices from the platform, and paying one online. */
+  invoices: () => http.get('/subscription/invoices/'),
+  pay: (id, body) => http.post(`/subscription/invoices/${id}/pay/`, body),
 }
 
 export const platform = {
@@ -139,6 +142,30 @@ export const platform = {
   overview: () => http.get('/platform/overview/'),
   online: () => http.get('/platform/online/'),
   people: (uuid) => http.get(`/platform/tenants/${uuid}/people/`),
+  branches: (uuid) => http.get(`/platform/tenants/${uuid}/branches/`),
+  /* Keys and passwords — entered here only, returned masked (platform_admin/vault.py). */
+  integrations: (params) => http.get('/platform/integrations/', params),
+  saveIntegration: (body) => http.post('/platform/integrations/', body),
+  updateIntegration: (id, body) => http.patch(`/platform/integrations/${id}/`, body),
+  removeIntegration: (id) => http.delete(`/platform/integrations/${id}/`),
+  testIntegration: (id, mode) => http.post(`/platform/integrations/${id}/test/`, { mode }),
+  mailboxes: (params) => http.get('/platform/mailboxes/', params),
+  createMailbox: (body) => http.post('/platform/mailboxes/', body),
+  /* Subscriptions billing (platform_admin/billing.py). */
+  balances: () => http.get('/platform/billing/'),
+  billing: (uuid) => http.get(`/platform/tenants/${uuid}/billing/`),
+  setTerms: (uuid, body) => http.patch(`/platform/tenants/${uuid}/billing/`, body),
+  addDiscount: (uuid, body) => http.post(`/platform/tenants/${uuid}/billing/discounts/`, body),
+  removeDiscount: (uuid, id) => http.delete(`/platform/tenants/${uuid}/billing/discounts/`, { params: { id } }),
+  issueInvoice: (uuid, body) => http.post(`/platform/tenants/${uuid}/billing/invoices/`, body),
+  voidInvoice: (id, reason) => http.post(`/platform/billing/invoices/${id}/void/`, { reason }),
+  recordPayment: (uuid, body) => http.post(`/platform/tenants/${uuid}/billing/payments/`, body),
+  markLate: (uuid, note) => http.post(`/platform/tenants/${uuid}/billing/late/`, { note }),
+  clearLate: (uuid) => http.delete(`/platform/tenants/${uuid}/billing/late/`),
+  /* The plan catalogue. */
+  managePlans: () => http.get('/platform/plans/manage/'),
+  createPlan: (body) => http.post('/platform/plans/manage/', body),
+  updatePlan: (id, body) => http.patch(`/platform/plans/${id}/`, body),
 }
 
 export const clinicSettings = {

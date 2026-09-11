@@ -113,12 +113,20 @@ const PlatformTenantPage = page(() => import('@/features/platform/PlatformTenant
 
 const PlatformOverviewPage = page(() => import('@/features/platform/PlatformOverviewPage'), 'PlatformOverviewPage')
 const PlatformOnlinePage = page(() => import('@/features/platform/PlatformOnlinePage'), 'PlatformOnlinePage')
+const PlatformIntegrationsPage = page(() => import('@/features/platform/PlatformIntegrationsPage'), 'PlatformIntegrationsPage')
+const PlatformMailboxesPage = page(() => import('@/features/platform/PlatformMailboxesPage'), 'PlatformMailboxesPage')
+const PlatformBillingPage = page(() => import('@/features/platform/PlatformBillingPage'), 'PlatformBillingPage')
+const PlatformPlansPage = page(() => import('@/features/platform/PlatformPlansPage'), 'PlatformPlansPage')
 
 export const platformRoutes = [
   { index: true, element: PlatformOverviewPage },
   { path: 'tenants', element: PlatformTenantsPage },
   { path: 'tenants/:uuid', element: PlatformTenantPage },
   { path: 'online', element: PlatformOnlinePage },
+  { path: 'billing', element: PlatformBillingPage },
+  { path: 'plans', element: PlatformPlansPage },
+  { path: 'integrations', element: PlatformIntegrationsPage },
+  { path: 'mailboxes', element: PlatformMailboxesPage },
 ]
 
 /* The patient portal — patients only, mobile-first. */

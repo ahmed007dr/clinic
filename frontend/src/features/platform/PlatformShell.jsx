@@ -19,6 +19,10 @@ export const PLATFORM_NAV = [
   { to: '/platform', label: 'نظرة عامة', end: true },
   { to: '/platform/tenants', label: 'المجموعات' },
   { to: '/platform/online', label: 'أونلاين الآن' },
+  { to: '/platform/billing', label: 'الاشتراكات والأرصدة' },
+  { to: '/platform/plans', label: 'الباقات' },
+  { to: '/platform/integrations', label: 'المفاتيح والتكاملات' },
+  { to: '/platform/mailboxes', label: 'الإيميلات' },
 ]
 
 export function PlatformShell() {

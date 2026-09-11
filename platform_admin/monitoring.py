@@ -164,6 +164,7 @@ def people_of(tenant):
         mine = [a for a in accounts if a.branch_id == branch.pk and a.is_active]
         counts = per_branch.get(branch.pk, {})
         rows.append({
+            "id": branch.pk,
             "uuid": str(branch.uuid),
             "name": branch.name,
             "is_active": branch.is_active,

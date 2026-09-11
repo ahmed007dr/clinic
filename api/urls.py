@@ -16,7 +16,7 @@ from .views.settings import ClinicSettingsView
 from .views import attendance, contracts, intake, meta, owner, shifts
 from .views.print_settings import PrintSettingsView
 from .views import doctor_profile
-from . import platform
+from . import platform, platform_business, platform_pay
 
 router = DefaultRouter()
 
@@ -92,6 +92,11 @@ urlpatterns = [
     ),
     path("dashboard/", dashboard_views.DashboardView.as_view(), name="dashboard"),
     path("subscription/", SubscriptionView.as_view(), name="subscription"),
+    # The group's own invoices from the platform, and paying them online.
+    path("subscription/invoices/", platform_pay.OwnerInvoicesView.as_view(), name="subscription-invoices"),
+    path("subscription/invoices/<int:pk>/pay/", platform_pay.OwnerInvoicePayView.as_view(), name="subscription-invoice-pay"),
+    # Every gateway reports back here (api/platform_pay.py). Public.
+    path("pay/<str:method>/callback/", platform_pay.GatewayCallbackView.as_view(), name="gateway-callback"),
     path("clinic-settings/", ClinicSettingsView.as_view(), name="clinic-settings"),
     path("meta/choices/", meta.ChoicesView.as_view(), name="meta-choices"),
     path("intake/register/", intake.IntakeRegistrationView.as_view(), name="intake-register"),
@@ -110,5 +115,20 @@ urlpatterns = [
     path("platform/tenants/<uuid:uuid>/", platform.TenantDetailView.as_view(), name="platform-tenant"),
     path("platform/tenants/<uuid:uuid>/status/", platform.TenantStatusView.as_view(), name="platform-tenant-status"),
     path("platform/tenants/<uuid:uuid>/plan/", platform.TenantPlanView.as_view(), name="platform-tenant-plan"),
+    # Developer portal, phase 2 (api/platform_business.py).
+    path("platform/integrations/", platform_business.IntegrationListView.as_view(), name="platform-integrations"),
+    path("platform/integrations/<int:pk>/", platform_business.IntegrationDetailView.as_view(), name="platform-integration"),
+    path("platform/integrations/<int:pk>/test/", platform_business.IntegrationTestView.as_view(), name="platform-integration-test"),
+    path("platform/tenants/<uuid:uuid>/branches/", platform_business.TenantBranchesView.as_view(), name="platform-tenant-branches"),
+    path("platform/mailboxes/", platform_business.MailboxListView.as_view(), name="platform-mailboxes"),
+    path("platform/billing/", platform_business.BillingListView.as_view(), name="platform-billing"),
+    path("platform/billing/invoices/<int:pk>/void/", platform_business.InvoiceVoidView.as_view(), name="platform-invoice-void"),
+    path("platform/tenants/<uuid:uuid>/billing/", platform_business.TenantBillingView.as_view(), name="platform-tenant-billing"),
+    path("platform/tenants/<uuid:uuid>/billing/discounts/", platform_business.DiscountView.as_view(), name="platform-tenant-discounts"),
+    path("platform/tenants/<uuid:uuid>/billing/invoices/", platform_business.InvoiceIssueView.as_view(), name="platform-tenant-invoices"),
+    path("platform/tenants/<uuid:uuid>/billing/payments/", platform_business.ManualPaymentView.as_view(), name="platform-tenant-payments"),
+    path("platform/tenants/<uuid:uuid>/billing/late/", platform_business.LateView.as_view(), name="platform-tenant-late"),
+    path("platform/plans/manage/", platform_business.PlanManageView.as_view(), name="platform-plans-manage"),
+    path("platform/plans/<int:pk>/", platform_business.PlanDetailView.as_view(), name="platform-plan"),
     path("", include(router.urls)),
 ]
