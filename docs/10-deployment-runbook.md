@@ -359,9 +359,24 @@ It is read-only and mutates nothing.
 
 ## 10. Ongoing
 
-* **Backups.** Nothing in this repository backs anything up. A managed
-  PostgreSQL instance with point-in-time recovery is the least work; whatever is
-  chosen, restore it once before relying on it.
+* **Backups** (docs/06 PLAT-006). The developer portal's «النسخ الاحتياطي»
+  makes an encrypted archive of the platform and every group in
+  `PLATFORM_BACKUP_ROOT` (default `<project>/backups`, outside public_html) and
+  copies it to Google Drive (a folder in a **Shared Drive** that the service
+  account is a member of). Schedule it daily:
+
+  ```cron
+  30 2 * * *  cd ~/app && venv/bin/python manage.py platform_backup >> ~/logs/backup.log 2>&1
+  ```
+
+  The archives are encrypted with `PLATFORM_VAULT_KEY`: **keep that key
+  somewhere other than the backups** (a password manager), or they cannot be
+  read. To restore one group: `manage.py platform_backup_decrypt <file>.cbk
+  backup.tar`, take `groups/<slug>.zip` out of the tar, and import it from the
+  portal (check first, then import). cPanel's own full-account backup can be
+  requested from the same page. A managed PostgreSQL with point-in-time
+  recovery remains the stronger safety net for the database itself; whichever
+  is used, restore once before relying on it.
 * **`private/`** holds medical attachments and is outside `MEDIA_ROOT` on
   purpose. It is not in version control and **must** be included in backups —
   losing it loses patient documents. It must never be served by the web server;

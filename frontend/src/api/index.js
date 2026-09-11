@@ -150,6 +150,15 @@ export const platform = {
   overview: () => http.get('/platform/overview/'),
   online: () => http.get('/platform/online/'),
   analytics: (params) => http.get('/platform/analytics/', params),
+  /* Backups, exports and imports (api/platform_backups.py). */
+  backups: () => http.get('/platform/backups/'),
+  startBackup: () => http.post('/platform/backups/'),
+  setBackupPolicy: (body) => http.patch('/platform/backups/policy/', body),
+  cpanelBackup: () => http.post('/platform/backups/cpanel/'),
+  downloadBackup: (id, name) => http.download(`/platform/backups/${id}/download/`, name),
+  exportGroup: (uuid, name, files = true) =>
+    http.download(`/platform/tenants/${uuid}/export/${files ? '' : '?files=0'}`, name),
+  importGroup: (formData) => http.post('/platform/imports/', formData),
   people: (uuid) => http.get(`/platform/tenants/${uuid}/people/`),
   branches: (uuid) => http.get(`/platform/tenants/${uuid}/branches/`),
   /* Full control over a group (api/platform_control.py). */

@@ -157,7 +157,7 @@ def signup_payload(signup):
         "status": signup.status,
         "status_label": signup.get_status_display(),
         "reject_reason": signup.reject_reason,
-        "tenant": str(signup.tenant.uuid) if signup.tenant_id else None,
+        "tenant": str(signup.customer.uuid) if signup.customer_id else None,
         "handled_by": getattr(signup.handled_by, "email", None),
         "handled_at": signup.handled_at,
         "created_at": signup.created_at,
@@ -168,7 +168,7 @@ class SignupQueueView(APIView):
     permission_classes = [IsPlatformStaff]
 
     def get(self, request):
-        rows = SignupRequest.objects.select_related("plan", "tenant", "handled_by")
+        rows = SignupRequest.objects.select_related("plan", "customer", "handled_by")
         wanted = request.query_params.get("status")
         if wanted:
             rows = rows.filter(status=wanted)
@@ -211,10 +211,10 @@ class SignupApproveView(APIView):
             terms.notes = f"من طلب التسجيل #{signup.pk}"
             terms.save(update_fields=["cycle", "notes"])
             signup.status = SignupRequest.Status.APPROVED
-            signup.tenant = tenant
+            signup.customer = tenant
             signup.handled_by = request.user
             signup.handled_at = timezone.now()
-            signup.save(update_fields=["status", "tenant", "handled_by", "handled_at"])
+            signup.save(update_fields=["status", "customer", "handled_by", "handled_at"])
             record(
                 request, tenant, "signup approved",
                 f"request #{signup.pk}: created {tenant.slug} with owner {owner.email}",

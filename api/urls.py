@@ -16,7 +16,7 @@ from .views.settings import ClinicSettingsView
 from .views import attendance, contracts, intake, meta, owner, shifts
 from .views.print_settings import PrintSettingsView
 from .views import doctor_profile
-from . import platform, platform_business, platform_control, platform_pay, signup
+from . import platform, platform_backups, platform_business, platform_control, platform_pay, signup
 
 router = DefaultRouter()
 
@@ -140,6 +140,13 @@ urlpatterns = [
     path("platform/tenants/<uuid:uuid>/entitlements/", platform_control.EntitlementsView.as_view(), name="platform-tenant-entitlements"),
     path("platform/tenants/<uuid:uuid>/support/", platform_control.SupportStartView.as_view(), name="platform-tenant-support"),
     path("platform/accounts/<uuid:uuid>/<str:action>/", platform_control.AccountActionView.as_view(), name="platform-account-action"),
+    # Developer portal, phase 6: backups and exports (api/platform_backups.py).
+    path("platform/backups/", platform_backups.BackupListView.as_view(), name="platform-backups"),
+    path("platform/backups/policy/", platform_backups.BackupPolicyView.as_view(), name="platform-backup-policy"),
+    path("platform/backups/cpanel/", platform_backups.CpanelBackupView.as_view(), name="platform-backup-cpanel"),
+    path("platform/backups/<int:pk>/download/", platform_backups.BackupDownloadView.as_view(), name="platform-backup-download"),
+    path("platform/imports/", platform_backups.GroupImportView.as_view(), name="platform-import"),
+    path("platform/tenants/<uuid:uuid>/export/", platform_backups.TenantExportView.as_view(), name="platform-tenant-export"),
     path("platform/signups/", signup.SignupQueueView.as_view(), name="platform-signups"),
     path("platform/signups/<int:pk>/approve/", signup.SignupApproveView.as_view(), name="platform-signup-approve"),
     path("platform/signups/<int:pk>/reject/", signup.SignupRejectView.as_view(), name="platform-signup-reject"),

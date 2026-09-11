@@ -118,6 +118,7 @@ const PlatformMailboxesPage = page(() => import('@/features/platform/PlatformMai
 const PlatformBillingPage = page(() => import('@/features/platform/PlatformBillingPage'), 'PlatformBillingPage')
 const PlatformPlansPage = page(() => import('@/features/platform/PlatformPlansPage'), 'PlatformPlansPage')
 const PlatformAnalyticsPage = page(() => import('@/features/platform/PlatformAnalyticsPage'), 'PlatformAnalyticsPage')
+const PlatformBackupsPage = page(() => import('@/features/platform/PlatformBackupsPage'), 'PlatformBackupsPage')
 const PlatformSignupsPage = page(() => import('@/features/platform/PlatformSignupsPage'), 'PlatformSignupsPage')
 
 export const platformRoutes = [
@@ -131,6 +132,7 @@ export const platformRoutes = [
   { path: 'plans', element: PlatformPlansPage },
   { path: 'integrations', element: PlatformIntegrationsPage },
   { path: 'mailboxes', element: PlatformMailboxesPage },
+  { path: 'backups', element: PlatformBackupsPage },
 ]
 
 /* The patient portal — patients only, mobile-first. */

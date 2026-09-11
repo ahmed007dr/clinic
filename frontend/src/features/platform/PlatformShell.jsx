@@ -25,6 +25,7 @@ export const PLATFORM_NAV = [
   { to: '/platform/plans', label: 'الباقات' },
   { to: '/platform/integrations', label: 'المفاتيح والتكاملات' },
   { to: '/platform/mailboxes', label: 'الإيميلات' },
+  { to: '/platform/backups', label: 'النسخ الاحتياطي' },
 ]
 
 export function PlatformShell() {

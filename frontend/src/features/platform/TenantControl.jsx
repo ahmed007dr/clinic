@@ -66,10 +66,14 @@ export function TenantControl({ tenant, summary, onChanged }) {
                 disabled={!canChange} hint="تغييره يغيّر رابط بوابة المرضى القديم"
                 onChange={(e) => setDetails({ ...details, slug: e.target.value })} />
               {canChange && (
-                <div className="ui-row">
+                <div className="ui-row" style={{ flexWrap: 'wrap' }}>
                   <Button variant="primary" loading={act.submitting}
                     onClick={() => run(() => api.platform.editTenant(tenant, details), 'تم الحفظ', onChanged)}>
                     حفظ
+                  </Button>
+                  <Button onClick={() => api.platform.exportGroup(tenant, `${summary.slug}.zip`)
+                    .catch((caught) => toast.error(caught.message))}>
+                    تصدير بيانات المجموعة
                   </Button>
                 </div>
               )}

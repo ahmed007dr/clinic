@@ -283,3 +283,6 @@ DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER)
 
 # Encrypts the developer portal's stored keys (platform_admin/vault.py).
 PLATFORM_VAULT_KEY = env('PLATFORM_VAULT_KEY', default='')
+# Where encrypted platform backups are kept on the server (platform_admin/backups.py).
+# Outside public_html on cPanel. Default: <project>/backups.
+PLATFORM_BACKUP_ROOT = env.str('PLATFORM_BACKUP_ROOT', default='')

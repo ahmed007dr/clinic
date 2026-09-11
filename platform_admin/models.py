@@ -300,8 +300,9 @@ class SignupRequest(models.Model):
     message = models.TextField(blank=True, default="")
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
     reject_reason = models.CharField(max_length=300, blank=True, default="")
-    #: The group it became, once approved.
-    tenant = models.ForeignKey(Tenant, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    #: The group it became, once approved. `customer`, not `tenant`, like
+    #: every platform record (see the module docstring).
+    customer = models.ForeignKey(Tenant, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     handled_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
@@ -330,6 +331,50 @@ class SupportSession(models.Model):
     expires_at = models.DateTimeField()
     ended_at = models.DateTimeField(null=True, blank=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-started_at"]
+
+
+class BackupPolicy(models.Model):
+    """How backups are kept — one row, edited in the developer portal
+    (platform_admin/backups.py). The Google Drive keys are an integration
+    like any other (vault kind `google_drive`)."""
+
+    keep_local = models.PositiveSmallIntegerField(default=14)
+    upload_to_drive = models.BooleanField(default=True)
+    keep_drive = models.PositiveSmallIntegerField(default=30)
+    include_files = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def current(cls):
+        return cls.objects.order_by("pk").first() or cls.objects.create()
+
+
+class BackupRun(models.Model):
+    """One backup: an encrypted archive on the server, and its copy on
+    Google Drive when that is configured."""
+
+    class Status(models.TextChoices):
+        RUNNING = "running", "جارٍ"
+        DONE = "done", "تم"
+        FAILED = "failed", "فشل"
+
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.RUNNING)
+    file_name = models.CharField(max_length=120, blank=True, default="")
+    size = models.BigIntegerField(default=0)
+    sha256 = models.CharField(max_length=64, blank=True, default="")
+    groups = models.PositiveIntegerField(default=0)
+    drive_file_id = models.CharField(max_length=120, blank=True, default="")
+    drive_error = models.CharField(max_length=300, blank=True, default="")
+    error = models.TextField(blank=True, default="")
+    trigger = models.CharField(max_length=10, default="manual")  # manual | schedule
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    started_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-started_at"]

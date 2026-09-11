@@ -98,7 +98,7 @@ class SignupQueueTests(TestCase):
             self.assertEqual(current_subscription(tenant).plan.code, "professional")
         self.assertEqual(CommercialTerms.objects.get(customer=tenant).cycle, "yearly")
         self.signup.refresh_from_db()
-        self.assertEqual((self.signup.status, self.signup.tenant), ("approved", tenant))
+        self.assertEqual((self.signup.status, self.signup.customer), ("approved", tenant))
         self.assertIn(body["admin_password"], mail.outbox[0].body)
         self.assertTrue(AuditLog.objects.filter(tenant=tenant, description__contains="signup approved").exists())
         again = self.client.post(reverse("api:platform-signup-approve", args=[self.signup.pk]),

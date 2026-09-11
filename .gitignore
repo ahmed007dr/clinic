@@ -31,3 +31,4 @@ setting.md# React front end: dependencies are reinstalled from package-lock.json
 # stays "git pull + collectstatic". Rebuild (npm run build) and commit it
 # whenever frontend/src changes.
 frontend/node_modules/
+/backups/
