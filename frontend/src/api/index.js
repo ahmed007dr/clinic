@@ -124,6 +124,12 @@ export const shifts = {
   reopen: (uuid) => http.post(`/shifts/${uuid}/reopen/`),
 }
 
+/** Asking to open a clinic group (public). */
+export const signup = {
+  options: () => http.get('/signup/options/'),
+  submit: (body) => http.post('/signup/', body),
+}
+
 export const subscription = {
   get: () => http.get('/subscription/'),
   /* The group's invoices from the platform, and paying one online. */
@@ -162,6 +168,10 @@ export const platform = {
   recordPayment: (uuid, body) => http.post(`/platform/tenants/${uuid}/billing/payments/`, body),
   markLate: (uuid, note) => http.post(`/platform/tenants/${uuid}/billing/late/`, { note }),
   clearLate: (uuid) => http.delete(`/platform/tenants/${uuid}/billing/late/`),
+  /* Requests to open a clinic group (api/signup.py). */
+  signups: (params) => http.get('/platform/signups/', params),
+  approveSignup: (id, body) => http.post(`/platform/signups/${id}/approve/`, body),
+  rejectSignup: (id, body) => http.post(`/platform/signups/${id}/reject/`, body),
   /* The plan catalogue. */
   managePlans: () => http.get('/platform/plans/manage/'),
   createPlan: (body) => http.post('/platform/plans/manage/', body),
@@ -269,6 +279,7 @@ export const api = {
   dashboard,
   subscription,
   platform,
+  signup,
   clinicSettings,
   meta,
   intake,

@@ -16,7 +16,7 @@ from .views.settings import ClinicSettingsView
 from .views import attendance, contracts, intake, meta, owner, shifts
 from .views.print_settings import PrintSettingsView
 from .views import doctor_profile
-from . import platform, platform_business, platform_pay
+from . import platform, platform_business, platform_pay, signup
 
 router = DefaultRouter()
 
@@ -95,6 +95,9 @@ urlpatterns = [
     # The group's own invoices from the platform, and paying them online.
     path("subscription/invoices/", platform_pay.OwnerInvoicesView.as_view(), name="subscription-invoices"),
     path("subscription/invoices/<int:pk>/pay/", platform_pay.OwnerInvoicePayView.as_view(), name="subscription-invoice-pay"),
+    # Asking to open a clinic group (api/signup.py). Public.
+    path("signup/options/", signup.SignupOptionsView.as_view(), name="signup-options"),
+    path("signup/", signup.SignupView.as_view(), name="signup"),
     # Every gateway reports back here (api/platform_pay.py). Public.
     path("pay/<str:method>/callback/", platform_pay.GatewayCallbackView.as_view(), name="gateway-callback"),
     path("clinic-settings/", ClinicSettingsView.as_view(), name="clinic-settings"),
@@ -128,6 +131,9 @@ urlpatterns = [
     path("platform/tenants/<uuid:uuid>/billing/invoices/", platform_business.InvoiceIssueView.as_view(), name="platform-tenant-invoices"),
     path("platform/tenants/<uuid:uuid>/billing/payments/", platform_business.ManualPaymentView.as_view(), name="platform-tenant-payments"),
     path("platform/tenants/<uuid:uuid>/billing/late/", platform_business.LateView.as_view(), name="platform-tenant-late"),
+    path("platform/signups/", signup.SignupQueueView.as_view(), name="platform-signups"),
+    path("platform/signups/<int:pk>/approve/", signup.SignupApproveView.as_view(), name="platform-signup-approve"),
+    path("platform/signups/<int:pk>/reject/", signup.SignupRejectView.as_view(), name="platform-signup-reject"),
     path("platform/plans/manage/", platform_business.PlanManageView.as_view(), name="platform-plans-manage"),
     path("platform/plans/<int:pk>/", platform_business.PlanDetailView.as_view(), name="platform-plan"),
     path("", include(router.urls)),

@@ -19,6 +19,7 @@ export const PLATFORM_NAV = [
   { to: '/platform', label: 'نظرة عامة', end: true },
   { to: '/platform/tenants', label: 'المجموعات' },
   { to: '/platform/online', label: 'أونلاين الآن' },
+  { to: '/platform/signups', label: 'طلبات جديدة' },
   { to: '/platform/billing', label: 'الاشتراكات والأرصدة' },
   { to: '/platform/plans', label: 'الباقات' },
   { to: '/platform/integrations', label: 'المفاتيح والتكاملات' },

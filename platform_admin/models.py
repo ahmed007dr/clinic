@@ -273,3 +273,44 @@ class ClinicCheckout(models.Model):
 
     def __str__(self):
         return self.reference
+
+
+class SignupRequest(models.Model):
+    """Someone asking to open a clinic group, from the public form
+    (`/app/signup`). The developer approves it — which onboards the group
+    exactly as the portal's own form does (platform_admin/onboarding.py) — or
+    rejects it with a reason."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "بانتظار المراجعة"
+        APPROVED = "approved", "تمت الموافقة"
+        REJECTED = "rejected", "مرفوض"
+
+    group_name = models.CharField(max_length=150)
+    clinic_name = models.CharField(max_length=150, blank=True, default="")
+    owner_name = models.CharField(max_length=150)
+    email = models.EmailField()
+    phone = models.CharField(max_length=32)
+    city = models.CharField(max_length=80, blank=True, default="")
+    specialty = models.CharField(max_length=120, blank=True, default="")
+    branches = models.PositiveSmallIntegerField(default=1)
+    doctors = models.PositiveSmallIntegerField(default=1)
+    plan = models.ForeignKey("subscriptions.Plan", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    cycle = models.CharField(max_length=10, choices=CommercialTerms.Cycle.choices, default=CommercialTerms.Cycle.MONTHLY)
+    message = models.TextField(blank=True, default="")
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    reject_reason = models.CharField(max_length=300, blank=True, default="")
+    #: The group it became, once approved.
+    tenant = models.ForeignKey(Tenant, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    handled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    handled_at = models.DateTimeField(null=True, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.group_name} <{self.email}>"

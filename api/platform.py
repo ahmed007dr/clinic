@@ -20,12 +20,9 @@ same provisioning, one transaction, and a generated password shown once.
 """
 
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError as DjangoValidationError
-from django.core.validators import validate_email, validate_slug
 from django.db import transaction
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404
-from django.utils.text import slugify
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -40,11 +37,6 @@ from subscriptions.models import Plan, Subscription
 from subscriptions.usage import limits_table, usage_for
 from tenants.context import tenant_context
 from tenants.models import Tenant
-from tenants.provisioning import (
-    create_first_branch,
-    create_tenant_admin,
-    provision_tenant_defaults,
-)
 
 User = get_user_model()
 
@@ -131,48 +123,15 @@ class TenantListView(APIView):
         })
 
     def post(self, request):
-        """Onboard a clinic — `manage.py create_tenant`, from the screen."""
-        data = request.data
-        errors = {}
+        """Onboard a clinic — `manage.py create_tenant`, from the screen
+        (platform_admin/onboarding.py)."""
+        from platform_admin.onboarding import clean, onboard
 
-        name = (data.get("name") or "").strip()
-        slug = (data.get("slug") or slugify(name)).strip().lower()
-        email = (data.get("admin_email") or "").strip().lower()
-        branch_name = (data.get("branch_name") or "الفرع الرئيسي").strip()
-        branch_code = (data.get("branch_code") or "MAIN").strip().upper()[:20]
-        tenant_status = data.get("status") or Tenant.Status.TRIAL
-
-        if not name:
-            errors["name"] = ["اسم العيادة مطلوب."]
-        if not slug:
-            # slugify() returns "" for Arabic, and a blank slug is unusable.
-            errors["slug"] = ["أدخل معرّفاً لاتينياً للعيادة (مثال: dr-ahmed)."]
-        else:
-            try:
-                validate_slug(slug)
-            except DjangoValidationError:
-                errors["slug"] = ["المعرّف يقبل حروفاً لاتينية وأرقاماً و - فقط."]
-            if Tenant.objects.filter(slug=slug).exists():
-                errors["slug"] = ["يوجد عيادة بهذا المعرّف بالفعل."]
-        try:
-            validate_email(email)
-        except DjangoValidationError:
-            errors["admin_email"] = ["بريد إلكتروني غير صالح."]
-        else:
-            if User.objects.filter(email__iexact=email).exists():
-                errors["admin_email"] = ["هذا البريد مستخدم بالفعل."]
-        if tenant_status not in dict(Tenant.Status.choices):
-            errors["status"] = ["حالة غير صالحة."]
+        values, errors = clean(request.data)
         if errors:
             return Response(errors, status=status.HTTP_400_BAD_REQUEST)
-
         with transaction.atomic():
-            tenant = Tenant.objects.create(name=name, slug=slug, status=tenant_status)
-            provision_tenant_defaults(tenant)
-            branch = create_first_branch(tenant, branch_name, branch_code)
-            admin, password = create_tenant_admin(
-                tenant, email=email, username="admin", branch=branch
-            )
+            tenant, admin, password = onboard(values)
             record(
                 request, tenant, "onboard",
                 f"created {tenant.slug} with administrator {admin.email}",

@@ -1,0 +1,81 @@
+.signup__panel {
+  width: min(44rem, 100%);
+}
+
+.signup__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.signup__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
+  gap: var(--s3);
+}
+
+.signup__plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
+  gap: var(--s2);
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.signup__plans legend {
+  font-weight: 600;
+  margin-bottom: var(--s2);
+}
+
+.signup__plan {
+  position: relative;
+  display: grid;
+  gap: var(--s1);
+  padding: var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.signup__plan input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.signup__plan:focus-within {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.signup__plan--on {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.signup__plan-name {
+  font-weight: 700;
+}
+
+.signup__plan-price {
+  font-variant-numeric: tabular-nums;
+}
+
+.signup__plan-features {
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+
+.signup__trap {
+  position: absolute;
+  inset-inline-start: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.signup__back {
+  display: block;
+  text-align: center;
+}

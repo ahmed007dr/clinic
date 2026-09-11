@@ -5,6 +5,7 @@ import { Loading } from '@/components/ui'
 import { AppShell, RequireAuth, RequirePermission, RequirePlatform } from '@/components/layout'
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary'
 import { LoginPage } from '@/features/auth/LoginPage'
+import { SignupPage } from '@/features/signup/SignupPage'
 import { AuthProvider } from '@/hooks/useAuth'
 import { ToastProvider } from '@/hooks/useToast'
 import { APP_BASENAME } from '@/lib/config'
@@ -38,6 +39,8 @@ export default function App() {
             <Suspense fallback={<Loading />}>
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
+                {/* Asking to open a clinic group — public (api/signup.py). */}
+                <Route path="/signup" element={<SignupPage />} />
                 {/* The platform's own entrance: same accounts API, with the
                     second step always required for operators. */}
                 <Route path="/platform/login" element={<LoginPage platform />} />

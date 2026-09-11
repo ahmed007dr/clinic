@@ -122,6 +122,8 @@ REST_FRAMEWORK = {
         "portal_login": "10/min",
         # Public self-registration: generous for a family, useless for a bot.
         "portal_register": "10/hour",
+        # Asking to open a clinic group (api/signup.py).
+        "signup": "5/hour",
     },
     "UNAUTHENTICATED_USER": "django.contrib.auth.models.AnonymousUser",
 }

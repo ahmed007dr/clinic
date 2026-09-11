@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 
 import { Button, Input, Loading } from '@/components/ui'
 import { LanguageToggle } from '@/components/layout/LanguageToggle'
@@ -200,6 +200,11 @@ export function LoginPage({ platform = false }) {
         <p className="login__note">
           إذا نسيت كلمة المرور، تواصل مع مدير العيادة لإعادة تعيينها.
         </p>
+        {!platform && (
+          <p className="login__note">
+            عيادة جديدة؟ <Link to="/signup">اطلب فتح حساب</Link>
+          </p>
+        )}
       </main>
     </div>
   )
