@@ -17,6 +17,7 @@ import {
 } from '@/components/ui'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useAsync, useMutation } from '@/hooks/useApi'
+import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
 import { formatDate, formatMoney, formatNumber } from '@/lib/format'
 
@@ -38,6 +39,9 @@ const STATUSES = [
  * is the act worth recording.
  */
 export function PlatformTenantPage() {
+  const { platformUser } = useAuth()
+  // Support accounts are read-only (the server refuses them anyway).
+  const canChange = platformUser?.role === 'super'
   const { uuid } = useParams()
   const toast = useToast()
   const { data, loading, error, reload } = useAsync(() => api.platform.tenant(uuid), [uuid])
@@ -104,7 +108,7 @@ export function PlatformTenantPage() {
                   <Select label="الحالة" options={STATUSES} value={status}
                     onChange={(event) => setStatus(event.target.value)} />
                 </div>
-                <Button onClick={() => setConfirm('status')} disabled={status === data.status}>
+                <Button onClick={() => setConfirm('status')} disabled={!canChange || status === data.status}>
                   تطبيق
                 </Button>
               </div>
@@ -127,7 +131,7 @@ export function PlatformTenantPage() {
                     onChange={(event) => setPlan(event.target.value)}
                   />
                 </div>
-                <Button onClick={() => setConfirm('plan')} disabled={!plan || plan === data.plan?.code}>
+                <Button onClick={() => setConfirm('plan')} disabled={!canChange || !plan || plan === data.plan?.code}>
                   تطبيق
                 </Button>
               </div>

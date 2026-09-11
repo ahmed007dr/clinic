@@ -103,6 +103,8 @@ export const auth = {
   session: () => http.get('/auth/session/'),
   login: (email, password) => http.post('/auth/login/', { email, password }),
   logout: () => http.post('/auth/logout/'),
+  /** The second step of a platform sign-in: authenticator or recovery code. */
+  twoFactor: (code) => http.post('/auth/two-factor/', { code }),
   changePassword: (currentPassword, newPassword) =>
     http.post('/auth/password/', {
       current_password: currentPassword,

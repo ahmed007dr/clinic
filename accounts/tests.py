@@ -86,7 +86,7 @@ class PlatformStaffTests(TestCase):
             Patient.all_objects.create(tenant=self.tenant, name='Someone')
         self.operator = User.objects.create_user(
             username='operator', email='ops@platform.test', password='pass12345',
-            tenant=None, is_platform_staff=True,
+            tenant=None, is_platform_staff=True, platform_role="super",
         )
 
     def test_platform_staff_have_no_tenant(self):

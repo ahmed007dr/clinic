@@ -38,6 +38,9 @@ export default function App() {
             <Suspense fallback={<Loading />}>
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
+                {/* The platform's own entrance: same accounts API, with the
+                    second step always required for operators. */}
+                <Route path="/platform/login" element={<LoginPage platform />} />
                 {/* The patient portal: its own sign-in, never the staff one. */}
                 <Route path="/portal/:slug/*" element={<PortalApp />} />
                 <Route

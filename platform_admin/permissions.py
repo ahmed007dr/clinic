@@ -46,6 +46,14 @@ def is_platform_staff(user):
     )
 
 
+def is_platform_super(user):
+    """A full platform administrator — the only operator who may change
+    anything. Support staff (`platform_role == "support"`) look, and that is
+    all; an operator created before roles existed was migrated to "super"
+    (accounts.0009)."""
+    return is_platform_staff(user) and getattr(user, "platform_role", "") == "super"
+
+
 def platform_staff_required(view):
     """403 rather than a redirect to login.
 
@@ -57,6 +65,18 @@ def platform_staff_required(view):
     @wraps(view)
     def wrapper(request, *args, **kwargs):
         if not is_platform_staff(request.user):
+            raise PermissionDenied
+        return view(request, *args, **kwargs)
+
+    return wrapper
+
+
+def platform_super_required(view):
+    """For the changes: a full platform administrator only."""
+
+    @wraps(view)
+    def wrapper(request, *args, **kwargs):
+        if not is_platform_super(request.user):
             raise PermissionDenied
         return view(request, *args, **kwargs)
 

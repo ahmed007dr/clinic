@@ -34,7 +34,7 @@ from tenants.context import tenant_context
 from tenants.models import Tenant
 
 from .audit import record
-from .permissions import platform_staff_required
+from .permissions import platform_staff_required, platform_super_required
 
 
 @login_required
@@ -117,6 +117,7 @@ def tenant_detail(request, uuid):
 
 @login_required
 @platform_staff_required
+@platform_super_required
 @require_POST
 def tenant_set_status(request, uuid):
     """§10: approve, suspend, activate.
@@ -152,6 +153,7 @@ def tenant_set_status(request, uuid):
 
 @login_required
 @platform_staff_required
+@platform_super_required
 @require_POST
 def tenant_change_plan(request, uuid):
     """§10: manage subscriptions.

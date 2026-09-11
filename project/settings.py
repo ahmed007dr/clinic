@@ -134,6 +134,10 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     # A multi-clinic doctor's chosen clinic, from the session (accounts.roles).
     'accounts.middleware.ActiveBranchMiddleware',
+    # A platform session is only ever one completed with a one-time code.
+    'accounts.middleware.PlatformTwoFactorMiddleware',
+    # "Online now" / "last seen" for the platform portal.
+    'accounts.middleware.LastSeenMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 

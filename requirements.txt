@@ -45,6 +45,11 @@ psycopg2-binary==2.9.9
 # the minimum for this dependency set as a whole.
 pillow==12.3.0
 
+# The QR code a platform operator scans to enrol in two-step sign-in
+# (accounts/totp.py). Pure Python; without it the page shows the secret to
+# type in by hand instead.
+qrcode==8.0
+
 # PDF export (utils/export_pdf.py) and Excel export (utils/utils.py).
 #
 # charset-normalizer used to be pinned here too. It is not imported anywhere in

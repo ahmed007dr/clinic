@@ -20,6 +20,7 @@ from subscriptions.entitlements import current_subscription
 from subscriptions.models import Plan, Subscription
 from tenants.context import get_current_tenant, tenant_context
 from tenants.models import Tenant
+from tenants.testing import login_platform
 from tenants.provisioning import provision_tenant_defaults
 
 from .permissions import is_platform_staff
@@ -54,7 +55,7 @@ class PlatformBase(TestCase):
 
         self.operator = User.objects.create_user(
             username="operator", email="ops@platform.test", password="pass12345",
-            tenant=None, is_platform_staff=True,
+            tenant=None, is_platform_staff=True, platform_role="super",
         )
         # An ordinary clinic administrator: org-wide inside their own tenant,
         # which is the strongest tenant-side role there is.
@@ -64,7 +65,7 @@ class PlatformBase(TestCase):
         )
 
     def as_operator(self):
-        self.client.login(email="ops@platform.test", password="pass12345")
+        login_platform(self.client, "ops@platform.test")
 
     def as_tenant_admin(self):
         self.client.login(email="admin@a.test", password="pass12345")

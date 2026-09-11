@@ -34,7 +34,7 @@ from appointments.models import Appointment
 from billing.models import Payment
 from medical.models import Visit
 from platform_admin.audit import record
-from platform_admin.permissions import is_platform_staff
+from platform_admin.permissions import is_platform_staff, is_platform_super
 from subscriptions.entitlements import current_subscription, resolve_features
 from subscriptions.models import Plan, Subscription
 from subscriptions.usage import limits_table, usage_for
@@ -50,10 +50,21 @@ User = get_user_model()
 
 
 class IsPlatformStaff(permissions.BasePermission):
+    """Any operator may read; only a full administrator may change anything
+    (platform_admin.permissions.is_platform_super) — support staff are
+    read-only by role, not by courtesy of the screens."""
+
     message = "هذه الصفحة مقصورة على مشغّلي المنصة."
 
     def has_permission(self, request, view):
-        return is_platform_staff(request.user)
+        if not is_platform_staff(request.user):
+            return False
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        if not is_platform_super(request.user):
+            self.message = "حساب الدعم الفني للقراءة فقط."
+            return False
+        return True
 
 
 def plan_data(plan):

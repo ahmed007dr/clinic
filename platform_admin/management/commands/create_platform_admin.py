@@ -32,6 +32,10 @@ class Command(BaseCommand):
         parser.add_argument("email")
         parser.add_argument("--username", default="owner")
         parser.add_argument(
+            "--role", choices=["super", "support"], default="super",
+            help="super: full administrator. support: read-only.",
+        )
+        parser.add_argument(
             "--password",
             help="Omit to generate one. It is printed once and cannot be recovered.",
         )
@@ -55,6 +59,7 @@ class Command(BaseCommand):
             password=password,
             tenant=None,
             is_platform_staff=True,
+            platform_role=options["role"],
         )
 
         self.stdout.write(self.style.SUCCESS("Platform operator created."))

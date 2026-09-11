@@ -73,6 +73,7 @@ app_name = "api"
 urlpatterns = [
     path("auth/session/", auth.SessionView.as_view(), name="session"),
     path("auth/login/", auth.LoginView.as_view(), name="login"),
+    path("auth/two-factor/", auth.TwoFactorView.as_view(), name="two-factor"),
     path("auth/logout/", auth.LogoutView.as_view(), name="logout"),
     path("auth/password/", auth.PasswordChangeView.as_view(), name="password-change"),
     path("auth/branch/", auth.ActiveBranchView.as_view(), name="active-branch"),

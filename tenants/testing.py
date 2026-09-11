@@ -72,3 +72,19 @@ def link_doctor(user, *patients):
                 branch=patient.branch or user.branch, scheduled_date=timezone.now(),
             )
     return employee
+
+
+def login_platform(client, email, password="pass12345"):
+    """Sign a platform operator in, second step included.
+
+    A platform session is only valid once completed with a one-time code
+    (accounts.middleware.PlatformTwoFactorMiddleware); tests about what an
+    operator may do mark that step done here, and api/tests/test_platform_security.py
+    tests the step itself.
+    """
+    from accounts.middleware import TWO_FACTOR_KEY
+
+    assert client.login(email=email, password=password)
+    session = client.session
+    session[TWO_FACTOR_KEY] = True
+    session.save()

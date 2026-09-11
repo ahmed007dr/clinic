@@ -57,3 +57,40 @@
   color: var(--ink-faint);
   text-align: center;
 }
+
+/* Two-step sign-in for platform operators (LoginPage). */
+.login__enrol {
+  display: grid;
+  justify-items: center;
+  gap: var(--s2);
+  margin-block-end: var(--s4);
+  text-align: center;
+}
+
+.login__qr svg {
+  width: 180px;
+  height: 180px;
+  background: #fff; /* a QR code needs its light quiet zone in either theme */
+  border-radius: var(--radius);
+}
+
+.login__secret,
+.login__codes {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  letter-spacing: 0.08em;
+}
+
+.login__secret {
+  word-break: break-all;
+  padding: var(--s2) var(--s3);
+  background: var(--surface-sunken);
+  border-radius: var(--radius);
+}
+
+.login__codes {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--s2) var(--s6, 2rem);
+  margin: 0 0 var(--s4);
+  padding-inline-start: 1.5rem;
+}

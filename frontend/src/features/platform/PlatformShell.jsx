@@ -26,15 +26,15 @@ export function PlatformShell() {
         </Link>
         <div className="platform__spacer" />
         <ThemeToggle />
-        <span className="ui-muted platform__who" dir="ltr">
-          {platformUser?.email}
+        <span className="ui-muted platform__who">
+          <span dir="ltr">{platformUser?.email}</span> · {platformUser?.role_label}
         </span>
         <Button
           size="sm"
           variant="ghost"
           onClick={async () => {
             await logout()
-            navigate('/login', { replace: true })
+            navigate('/platform/login', { replace: true })
           }}
         >
           تسجيل الخروج
