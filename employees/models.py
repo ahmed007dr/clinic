@@ -52,6 +52,21 @@ class Employee(TenantOwnedModel):
         max_digits=5, decimal_places=2, null=True, blank=True,
         validators=[MinValueValidator(0), MaxValueValidator(100)],
     )
+    # A doctor's own line and links on their prescriptions' footer
+    # (branches/printing.py). The doctor writes `pending_profile`; it shows
+    # only once the clinic's Admin approves it into `public_profile` — the
+    # approved version stays in print while a change awaits review.
+    public_profile = models.JSONField(default=dict, blank=True)
+    pending_profile = models.JSONField(null=True, blank=True)
+    profile_status = models.CharField(
+        max_length=10, blank=True, default="",
+        choices=[("", "—"), ("pending", "بانتظار الموافقة"), ("approved", "معتمد"), ("rejected", "مرفوض")],
+    )
+    profile_review_note = models.CharField(max_length=300, blank=True, default="")
+    profile_reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    profile_reviewed_at = models.DateTimeField(null=True, blank=True)
     serial_number = models.CharField(max_length=20, blank=True)
 
     class Meta(TenantOwnedModel.Meta):

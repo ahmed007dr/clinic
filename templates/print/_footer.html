@@ -5,3 +5,9 @@
   </div>
   <div>{{ letterhead.title }}{% if letterhead.phone %} · <span dir="ltr">{{ letterhead.phone }}</span>{% endif %}</div>
 </footer>
+{# Only the links the clinic filled in (Print design screen). On paper the address is what matters, so it is printed in full. #}
+{% if letterhead.links %}
+<div class="lh-links">
+  {% for link in letterhead.links %}<a href="{{ link.url }}" rel="noopener"><b>{{ link.label }}</b> <span dir="ltr">{{ link.text }}</span></a>{% endfor %}
+</div>
+{% endif %}

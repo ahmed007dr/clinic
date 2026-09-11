@@ -15,6 +15,9 @@ import {
 import { RelationSelect } from '@/components/data/RelationSelect'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useAsync, useMutation } from '@/hooks/useApi'
+
+import { DoctorProfileRequests } from './DoctorProfileRequests'
+import { LinkFields } from './LinkFields'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
 import { serverUrl } from '@/lib/config'
@@ -55,6 +58,7 @@ export function PrintSettingsPage() {
       print_logo_in_footer: Boolean(data.print_logo_in_footer),
       intake_sections: data.effective_sections ?? [],
       extra_lines: (data.intake_extra_fields ?? []).join('\n'),
+      print_links: { ...(data.print_links ?? {}) },
     })
   }, [settings.data])
 
@@ -64,6 +68,7 @@ export function PrintSettingsPage() {
       print_logo_in_footer: values.print_logo_in_footer,
       intake_sections: values.intake_sections,
       intake_extra_fields: values.extra_lines.split('\n').map((line) => line.trim()).filter(Boolean),
+      print_links: values.print_links,
     }),
   )
   const upload = useMutation((file) => api.printSettings.uploadLogo(branch, file))
@@ -138,6 +143,8 @@ export function PrintSettingsPage() {
 
       {settings.loading && !values && <Loading />}
       {settings.error && <ErrorState error={settings.error} onRetry={settings.reload} />}
+
+      <DoctorProfileRequests />
 
       {values && settings.data && (
         <form className="ui-stack" onSubmit={submit}>
@@ -214,6 +221,21 @@ export function PrintSettingsPage() {
                   error={errors.print_accent_color}
                 />
               </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="روابط التواصل"
+              subtitle="تظهر المملوءة فقط: في تذييل الروشتة والاستمارة، وفي بوابة المرضى"
+            />
+            <CardBody>
+              <LinkFields
+                kinds={settings.data.link_kinds}
+                value={values.print_links}
+                onChange={(print_links) => setValues((current) => ({ ...current, print_links }))}
+              />
+              {errors.print_links && <div className="form-error">{errors.print_links}</div>}
             </CardBody>
           </Card>
 

@@ -63,11 +63,15 @@ def normalize_phone(value):
 
 
 def me_payload(tenant, patient):
+    from branches.printing import link_items
+
     return {
         "name": patient.name,
         "serial_number": patient.serial_number,
         "clinic": tenant.name,
         "show_diagnosis": tenant.portal_show_diagnosis,
+        # The patient's own clinic's social and contact links (Print design).
+        "links": link_items(getattr(patient.branch, "print_links", None)) if patient.branch_id else [],
     }
 
 

@@ -19,7 +19,15 @@ from rest_framework.views import APIView
 from accounts.roles import current_branch_id, is_clinic_admin, sees_all_branches
 from api.permissions import IsClinicMember
 from branches.models import Branch
-from branches.printing import HEX, INTAKE_SECTIONS, intake_layout, letterhead
+from branches.printing import (
+    HEX,
+    INTAKE_SECTIONS,
+    LINK_KINDS,
+    LinkError,
+    clean_links,
+    intake_layout,
+    letterhead,
+)
 
 MAX_LOGO_BYTES = 1024 * 1024
 LOGO_FORMATS = {"PNG", "JPEG", "WEBP"}
@@ -36,6 +44,7 @@ class PrintSettingsSerializer(serializers.ModelSerializer):
             "print_header_title", "print_header_subtitle", "print_accent_color",
             "print_logo_in_footer", "intake_form_title", "intake_form_intro",
             "intake_consent_text", "intake_sections", "intake_extra_fields",
+            "print_links",
         ]
 
     def validate_logo(self, logo):
@@ -59,6 +68,12 @@ class PrintSettingsSerializer(serializers.ModelSerializer):
         if not isinstance(value, list) or any(key not in INTAKE_SECTIONS for key in value):
             raise serializers.ValidationError("أقسام غير معروفة.")
         return value
+
+    def validate_print_links(self, value):
+        try:
+            return clean_links(value)
+        except LinkError as error:
+            raise serializers.ValidationError(str(error))
 
     def validate_intake_extra_fields(self, value):
         if not isinstance(value, list) or len(value) > 20:
@@ -95,6 +110,7 @@ class PrintSettingsView(APIView):
             "logo_url": letterhead(branch, request)["logo_url"],
             "available_sections": [{"key": k, "label": v} for k, v in INTAKE_SECTIONS.items()],
             "effective_sections": intake_layout(branch)["sections"],
+            "link_kinds": [{"key": k, "label": v} for k, v in LINK_KINDS.items()],
         })
         return data
 

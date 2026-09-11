@@ -15,6 +15,7 @@ from .views.subscription import SubscriptionView
 from .views.settings import ClinicSettingsView
 from .views import attendance, contracts, intake, meta, owner, shifts
 from .views.print_settings import PrintSettingsView
+from .views import doctor_profile
 from . import platform
 
 router = DefaultRouter()
@@ -76,6 +77,18 @@ urlpatterns = [
     path("auth/password/", auth.PasswordChangeView.as_view(), name="password-change"),
     path("auth/branch/", auth.ActiveBranchView.as_view(), name="active-branch"),
     path("branches/<uuid:uuid>/print-settings/", PrintSettingsView.as_view(), name="print-settings"),
+    path("me/doctor-profile/", doctor_profile.MyDoctorProfileView.as_view(), name="my-doctor-profile"),
+    path("doctor-profiles/", doctor_profile.DoctorProfileListView.as_view(), name="doctor-profiles"),
+    path(
+        "doctor-profiles/<uuid:uuid>/approve/",
+        doctor_profile.DoctorProfileDecisionView.as_view(decision="approve"),
+        name="doctor-profile-approve",
+    ),
+    path(
+        "doctor-profiles/<uuid:uuid>/reject/",
+        doctor_profile.DoctorProfileDecisionView.as_view(decision="reject"),
+        name="doctor-profile-reject",
+    ),
     path("dashboard/", dashboard_views.DashboardView.as_view(), name="dashboard"),
     path("subscription/", SubscriptionView.as_view(), name="subscription"),
     path("clinic-settings/", ClinicSettingsView.as_view(), name="clinic-settings"),

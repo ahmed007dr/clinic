@@ -708,12 +708,13 @@ def prescription_print(request, uuid):
     reception prints the sheet for the doctor to sign. It is the one clinical
     page they reach — the printed prescription, which the patient is handed
     anyway — and only within their own clinic."""
-    from branches.printing import letterhead
+    from branches.printing import doctor_signature, letterhead
 
     prescription = _get_prescription(request, uuid)
     return render(request, "medical/prescription_print.html", {
         # The clinic's own letterhead — the same one as its intake form.
         "letterhead": letterhead(prescription.visit.branch, request),
+        "doctor_signature": doctor_signature(prescription.doctor) if prescription.doctor else None,
         "prescription": prescription,
         "patient": prescription.patient,
         "allergies": Allergy.objects.filter(patient=prescription.patient),

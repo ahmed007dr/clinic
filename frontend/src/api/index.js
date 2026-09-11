@@ -197,6 +197,15 @@ export const printSettings = {
   },
 }
 
+/* A doctor's own footer line and links: they write, the clinic approves. */
+export const doctorProfile = {
+  mine: () => http.get('/me/doctor-profile/'),
+  save: (body) => http.put('/me/doctor-profile/', body),
+  list: (params) => http.get('/doctor-profiles/', params),
+  approve: (doctor) => http.post(`/doctor-profiles/${doctor}/approve/`),
+  reject: (doctor, note) => http.post(`/doctor-profiles/${doctor}/reject/`, { note }),
+}
+
 export const api = {
   branches,
   services,
@@ -237,6 +246,7 @@ export const api = {
   doctorRates,
   commissions,
   printSettings,
+  doctorProfile,
 }
 
 export default api

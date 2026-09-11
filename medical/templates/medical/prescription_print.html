@@ -70,6 +70,17 @@
     <div style="display:flex;justify-content:flex-end;margin-top:40px">
       <div class="sign">توقيع الطبيب</div>
     </div>
+    {# The doctor's own line and links — shown only once the clinic's Admin approved them. #}
+    {% if doctor_signature %}
+      <div class="lh-doctor">
+        <div><strong>{{ prescription.doctor.name }}</strong>{% if doctor_signature.tagline %} — {{ doctor_signature.tagline }}{% endif %}</div>
+        {% if doctor_signature.links %}
+        <div class="lh-links">
+          {% for link in doctor_signature.links %}<a href="{{ link.url }}" rel="noopener"><b>{{ link.label }}</b> <span dir="ltr">{{ link.text }}</span></a>{% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    {% endif %}
     {% include "print/_footer.html" %}
   </div>
 </body>

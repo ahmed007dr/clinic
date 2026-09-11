@@ -34,6 +34,10 @@ class Branch(TenantOwnedModel):
     intake_sections = models.JSONField(default=list, blank=True)
     #: Extra lines the clinic wants filled in by hand: ["Referred by", ...].
     intake_extra_fields = models.JSONField(default=list, blank=True)
+    #: The clinic's social and contact links — {"facebook": url, "whatsapp":
+    #: number, ...}; only those filled in are shown, in the printed footer and
+    #: the patient portal (branches/printing.py LINK_KINDS).
+    print_links = models.JSONField(default=dict, blank=True)
 
     class Meta(TenantOwnedModel.Meta):
         constraints = [

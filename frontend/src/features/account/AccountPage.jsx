@@ -15,6 +15,8 @@ import { useMutation } from '@/hooks/useApi'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
 
+import { MyPrescriptionFooter } from './MyPrescriptionFooter'
+
 export function AccountPage() {
   const { user, permissions } = useAuth()
   const toast = useToast()
@@ -58,6 +60,7 @@ export function AccountPage() {
 
       <div className="ui-grid ui-grid--2" style={{ alignItems: 'start' }}>
         <MyBranches />
+        {permissions.is_doctor && <MyPrescriptionFooter />}
         <Card>
           <CardHeader title="البيانات" />
           <CardBody>

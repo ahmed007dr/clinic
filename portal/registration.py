@@ -95,3 +95,22 @@ class RegisterView(_RegistrationView):
         )
         # The same answer for a new person and for someone already on file.
         return Response({"detail": "تم استلام بياناتك. ستتواصل معك العيادة لتأكيد التسجيل."}, status=201)
+
+
+class PublicLinksView(PortalView):
+    """The group's clinics' social and contact links, for the portal's public
+    pages (sign-in, registration). Public on purpose — these are the links a
+    clinic publishes anyway — and only the ones each clinic filled in."""
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request, slug):
+        from branches.printing import link_items
+
+        clinics = []
+        for branch in Branch.objects.filter(is_active=True).order_by("name"):
+            links = link_items(branch.print_links)
+            if links:
+                clinics.append({"name": branch.name, "links": links})
+        return Response({"clinic": self.tenant.name, "clinics": clinics})

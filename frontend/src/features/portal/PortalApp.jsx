@@ -5,6 +5,7 @@ import { Loading, Toasts } from '@/components/ui'
 
 import { portalApi } from './portalApi'
 import { PortalContext } from './PortalContext'
+import { PortalFooter } from './PortalFooter'
 import { PortalHomePage } from './PortalHomePage'
 import { PortalInvitePage } from './PortalInvitePage'
 import { PortalLoginPage } from './PortalLoginPage'
@@ -51,6 +52,7 @@ export function PortalApp() {
         />
         <Route path="*" element={<Navigate to="." replace />} />
       </Routes>
+      <PortalFooter />
       <Toasts />
     </PortalContext.Provider>
   )

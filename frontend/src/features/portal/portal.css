@@ -164,3 +164,25 @@
 html:has(.portal__header) {
   scroll-padding-top: 5rem;
 }
+
+/* The clinic's links under every portal page (PortalFooter). */
+.portal-footer {
+  display: grid;
+  gap: var(--s2);
+  padding: var(--s4) var(--s4) var(--s6, 2rem);
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--ink-muted);
+}
+
+.portal-footer__row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--s2) var(--s4);
+}
+
+.portal-footer a {
+  color: var(--primary);
+  font-weight: 600;
+}

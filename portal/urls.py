@@ -13,6 +13,7 @@ urlpatterns = [
     path("me/", views.MeView.as_view(), name="me"),
     path("register/options/", registration.RegisterOptionsView.as_view(), name="register-options"),
     path("register/", registration.RegisterView.as_view(), name="register"),
+    path("links/", registration.PublicLinksView.as_view(), name="links"),
     path("appointments/", views.AppointmentsView.as_view(), name="appointments"),
     path("visits/", views.VisitsView.as_view(), name="visits"),
     path("prescriptions/", views.PrescriptionsView.as_view(), name="prescriptions"),
