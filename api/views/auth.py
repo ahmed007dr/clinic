@@ -112,9 +112,19 @@ class SessionView(APIView):
                     "platform_user": platform_payload(user),
                 })
             return Response({"authenticated": True, "user": None})
-        return Response(
-            {"authenticated": True, "user": CurrentUserSerializer(user).data}
-        )
+        from platform_admin.impersonation import current
+
+        support = current(request)
+        return Response({
+            "authenticated": True,
+            "user": CurrentUserSerializer(user).data,
+            # A developer signed in as this account for support: the app
+            # shows who, until when, and a way back.
+            "support": {
+                "operator_email": support["operator_email"],
+                "until": support["until"],
+            } if support else None,
+        })
 
 
 @method_decorator(sensitive_post_parameters("password"), name="dispatch")

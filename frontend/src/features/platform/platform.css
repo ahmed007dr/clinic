@@ -185,3 +185,8 @@
     padding: var(--s3);
   }
 }
+
+.account-actions {
+  flex-wrap: wrap;
+  gap: var(--s1);
+}

@@ -23,6 +23,7 @@ import { formatDate, formatMoney, formatNumber } from '@/lib/format'
 
 import { STATUS_TONES } from './PlatformTenantsPage'
 import { TenantBilling } from './TenantBilling'
+import { TenantControl } from './TenantControl'
 import { TenantPeople } from './TenantPeople'
 
 const STATUSES = [
@@ -90,7 +91,7 @@ export function PlatformTenantPage() {
       />
 
       <p className="ui-muted" style={{ fontSize: 'var(--text-sm)', marginTop: 'calc(-1 * var(--s3))' }}>
-        فتح هذه الصفحة يُسجَّل في سجل تدقيق العيادة. البيانات الطبية للعرض فقط.
+        فتح هذه الصفحة يُسجَّل في سجل تدقيق المجموعة. للعمل داخل العيادة نفسها (ومنها السجلات الطبية) استخدم «دخول كـ» من جدول الحسابات.
       </p>
 
       <div className="ui-stack">
@@ -142,6 +143,8 @@ export function PlatformTenantPage() {
         </div>
 
         <TenantPeople tenant={uuid} />
+
+        <TenantControl tenant={uuid} summary={data} onChanged={reload} />
 
         <TenantBilling tenant={uuid} />
 

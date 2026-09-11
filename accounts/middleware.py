@@ -59,6 +59,24 @@ class PlatformTwoFactorMiddleware:
         return self.get_response(request)
 
 
+class SupportSessionMiddleware:
+    """Ends a developer's "login as" session the moment its time is up (or
+    it was ended from the portal) — platform_admin/impersonation.py. Must
+    follow AuthenticationMiddleware."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        from platform_admin.impersonation import expire_if_due
+
+        if hasattr(request, "session") and expire_if_due(request):
+            from django.contrib.auth.models import AnonymousUser
+
+            request.user = AnonymousUser()
+        return self.get_response(request)
+
+
 class LastSeenMiddleware:
     """Remember when each account was last active, for "online now" and "last
     seen" on the platform portal. One UPDATE a minute per active user at most,
@@ -75,7 +93,10 @@ class LastSeenMiddleware:
         # here.
         user = getattr(request, "user", None)
         response = self.get_response(request)
-        if isinstance(user, get_user_model()) and user.is_authenticated:
+        # A developer signed in as someone for support is not that person
+        # being online.
+        supporting = hasattr(request, "session") and request.session.get("platform_support")
+        if isinstance(user, get_user_model()) and user.is_authenticated and not supporting:
             from django.utils import timezone
 
             now = timezone.now()

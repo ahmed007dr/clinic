@@ -38,6 +38,8 @@ export function AuthProvider({ children }) {
   // owner portal. Kept apart from `user` so no clinic screen ever renders
   // for them by accident.
   const [platformUser, setPlatformUser] = useState(null)
+  // A developer signed in as this account for support ("login as").
+  const [support, setSupport] = useState(null)
   // `loading` starts true so the router never flashes the login screen at
   // someone who is already signed in.
   const [loading, setLoading] = useState(true)
@@ -47,6 +49,7 @@ export function AuthProvider({ children }) {
       const data = await api.auth.session()
       setUser(data.authenticated ? data.user : null)
       setPlatformUser(data.authenticated ? data.platform_user ?? null : null)
+      setSupport(data.authenticated ? data.support ?? null : null)
       return data.user ?? null
     } catch {
       setUser(null)
@@ -110,12 +113,13 @@ export function AuthProvider({ children }) {
       refresh,
       isAuthenticated: Boolean(user),
       platformUser,
+      support,
       isPlatform: Boolean(platformUser),
       permissions: user?.permissions ?? NO_PERMISSIONS,
       branch: user?.branch ?? null,
       role: user?.role ?? null,
     }),
-    [user, platformUser, loading, login, verifyTwoFactor, logout, refresh],
+    [user, platformUser, support, loading, login, verifyTwoFactor, logout, refresh],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

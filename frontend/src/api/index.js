@@ -105,6 +105,8 @@ export const auth = {
   logout: () => http.post('/auth/logout/'),
   /** The second step of a platform sign-in: authenticator or recovery code. */
   twoFactor: (code) => http.post('/auth/two-factor/', { code }),
+  /** Leave a developer's "login as" support session. */
+  endSupport: () => http.post('/auth/support/end/'),
   changePassword: (currentPassword, newPassword) =>
     http.post('/auth/password/', {
       current_password: currentPassword,
@@ -149,6 +151,15 @@ export const platform = {
   online: () => http.get('/platform/online/'),
   people: (uuid) => http.get(`/platform/tenants/${uuid}/people/`),
   branches: (uuid) => http.get(`/platform/tenants/${uuid}/branches/`),
+  /* Full control over a group (api/platform_control.py). */
+  editTenant: (uuid, body) => http.patch(`/platform/tenants/${uuid}/edit/`, body),
+  addOwner: (uuid, body) => http.post(`/platform/tenants/${uuid}/owners/`, body),
+  setBranchActive: (uuid, id, active) => http.post(`/platform/tenants/${uuid}/branches/${id}/active/`, { active }),
+  accountAction: (uuid, action) => http.post(`/platform/accounts/${uuid}/${action}/`),
+  entitlements: (uuid) => http.get(`/platform/tenants/${uuid}/entitlements/`),
+  setEntitlements: (uuid, body) => http.patch(`/platform/tenants/${uuid}/entitlements/`, body),
+  supportSessions: (uuid) => http.get(`/platform/tenants/${uuid}/support/`),
+  startSupport: (uuid, body) => http.post(`/platform/tenants/${uuid}/support/`, body),
   /* Keys and passwords — entered here only, returned masked (platform_admin/vault.py). */
   integrations: (params) => http.get('/platform/integrations/', params),
   saveIntegration: (body) => http.post('/platform/integrations/', body),

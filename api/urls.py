@@ -16,7 +16,7 @@ from .views.settings import ClinicSettingsView
 from .views import attendance, contracts, intake, meta, owner, shifts
 from .views.print_settings import PrintSettingsView
 from .views import doctor_profile
-from . import platform, platform_business, platform_pay, signup
+from . import platform, platform_business, platform_control, platform_pay, signup
 
 router = DefaultRouter()
 
@@ -77,6 +77,7 @@ urlpatterns = [
     path("auth/logout/", auth.LogoutView.as_view(), name="logout"),
     path("auth/password/", auth.PasswordChangeView.as_view(), name="password-change"),
     path("auth/branch/", auth.ActiveBranchView.as_view(), name="active-branch"),
+    path("auth/support/end/", platform_control.SupportEndView.as_view(), name="support-end"),
     path("branches/<uuid:uuid>/print-settings/", PrintSettingsView.as_view(), name="print-settings"),
     path("me/doctor-profile/", doctor_profile.MyDoctorProfileView.as_view(), name="my-doctor-profile"),
     path("doctor-profiles/", doctor_profile.DoctorProfileListView.as_view(), name="doctor-profiles"),
@@ -131,6 +132,13 @@ urlpatterns = [
     path("platform/tenants/<uuid:uuid>/billing/invoices/", platform_business.InvoiceIssueView.as_view(), name="platform-tenant-invoices"),
     path("platform/tenants/<uuid:uuid>/billing/payments/", platform_business.ManualPaymentView.as_view(), name="platform-tenant-payments"),
     path("platform/tenants/<uuid:uuid>/billing/late/", platform_business.LateView.as_view(), name="platform-tenant-late"),
+    # Developer portal, phase 4: full control (api/platform_control.py).
+    path("platform/tenants/<uuid:uuid>/edit/", platform_control.TenantEditView.as_view(), name="platform-tenant-edit"),
+    path("platform/tenants/<uuid:uuid>/owners/", platform_control.TenantOwnerView.as_view(), name="platform-tenant-owners"),
+    path("platform/tenants/<uuid:uuid>/branches/<int:pk>/active/", platform_control.TenantBranchActiveView.as_view(), name="platform-tenant-branch-active"),
+    path("platform/tenants/<uuid:uuid>/entitlements/", platform_control.EntitlementsView.as_view(), name="platform-tenant-entitlements"),
+    path("platform/tenants/<uuid:uuid>/support/", platform_control.SupportStartView.as_view(), name="platform-tenant-support"),
+    path("platform/accounts/<uuid:uuid>/<str:action>/", platform_control.AccountActionView.as_view(), name="platform-account-action"),
     path("platform/signups/", signup.SignupQueueView.as_view(), name="platform-signups"),
     path("platform/signups/<int:pk>/approve/", signup.SignupApproveView.as_view(), name="platform-signup-approve"),
     path("platform/signups/<int:pk>/reject/", signup.SignupRejectView.as_view(), name="platform-signup-reject"),

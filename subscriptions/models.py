@@ -137,6 +137,10 @@ class Subscription(TenantOwnedModel):
         default=dict, blank=True,
         help_text="Per-tenant grants beyond the plan — §11 custom contracts.",
     )
+    # The same for limits, set from the developer portal: {limit: number or
+    # None}. A key present wins over the plan (None = unlimited); a key
+    # absent means the plan's own allowance.
+    limit_overrides = models.JSONField(default=dict, blank=True)
     notes = models.TextField(blank=True, verbose_name="ملاحظات")
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -180,3 +184,11 @@ class Subscription(TenantOwnedModel):
             and self.trial_ends_on is not None
             and self.trial_ends_on >= timezone.now().date()
         )
+
+    def allowed(self, limit):
+        """This subscription's allowance for `limit` — the developer's
+        override if there is one, else the plan's. None = unlimited."""
+        overrides = self.limit_overrides or {}
+        if limit in overrides:
+            return overrides[limit]
+        return getattr(self.plan, limit)

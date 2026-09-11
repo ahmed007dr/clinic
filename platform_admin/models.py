@@ -314,3 +314,22 @@ class SignupRequest(models.Model):
 
     def __str__(self):
         return f"{self.group_name} <{self.email}>"
+
+
+class SupportSession(models.Model):
+    """A developer signed in as one of a group's accounts ("login as"), for
+    support — time-limited, with a reason, recorded here and in the group's
+    audit trail, and announced to the group's owners
+    (platform_admin/impersonation.py)."""
+
+    operator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    customer = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="+")
+    target = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    reason = models.CharField(max_length=300)
+    started_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    ended_at = models.DateTimeField(null=True, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-started_at"]

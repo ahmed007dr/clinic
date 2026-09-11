@@ -138,6 +138,8 @@ MIDDLEWARE = [
     'accounts.middleware.ActiveBranchMiddleware',
     # A platform session is only ever one completed with a one-time code.
     'accounts.middleware.PlatformTwoFactorMiddleware',
+    # A developer's time-limited "login as" support session.
+    'accounts.middleware.SupportSessionMiddleware',
     # "Online now" / "last seen" for the platform portal.
     'accounts.middleware.LastSeenMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',

@@ -8,9 +8,10 @@ unchanged rather than a looser copy of them (see platform_admin/permissions.py):
 * **One tenant at a time.** Cross-tenant reach is entering one clinic's
   `tenant_context` on the ordinary connection for the duration of one read. No
   privileged connection, no BYPASSRLS, and `TenantMiddleware` is untouched.
-* **Clinical data is never written.** The only tenant-owned write is moving a
-  subscription between plans. Suspending a clinic writes to `Tenant`, a platform
-  model with no isolation policy.
+* **Writes are narrow and explicit.** This module moves a subscription between
+  plans and changes a group's status; wider control (accounts, clinics,
+  services, "login as" for support) lives in api/platform_control.py, under the
+  same rules — see platform_admin/permissions.py.
 * **Audited.** Opening a clinic's record is written to *that clinic's* audit
   trail, as are status and plan changes and onboarding — the audit is the
   control, so failures propagate.
