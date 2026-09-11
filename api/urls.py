@@ -114,6 +114,7 @@ urlpatterns = [
     path("platform/plans/", platform.PlanListView.as_view(), name="platform-plans"),
     path("platform/overview/", platform.OverviewView.as_view(), name="platform-overview"),
     path("platform/online/", platform.OnlineView.as_view(), name="platform-online"),
+    path("platform/analytics/", platform.AnalyticsView.as_view(), name="platform-analytics"),
     path("platform/tenants/<uuid:uuid>/people/", platform.TenantPeopleView.as_view(), name="platform-tenant-people"),
     path("platform/tenants/", platform.TenantListView.as_view(), name="platform-tenants"),
     path("platform/tenants/<uuid:uuid>/", platform.TenantDetailView.as_view(), name="platform-tenant"),

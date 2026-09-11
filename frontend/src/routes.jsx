@@ -117,6 +117,7 @@ const PlatformIntegrationsPage = page(() => import('@/features/platform/Platform
 const PlatformMailboxesPage = page(() => import('@/features/platform/PlatformMailboxesPage'), 'PlatformMailboxesPage')
 const PlatformBillingPage = page(() => import('@/features/platform/PlatformBillingPage'), 'PlatformBillingPage')
 const PlatformPlansPage = page(() => import('@/features/platform/PlatformPlansPage'), 'PlatformPlansPage')
+const PlatformAnalyticsPage = page(() => import('@/features/platform/PlatformAnalyticsPage'), 'PlatformAnalyticsPage')
 const PlatformSignupsPage = page(() => import('@/features/platform/PlatformSignupsPage'), 'PlatformSignupsPage')
 
 export const platformRoutes = [
@@ -125,6 +126,7 @@ export const platformRoutes = [
   { path: 'tenants/:uuid', element: PlatformTenantPage },
   { path: 'online', element: PlatformOnlinePage },
   { path: 'signups', element: PlatformSignupsPage },
+  { path: 'analytics', element: PlatformAnalyticsPage },
   { path: 'billing', element: PlatformBillingPage },
   { path: 'plans', element: PlatformPlansPage },
   { path: 'integrations', element: PlatformIntegrationsPage },

@@ -149,6 +149,7 @@ export const platform = {
   /* Developer portal — monitoring (platform_admin/monitoring.py). */
   overview: () => http.get('/platform/overview/'),
   online: () => http.get('/platform/online/'),
+  analytics: (params) => http.get('/platform/analytics/', params),
   people: (uuid) => http.get(`/platform/tenants/${uuid}/people/`),
   branches: (uuid) => http.get(`/platform/tenants/${uuid}/branches/`),
   /* Full control over a group (api/platform_control.py). */

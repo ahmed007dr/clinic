@@ -286,3 +286,18 @@ class OnlineView(APIView):
         from platform_admin.monitoring import online_now
 
         return Response(online_now())
+
+
+class AnalyticsView(APIView):
+    """The platform's figures (platform_admin/analytics.py): `?months=12`."""
+
+    permission_classes = [IsPlatformStaff]
+
+    def get(self, request):
+        from platform_admin.analytics import report
+
+        try:
+            months = int(request.query_params.get("months") or 12)
+        except ValueError:
+            months = 12
+        return Response(report(months))
