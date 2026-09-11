@@ -32,8 +32,12 @@ class RelationNullabilityTests(SimpleTestCase):
         mismatches = []
         for cls in api_serializers():
             model = cls.Meta.model
+            # Fields the server fills in itself when they are left out (and
+            # refuses with a message when it cannot) — declared per serializer,
+            # so an exemption is a visible decision rather than a gap.
+            server_filled = getattr(cls.Meta, "server_filled", ())
             for name, field in cls().get_fields().items():
-                if not isinstance(field, TenantScopedRelatedField):
+                if not isinstance(field, TenantScopedRelatedField) or name in server_filled:
                     continue
                 try:
                     column = model._meta.get_field(field.source or name)

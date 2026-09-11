@@ -50,3 +50,36 @@
     grid-column: span 2;
   }
 }
+
+/* The patient(s) sent in to the doctor right now — the new prescription's
+   patient is picked here, not searched for. */
+.rx__room {
+  margin-block-end: var(--s4);
+}
+
+/* Patient, doctor and date: shown, fixed, never inputs. */
+.rx__facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s3);
+  margin: 0 0 var(--s4);
+  padding: var(--s3);
+  border-radius: var(--radius);
+  background: var(--surface-sunken);
+}
+
+.rx__facts dt {
+  color: var(--ink-muted);
+  font-size: 0.85em;
+}
+
+.rx__facts dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+@media (max-width: 40rem) {
+  .rx__facts {
+    grid-template-columns: 1fr;
+  }
+}

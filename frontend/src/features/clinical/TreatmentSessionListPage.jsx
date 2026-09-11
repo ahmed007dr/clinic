@@ -1,6 +1,7 @@
 import { useSearchParams } from 'react-router-dom'
 
 import { api } from '@/api'
+import { useAuth } from '@/hooks/useAuth'
 import { Badge, SESSION_TONES } from '@/components/ui'
 import { CrudPage } from '@/components/data/CrudPage'
 import { formatDateTime, formatMoney, toDateTimeInput } from '@/lib/format'
@@ -13,6 +14,7 @@ const STATUSES = [
 ]
 
 export function TreatmentSessionListPage() {
+  const { permissions } = useAuth()
   const [search] = useSearchParams()
   const plan = search.get('plan') || undefined
   const patient = search.get('patient') || undefined
@@ -97,8 +99,16 @@ export function TreatmentSessionListPage() {
         { name: 'doctor', label: 'الطبيب', type: 'relation', resource: api.doctors },
         { name: 'service', label: 'الخدمة', type: 'relation', resource: api.services },
         { name: 'quantity', label: 'الكمية', type: 'number', min: 1, default: 1 },
-        { name: 'unit_price', label: 'سعر الوحدة', type: 'money' },
-        { name: 'discount', label: 'الخصم', type: 'money' },
+        // Price from the doctor's contract; price and discount are
+        // management's (billing/pricing.py — the server enforces it).
+        {
+          name: 'unit_price',
+          label: 'سعر الوحدة',
+          type: 'money',
+          disabled: !permissions.is_admin,
+          hint: permissions.is_admin ? undefined : 'من تعاقد الطبيب — تعديله للإدارة فقط',
+        },
+        { name: 'discount', label: 'الخصم', type: 'money', disabled: !permissions.is_admin },
         { name: 'result', label: 'النتيجة', type: 'textarea', span: 2 },
         { name: 'notes', label: 'ملاحظات', type: 'textarea', span: 2 },
       ]}

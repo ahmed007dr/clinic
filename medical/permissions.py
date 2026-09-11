@@ -4,9 +4,10 @@ Reception books appointments, registers patients and handles payments, but
 never sees a diagnosis — doc/readme.md §14 keeps Reception out of clinical
 work and §87 asks for least privilege over medical data.
 
-Any doctor in a clinic can read any of that clinic's patients' records, which
-is what makes cover, handover and second opinions possible. The group Owner
-sees every clinic.
+A doctor reads only their own patients' records — those booked with, seen by
+or treated by them (accounts.roles.scope_to_own_doctor; the group owner's
+decision of 2026-09-11). Cover for an absent colleague goes through an Admin
+reassigning the booking. Admins see their clinic; the group Owner every clinic.
 
 The rules themselves live in `accounts/roles.py`; this module keeps the names
 the clinical views have always imported.

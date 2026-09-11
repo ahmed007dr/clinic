@@ -176,3 +176,38 @@ def patient_list_export(request):
     elif export_format == 'excel':
         return export_excel(data, headers, title, filename)
     return redirect('patients:patient_list')
+
+@login_required
+@user_passes_test(is_front_desk)
+def intake_form_print(request):
+    """The printable intake form: the patient fills it in by hand and signs.
+
+    Blank by default; `?patient=<uuid>` pre-fills what is already on record
+    (the patient then checks and signs). The letterhead and which sections it
+    asks for are the clinic's own (branches/printing.py) — `?branch=<uuid>`
+    lets the Owner print another clinic's.
+    """
+    from branches.models import Branch
+    from branches.printing import intake_layout, letterhead
+
+    from accounts.roles import current_branch_id
+
+    branch = None
+    wanted = request.GET.get("branch")
+    if wanted and sees_all_branches(request.user):
+        branch = Branch.objects.filter(uuid=wanted).first()
+    if branch is None:
+        branch = Branch.objects.filter(pk=current_branch_id(request.user)).first()
+
+    patient = None
+    if request.GET.get("patient"):
+        patient = get_object_or_404(
+            scope_queryset_to_user(Patient.objects.all(), request.user), uuid=request.GET["patient"]
+        )
+        branch = patient.branch or branch
+
+    return render(request, "print/intake_form.html", {
+        "letterhead": letterhead(branch, request),
+        "layout": intake_layout(branch),
+        "patient": patient,
+    })

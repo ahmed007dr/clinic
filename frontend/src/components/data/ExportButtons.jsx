@@ -7,13 +7,15 @@
  * itself. Reimplementing them in JavaScript would be a second exporter that
  * gets the shaping wrong.
  */
+import { serverUrl } from '@/lib/config'
+
 export function ExportButtons({ path }) {
   return (
     <div className="ui-row">
-      <a className="ui-btn ui-btn--secondary ui-btn--sm" href={`${path}?export=pdf`}>
+      <a className="ui-btn ui-btn--secondary ui-btn--sm" href={serverUrl(`${path}?export=pdf`)}>
         PDF
       </a>
-      <a className="ui-btn ui-btn--secondary ui-btn--sm" href={`${path}?export=excel`}>
+      <a className="ui-btn ui-btn--secondary ui-btn--sm" href={serverUrl(`${path}?export=excel`)}>
         Excel
       </a>
     </div>

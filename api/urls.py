@@ -13,7 +13,8 @@ from .views import dashboard as dashboard_views
 from .views import notifications, patients
 from .views.subscription import SubscriptionView
 from .views.settings import ClinicSettingsView
-from .views import attendance, intake, meta, owner
+from .views import attendance, contracts, intake, meta, owner, shifts
+from .views.print_settings import PrintSettingsView
 from . import platform
 
 router = DefaultRouter()
@@ -55,6 +56,9 @@ router.register("attachments", clinical.MedicalAttachmentViewSet, basename="atta
 router.register("allergies", clinical.AllergyViewSet, basename="allergy")
 router.register("intakes", intake.PatientIntakeViewSet, basename="intake")
 router.register("attendance", attendance.AttendanceViewSet, basename="attendance")
+router.register("shifts", shifts.CashShiftViewSet, basename="shift")
+router.register("doctor-rates", contracts.DoctorServiceRateViewSet, basename="doctorrate")
+router.register("commissions", contracts.DoctorCommissionViewSet, basename="commission")
 
 # Administration
 router.register("staff", accounts.StaffUserViewSet, basename="staff")
@@ -70,6 +74,8 @@ urlpatterns = [
     path("auth/login/", auth.LoginView.as_view(), name="login"),
     path("auth/logout/", auth.LogoutView.as_view(), name="logout"),
     path("auth/password/", auth.PasswordChangeView.as_view(), name="password-change"),
+    path("auth/branch/", auth.ActiveBranchView.as_view(), name="active-branch"),
+    path("branches/<uuid:uuid>/print-settings/", PrintSettingsView.as_view(), name="print-settings"),
     path("dashboard/", dashboard_views.DashboardView.as_view(), name="dashboard"),
     path("subscription/", SubscriptionView.as_view(), name="subscription"),
     path("clinic-settings/", ClinicSettingsView.as_view(), name="clinic-settings"),

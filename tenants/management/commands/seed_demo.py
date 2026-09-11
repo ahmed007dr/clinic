@@ -6,6 +6,12 @@ services and revenue are genuinely unreachable.
 
     python manage.py seed_demo
     python manage.py seed_demo --reset     # wipe demo data first
+    python manage.py seed_demo --password <pw>   # fixed password, local work only
+
+The demo accounts get a random password per run, printed once. A fixed,
+published password on a server that is reachable from the internet is a door
+anyone can open; before real use, `manage.py disable_demo_accounts` switches
+the demo logins off altogether.
 """
 
 import random
@@ -21,7 +27,7 @@ from django.utils import timezone
 from accounts.models import ClinicRole
 from appointments.models import Appointment
 from audit.models import AuditLog
-from billing.models import Expense, ExpenseCategory, Payment, PaymentMethod
+from billing.models import CashShift, DoctorCommission, DoctorServiceRate, Expense, ExpenseCategory, Payment, PaymentMethod
 from branches.models import Branch
 from employees.models import Employee, EmployeeType, SalaryType, Specialization
 from notifications.models import Notification
@@ -40,13 +46,14 @@ from services.models import Service
 from subscriptions.models import Plan, Subscription
 from tenants.context import tenant_context
 from tenants.models import SerialCounter, Tenant
-from tenants.provisioning import provision_tenant_defaults
+from django.utils.crypto import get_random_string
+
+from tenants.provisioning import PASSWORD_ALPHABET, provision_tenant_defaults
 
 from ._demo_data import get_generator
 
 User = get_user_model()
 
-DEMO_PASSWORD = "demo-clinic-2026"
 
 COMPLAINTS = ["حكة وطفح جلدي", "تساقط الشعر", "بقع داكنة بالوجه", "حب الشباب", "جفاف الجلد"]
 DIAGNOSES = ["التهاب جلدي تحسسي", "أكزيما", "حب شباب متوسط", "تصبغات جلدية", "صدفية خفيفة"]
@@ -108,6 +115,12 @@ class Command(BaseCommand):
             action="store_true",
             help="Delete existing demo data before seeding.",
         )
+        parser.add_argument(
+            "--password",
+            default="",
+            help="Password for accounts created by this run. Default: random, "
+            "printed once. Use a fixed one only on a local machine.",
+        )
 
     def handle(self, *args, **options):
         # Faker is a development dependency and is deliberately absent from a
@@ -117,6 +130,13 @@ class Command(BaseCommand):
         self.fake, source = get_generator(20260908)
         random.seed(20260908)  # reproducible runs
         self.stdout.write(f"Generating demo data using: {source}")
+
+        # get_random_string draws from `secrets`, so the random.seed above —
+        # there for reproducible data — does not make the password predictable.
+        self.password = options["password"] or get_random_string(
+            14, allowed_chars=PASSWORD_ALPHABET
+        )
+        self.created_accounts = []
 
         if options["reset"]:
             self._reset()
@@ -154,6 +174,12 @@ class Command(BaseCommand):
         # Order matters: dependants before the rows they point at.
         Payment.all_objects.all().delete()
         Expense.all_objects.all().delete()
+        # Cash shifts PROTECT their user and branch; they go once the money
+        # filed under them has.
+        CashShift.all_objects.all().delete()
+        # Doctor shares and contracts PROTECT/CASCADE from the doctor record.
+        DoctorCommission.all_objects.all().delete()
+        DoctorServiceRate.all_objects.all().delete()
         # Clinical records first: Visit.patient, Allergy.patient,
         # TreatmentPlan.patient, TreatmentSession.patient and
         # Procedure.patient/.visit and LabResult.patient are all PROTECT, so
@@ -303,6 +329,16 @@ class Command(BaseCommand):
                 employees.append(employee)
 
             doctors = [e for e in employees if e.employee_type_id == doctor_type.id]
+
+            # The demo doctor account *is* the first doctor, in the account's
+            # own clinic: a doctor sees only their own patients
+            # (accounts.roles), so an unlinked demo login would show nothing.
+            demo_doctor = doctors[0]
+            if demo_doctor.branch_id != branches[0].id:
+                demo_doctor.branch = branches[0]
+                demo_doctor.save(update_fields=["branch"])
+            users[3].employee = demo_doctor
+            users[3].save(update_fields=["employee"])
 
             patients = [
                 Patient.objects.create(
@@ -560,8 +596,9 @@ class Command(BaseCommand):
             },
         )
         if created:
-            user.set_password(DEMO_PASSWORD)
+            user.set_password(self.password)
             user.save(update_fields=["password"])
+            self.created_accounts.append(email)
         return user
 
     # ----------------------------------------------------------------- report
@@ -587,13 +624,27 @@ class Command(BaseCommand):
                 f"    {s['plans']} treatment plans  {s['sessions']} sessions  "
                 f"{s['procedures']} procedures  {s['lab_results']} lab results"
             )
-            self.stdout.write(f"    admin@{s['slug']}.local      (Admin)")
-            self.stdout.write(f"    reception@{s['slug']}.local  (Reception)")
-            self.stdout.write(f"    doctor@{s['slug']}.local     (Doctor)")
+            self.stdout.write(f"    admin@{s['slug']}.local        (Owner — every clinic)")
+            self.stdout.write(f"    clinicadmin@{s['slug']}.local  (Admin — first clinic)")
+            self.stdout.write(f"    reception@{s['slug']}.local    (Reception)")
+            self.stdout.write(f"    doctor@{s['slug']}.local       (Doctor)")
 
         self.stdout.write("")
-        self.stdout.write(f"  Password for every demo account: {DEMO_PASSWORD}")
+        if self.created_accounts:
+            self.stdout.write(
+                f"  Password for the {len(self.created_accounts)} account(s) created "
+                f"by this run: {self.password}"
+            )
+            self.stdout.write("  Shown once and not stored readable. Accounts that already")
+            self.stdout.write("  existed keep the password they had.")
+        else:
+            self.stdout.write("  No accounts were created; existing ones keep their passwords.")
         self.stdout.write("  Log in with the EMAIL, not the username.")
+        self.stdout.write(
+            self.style.WARNING(
+                "  Before real use: python manage.py disable_demo_accounts"
+            )
+        )
         self.stdout.write("")
         self.stdout.write(
             "  To see isolation working: log in as one clinic, note a patient's URL,"

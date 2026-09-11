@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { api } from '@/api'
-import { Avatar, Badge, Button } from '@/components/ui'
+import { Avatar, Badge, Button, Select } from '@/components/ui'
 import { useAuth } from '@/hooks/useAuth'
 import { useT } from '@/i18n'
 
@@ -61,6 +61,8 @@ export function Header({ onToggleMenu, menuOpen }) {
 
       <div className="header__spacer" />
 
+      <BranchSwitcher />
+
       <LanguageToggle />
       <ThemeToggle />
 
@@ -108,5 +110,41 @@ export function Header({ onToggleMenu, menuOpen }) {
         )}
       </div>
     </header>
+  )
+}
+
+/**
+ * For a doctor the Owner linked to several clinics: which one every screen is
+ * showing. The server keeps the choice in the session and re-checks it on
+ * each request (accounts/roles.py `current_branch_id`); the page reloads so
+ * nothing from the previous clinic stays on screen.
+ */
+function BranchSwitcher() {
+  const { user } = useAuth()
+  const { t } = useT()
+  const [saving, setSaving] = useState(false)
+  const branches = user?.branches ?? []
+  if (branches.length < 2) return null
+
+  const onChange = async (event) => {
+    setSaving(true)
+    try {
+      await api.auth.setBranch(event.target.value)
+      window.location.reload()
+    } catch {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Select
+      aria-label={t('header.branch')}
+      title={t('header.branch')}
+      value={user.active_branch?.uuid ?? ''}
+      onChange={onChange}
+      disabled={saving}
+      options={branches.map((branch) => ({ value: branch.uuid, label: branch.name }))}
+      style={{ width: 'auto' }}
+    />
   )
 }

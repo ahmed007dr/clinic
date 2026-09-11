@@ -25,7 +25,9 @@ from medical.models import (
 from patients.models import Patient
 from services.models import Service
 
-from .common import ClinicSerializer
+from billing.pricing import enforce_attrs
+
+from .common import ActiveChoicesMixin, ClinicSerializer
 
 
 class VisitMatchesPatient:
@@ -64,10 +66,12 @@ class VisitSerializer(ClinicSerializer):
         source="branch.name", read_only=True, default=None
     )
 
+    appointment = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
+
     class Meta:
         model = Visit
         fields = [
-            "uuid", "serial_number",
+            "uuid", "serial_number", "appointment",
             "patient", "patient_name", "patient_serial",
             "doctor", "doctor_name",
             "branch", "branch_name",
@@ -75,6 +79,20 @@ class VisitSerializer(ClinicSerializer):
             "diagnosis", "treatment_plan", "follow_up_date",
             "created_at", "updated_at",
         ]
+        # The date a visit happened is when it was opened, never typed in.
+        read_only_fields = ["visit_date"]
+
+    #: Fixed once the visit exists — who, with whom, where. A visit's patient
+    #: or doctor changing afterwards would move a medical record into someone
+    #: else's history, or out of the doctor's sight (medical/checkin.py).
+    LOCKED_ON_UPDATE = ("patient", "doctor", "branch")
+
+    def get_fields(self):
+        fields = super().get_fields()
+        if self.instance is not None:
+            for name in self.LOCKED_ON_UPDATE:
+                fields[name].read_only = True
+        return fields
 
 
 class PrescriptionItemSerializer(ClinicSerializer):
@@ -96,7 +114,9 @@ class PrescriptionSerializer(VisitMatchesPatient, ClinicSerializer):
     """
 
     visit = TenantScopedRelatedField(model=Visit, branch_field="branch")
-    patient = TenantScopedRelatedField(model=Patient, branch_field="branch")
+    # Taken from the visit when left out: a prescription is written *in* a
+    # visit, so its patient is that visit's patient and nothing else.
+    patient = TenantScopedRelatedField(model=Patient, branch_field="branch", required=False)
     doctor = TenantScopedRelatedField(model=Employee, required=False, allow_null=True)
     items = PrescriptionItemSerializer(many=True)
 
@@ -115,6 +135,22 @@ class PrescriptionSerializer(VisitMatchesPatient, ClinicSerializer):
             "issued_at", "notes", "items", "created_at",
             "allergy_warnings",
         ]
+        # Dated when written; the server stamps it (model default).
+        read_only_fields = ["issued_at"]
+        server_filled = ("patient",)
+
+    def get_fields(self):
+        fields = super().get_fields()
+        if self.instance is not None:
+            # Which visit, and so which patient, is fixed once written.
+            fields["visit"].read_only = True
+            fields["patient"].read_only = True
+        return fields
+
+    def validate(self, attrs):
+        if attrs.get("visit") is not None and attrs.get("patient") is None:
+            attrs["patient"] = attrs["visit"].patient
+        return super().validate(attrs)
 
     def get_allergy_warnings(self, prescription):
         """Medicines on this prescription that mention a recorded allergen.
@@ -175,7 +211,7 @@ class PrescriptionSerializer(VisitMatchesPatient, ClinicSerializer):
         return instance
 
 
-class TreatmentPlanSerializer(VisitMatchesPatient, ClinicSerializer):
+class TreatmentPlanSerializer(ActiveChoicesMixin, VisitMatchesPatient, ClinicSerializer):
     patient = TenantScopedRelatedField(model=Patient, branch_field="branch")
     visit = TenantScopedRelatedField(
         model=Visit, branch_field="branch", required=False, allow_null=True
@@ -214,7 +250,7 @@ class TreatmentPlanSerializer(VisitMatchesPatient, ClinicSerializer):
         ).count()
 
 
-class TreatmentSessionSerializer(ClinicSerializer):
+class TreatmentSessionSerializer(ActiveChoicesMixin, ClinicSerializer):
     plan = TenantScopedRelatedField(model=TreatmentPlan, branch_field="branch")
     patient = TenantScopedRelatedField(model=Patient, branch_field="branch")
     doctor = TenantScopedRelatedField(model=Employee, required=False, allow_null=True)
@@ -248,10 +284,18 @@ class TreatmentSessionSerializer(ClinicSerializer):
             raise serializers.ValidationError(
                 {"patient": "المريض لا يطابق مريض خطة العلاج."}
             )
-        return attrs
+        if self.instance is None and plan is not None and attrs.get("service") is None:
+            # A session delivers its plan's service, and is priced as one.
+            attrs["service"] = plan.service
+        # Price and discount: the contract's, unless management sets them
+        # (billing.pricing).
+        return enforce_attrs(
+            attrs, self.request_user, self.instance,
+            price_field="unit_price", discount_field="discount",
+        )
 
 
-class ProcedureSerializer(VisitMatchesPatient, ClinicSerializer):
+class ProcedureSerializer(ActiveChoicesMixin, VisitMatchesPatient, ClinicSerializer):
     visit = TenantScopedRelatedField(model=Visit, branch_field="branch")
     patient = TenantScopedRelatedField(model=Patient, branch_field="branch")
     doctor = TenantScopedRelatedField(model=Employee, required=False, allow_null=True)
@@ -276,6 +320,13 @@ class ProcedureSerializer(VisitMatchesPatient, ClinicSerializer):
             "quantity", "unit_price", "discount",
             "created_at", "updated_at",
         ]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        return enforce_attrs(
+            attrs, self.request_user, self.instance,
+            price_field="unit_price", discount_field="discount",
+        )
 
 
 class LabResultSerializer(VisitMatchesPatient, ClinicSerializer):

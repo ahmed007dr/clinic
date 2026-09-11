@@ -4,10 +4,20 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from accounts.models import ClinicRole
-from accounts.roles import assignable_role_names, is_front_desk, is_owner
+from accounts.roles import (
+    assignable_role_names,
+    current_branch_id,
+    doctor_branch_ids,
+    is_doctor,
+    is_front_desk,
+    is_owner,
+)
 from api.permissions import can_view_clinical, is_clinic_admin
+from billing.access import can_view_finance
+from billing.shifts import manages_shifts, works_in_shifts
 from api.relations import TenantScopedRelatedField
 from branches.models import Branch
+from employees.models import Employee
 
 from .common import ClinicSerializer
 
@@ -46,6 +56,12 @@ class CurrentUserSerializer(serializers.ModelSerializer):
         source="tenant.status", read_only=True, default=None
     )
     permissions = serializers.SerializerMethodField()
+    # The doctor record this login is — what a new visit or prescription is
+    # signed with, and what "my patients" means. Null for everyone else.
+    doctor = serializers.SerializerMethodField()
+    # A doctor linked to several clinics: which ones, and which is showing.
+    branches = serializers.SerializerMethodField()
+    active_branch = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -60,8 +76,28 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "clinic",
             "clinic_status",
             "permissions",
+            "doctor",
+            "branches",
+            "active_branch",
         ]
         read_only_fields = fields
+
+    def get_branches(self, user):
+        ids = doctor_branch_ids(user)
+        if len(ids) < 2:
+            return []
+        return BranchBriefSerializer(Branch.objects.filter(pk__in=ids).order_by("name"), many=True).data
+
+    def get_active_branch(self, user):
+        branch_id = current_branch_id(user)
+        if not branch_id:
+            return None
+        branch = Branch.objects.filter(pk=branch_id).first()
+        return BranchBriefSerializer(branch).data if branch else None
+
+    def get_doctor(self, user):
+        employee = user.employee if is_doctor(user) else None
+        return {"uuid": str(employee.uuid), "name": employee.name} if employee else None
 
     def get_permissions(self, user):
         admin = is_clinic_admin(user)
@@ -75,11 +111,20 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             # Reception handles money and bookings; clinical staff do not need
             # the expense ledger to do their job.
             "manage_billing": admin or getattr(user.role, "name", None) == "Reception",
+            # The books over time: reports, month totals, the revenue chart
+            # (billing.access). Reception handles today's money, not these.
+            "view_finance": can_view_finance(user),
             "manage_staff": admin,
             "manage_settings": owner,
             # Clinic-wide rather than one branch — drives whether the UI offers
             # a branch filter at all.
             "all_branches": owner,
+            "is_doctor": is_doctor(user),
+            # Records money inside a cash shift / reviews everyone's shifts.
+            "works_in_shifts": works_in_shifts(user),
+            "manage_shifts": manages_shifts(user),
+            # Doctor contracts and shares: management's, and a doctor's own.
+            "view_contracts": admin or is_doctor(user),
         }
 
 
@@ -95,6 +140,11 @@ class StaffUserSerializer(ClinicSerializer):
     role_name = serializers.CharField(source="role.name", read_only=True, default=None)
     branch_name = serializers.CharField(
         source="branch.name", read_only=True, default=None
+    )
+    # Which doctor a Doctor account is (accounts.User.employee).
+    employee = TenantScopedRelatedField(model=Employee, required=False, allow_null=True)
+    employee_name = serializers.CharField(
+        source="employee.name", read_only=True, default=None
     )
     password = serializers.CharField(
         write_only=True, required=False, allow_blank=True, min_length=8, style={"input_type": "password"}
@@ -112,6 +162,8 @@ class StaffUserSerializer(ClinicSerializer):
             "role_name",
             "branch",
             "branch_name",
+            "employee",
+            "employee_name",
             "is_active",
             "password",
         ]
@@ -136,7 +188,39 @@ class StaffUserSerializer(ClinicSerializer):
         branch = attrs.get("branch")
         if branch is not None and not is_owner(actor) and branch.pk != getattr(actor, "branch_id", None):
             raise serializers.ValidationError({"branch": "يمكنك إدارة موظفي عيادتك فقط."})
+        self.validate_employee_link(attrs)
         return attrs
+
+    def validate_employee_link(self, attrs):
+        """The link decides whose patients a doctor sees, so a wrong one is a
+        data leak, not a typo: one record per account, in the account's own
+        clinic, and only on a Doctor account."""
+        instance = self.instance
+        role = attrs.get("role", getattr(instance, "role", None))
+        if getattr(role, "name", None) != "Doctor":
+            if attrs.get("employee") is not None:
+                raise serializers.ValidationError(
+                    {"employee": "الربط بسجل طبيب متاح لحسابات الأطباء فقط."}
+                )
+            # A doctor moved to another role stops being that doctor.
+            if getattr(instance, "employee_id", None):
+                attrs["employee"] = None
+            return
+        employee = attrs.get("employee", getattr(instance, "employee", None))
+        if employee is None:
+            return
+        branch = attrs.get("branch", getattr(instance, "branch", None))
+        if branch is not None and employee.branch_id != branch.pk:
+            raise serializers.ValidationError(
+                {"employee": "سجل الطبيب تابع لفرع آخر غير فرع الحساب."}
+            )
+        taken = User.objects.filter(employee=employee)
+        if instance is not None:
+            taken = taken.exclude(pk=instance.pk)
+        if taken.exists():
+            raise serializers.ValidationError(
+                {"employee": "سجل الطبيب هذا مرتبط بحساب آخر بالفعل."}
+            )
 
     def create(self, validated_data):
         password = validated_data.pop("password", "") or ""

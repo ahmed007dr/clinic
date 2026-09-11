@@ -9,6 +9,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db.models import Sum, Count, Q
 from datetime import datetime
 from utils.utils import export_pdf, export_excel
+from .shifts import ShiftError, shift_for_recording
 from django.core.paginator import Paginator
 from django.db.models import OuterRef, Subquery
 from accounts.roles import (
@@ -19,6 +20,16 @@ from accounts.roles import (
 def is_admin(user):
     return is_clinic_admin(user)
 
+
+def _file_under_shift(record, user):
+    """Same rule as the API (billing.shifts): money recorded by someone who
+    works in shifts goes into their open shift, or is refused."""
+    shift = shift_for_recording(user)
+    if shift is not None:
+        record.shift = shift
+        record.branch = shift.branch
+    return shift
+
 @login_required
 @user_passes_test(is_admin)
 def payment_create(request):
@@ -27,6 +38,12 @@ def payment_create(request):
         if form.is_valid():
             payment = form.save(commit=False)
             payment.tenant = request.user.tenant
+            payment.created_by = request.user
+            try:
+                _file_under_shift(payment, request.user)
+            except ShiftError as error:
+                messages.error(request, str(error))
+                return redirect('billing:payment_list')
             payment.save()
             messages.success(request, f'تم تسجيل الدفعة {payment.receipt_number} بنجاح')
             return redirect('billing:payment_list')  # تغيير التوجيه إلى قائمة الدفعات
@@ -40,6 +57,7 @@ def payment_create(request):
     return render(request, 'billing/create.html', context)
 
 @login_required
+@user_passes_test(is_admin)
 def payment_list(request):
     payments = scope_queryset_to_user(Payment.objects.all(), request.user).order_by('-date')
     context = {
@@ -81,6 +99,7 @@ def payment_delete(request, uuid):
     return render(request, 'billing/payment_delete.html', context)
 
 @login_required
+@user_passes_test(is_admin)
 def payment_detail(request, uuid):
     payment = get_object_or_404(scope_queryset_to_user(Payment.objects.all(), request.user), uuid=uuid)
     if not sees_all_branches(request.user) and request.user.branch and payment.branch_id != request.user.branch_id:
@@ -117,6 +136,12 @@ def expense_create(request):
             expense = form.save(commit=False)
             expense.tenant = request.user.tenant
             expense.created_by = request.user
+            try:
+                if _file_under_shift(expense, request.user):
+                    expense.date = datetime.now().date()
+            except ShiftError as error:
+                messages.error(request, str(error))
+                return redirect('billing:expense_list')
             expense.save()
             messages.success(request, f'تم تسجيل المصروف بنجاح')
             return redirect('billing:expense_list')
@@ -130,6 +155,7 @@ def expense_create(request):
     return render(request, 'billing/expense_create.html', context)
 
 @login_required
+@user_passes_test(is_admin)
 def expense_list(request):
     expenses = scope_queryset_to_user(Expense.objects.all(), request.user).order_by('-date')
     context = {
@@ -230,6 +256,7 @@ def expense_category_delete(request, uuid):
     return render(request, 'billing/expense_category_delete.html', context)
 
 @login_required
+@user_passes_test(is_admin)
 def financial_report(request):
     # معايير الفلترة العامة
     start_date = request.GET.get('start_date')

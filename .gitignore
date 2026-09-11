@@ -22,6 +22,8 @@ private/
 .idea/
 venv/
 *.env
+.env.local
+.env.*.local
 *.bak
 setting.md# React front end: dependencies are reinstalled from package-lock.json.
 # frontend/dist/ is deliberately NOT ignored — cPanel shared hosting has no

@@ -58,3 +58,30 @@ class DisplayField(serializers.CharField):
     def __init__(self, source, **kwargs):
         kwargs.setdefault("read_only", True)
         super().__init__(source=source, **kwargs)
+
+
+class ActiveChoicesMixin:
+    """Refuse a stopped service or clinic for anything new (2026-09-11).
+
+    What was already booked or done under it stays as it was: the check only
+    fires when the value is being set or changed, never on an untouched
+    record that happens to point at something since stopped.
+    """
+
+    def _still_active(self, name, value):
+        if value is None or getattr(value, "is_active", True):
+            return value
+        current = getattr(self.instance, f"{name}_id", None) if self.instance is not None else None
+        if current == value.pk:
+            return value
+        from rest_framework import serializers
+
+        raise serializers.ValidationError(
+            "هذه الخدمة موقوفة." if name == "service" else "هذا الفرع موقوف."
+        )
+
+    def validate_service(self, value):
+        return self._still_active("service", value)
+
+    def validate_branch(self, value):
+        return self._still_active("branch", value)

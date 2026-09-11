@@ -3,6 +3,7 @@
 from rest_framework.filters import OrderingFilter, SearchFilter
 
 from api.permissions import IsClinicAdmin, IsClinicMember, ReadOnlyForNonAdmin, ReadOnlyForNonOwner
+from accounts.roles import is_clinic_admin, sees_all_branches
 from api.serializers.core import (
     BranchSerializer,
     DoctorBriefSerializer,
@@ -39,6 +40,13 @@ class BranchViewSet(ClinicViewSet):
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ["name", "code", "phone"]
     ordering = ["name"]
+
+    def filter_tenant_queryset(self, queryset):
+        # A stopped clinic is the Owner's to see (and restart); for everyone
+        # else it is not a place anything can be booked into.
+        if not sees_all_branches(self.request.user):
+            queryset = queryset.filter(is_active=True)
+        return queryset
 
 
 class EmployeeTypeViewSet(ClinicViewSet):
@@ -79,7 +87,15 @@ class ServiceViewSet(ClinicViewSet):
     ordering = ["name"]
 
     def filter_tenant_queryset(self, queryset):
-        return queryset.select_related("specialization")
+        queryset = queryset.select_related("specialization")
+        # A stopped service is out of every picker; management still lists it
+        # (to restart it) and can ask for either kind with ?active=1/0.
+        active = self.request.query_params.get("active")
+        if not is_clinic_admin(self.request.user):
+            return queryset.filter(is_active=True)
+        if active in ("1", "0"):
+            queryset = queryset.filter(is_active=active == "1")
+        return queryset
 
 
 class EmployeeViewSet(ClinicViewSet):
@@ -100,7 +116,7 @@ class EmployeeViewSet(ClinicViewSet):
     def filter_tenant_queryset(self, queryset):
         return queryset.select_related(
             "employee_type", "branch", "salary_type"
-        ).prefetch_related("specializations")
+        ).prefetch_related("specializations", "extra_branches")
 
     # The same two limits the server-rendered employee screens enforce
     # (WIRE-003). Counted clinic-wide, never through the caller's branch view.
@@ -138,7 +154,23 @@ class DoctorViewSet(ReadOnlyClinicViewSet):
     search_fields = ["name"]
     ordering = ["name"]
 
+    # Scoped by hand below: a doctor the Owner linked to several clinics must
+    # be bookable in each of them, not only in their home branch.
+    branch_field = None
+
     def filter_tenant_queryset(self, queryset):
-        return queryset.select_related("branch").prefetch_related("specializations").filter(
+        from django.db.models import Q
+
+        from accounts.roles import current_branch_id, sees_all_branches
+
+        queryset = queryset.select_related("branch").prefetch_related("specializations").filter(
             employee_type__name="Doctor"
-        )
+        # A doctor whose account management has stopped is not bookable.
+        ).exclude(user_account__is_active=False)
+        user = self.request.user
+        if sees_all_branches(user):
+            return queryset
+        branch_id = current_branch_id(user)
+        if not branch_id:
+            return queryset.none()
+        return queryset.filter(Q(branch_id=branch_id) | Q(extra_branches=branch_id)).distinct()

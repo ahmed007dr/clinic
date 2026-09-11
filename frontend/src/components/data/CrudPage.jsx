@@ -65,7 +65,14 @@ export function CrudPage({
   const submit = async (event) => {
     event.preventDefault()
     try {
-      await save.run(form.payload(nullableNames(fields)))
+      const body = form.payload(nullableNames(fields))
+      // A hidden or disabled field is one the server decides (an expense's
+      // date inside a cash shift, a price from the doctor's contract):
+      // sending its value would at best be ignored and at worst refused.
+      fields
+        .filter((field) => field.hide || field.disabled)
+        .forEach((field) => delete body[field.name])
+      await save.run(body)
       toast.success(editing === 'new' ? 'تمت الإضافة' : 'تم الحفظ')
       setEditing(null)
       refresh()

@@ -1,0 +1,113 @@
+{% load static %}<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>{{ layout.title }}{% if patient %} - {{ patient.name }}{% endif %}</title>
+  {# Served locally: the form must print with no internet. #}
+  <link rel="stylesheet" href="{% static 'css/cairo.css' %}">
+  {% include "print/_styles.html" %}
+  <style>
+    h2.form-title { text-align: center; font-size: 20px; margin: 0 0 6px; }
+    .intro { text-align: center; font-size: 13px; color: #444; margin: 0 0 16px; }
+    section { margin-bottom: 14px; break-inside: avoid; }
+    section h3 { font-size: 14px; margin: 0 0 8px; padding: 4px 10px; color: #fff;
+                 background: var(--accent); border-radius: 3px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; }
+    .line { display: flex; gap: 8px; align-items: flex-end; font-size: 14px; min-height: 30px; }
+    .line span { white-space: nowrap; color: #333; }
+    .line .blank { flex: 1; border-bottom: 1px dotted #777; min-height: 22px; padding-inline: 4px; font-weight: 600; }
+    .wide { grid-column: span 2; }
+    .box { border: 1px solid #999; border-radius: 3px; min-height: 64px; padding: 6px; font-size: 13px; }
+    .checks { display: flex; gap: 18px; flex-wrap: wrap; font-size: 14px; }
+    .check::before { content: "☐ "; }
+    .consent { font-size: 13px; line-height: 1.8; border: 1px solid #999; border-radius: 3px; padding: 10px; }
+    .signs { display: flex; justify-content: space-between; margin-top: 28px; gap: 24px; }
+    .signs div { flex: 1; border-top: 1px solid #111; padding-top: 6px; text-align: center; font-size: 13px; }
+  </style>
+</head>
+<body>
+<div class="sheet">
+  <button class="print-btn" onclick="window.print()">طباعة</button>
+  {% include "print/_header.html" %}
+
+  <h2 class="form-title">{{ layout.title }}</h2>
+  {% if layout.intro %}<p class="intro">{{ layout.intro|linebreaksbr }}</p>{% endif %}
+  <div class="line" style="justify-content:flex-end;font-size:12px">
+    <span>التاريخ:</span><span class="blank" style="flex:0 0 140px">{% now "Y-m-d" %}</span>
+    {% if patient %}<span>رقم الملف:</span><span class="blank" style="flex:0 0 120px">{{ patient.serial_number }}</span>{% endif %}
+  </div>
+
+  {% for key in layout.sections %}
+    {% if key == "personal" %}
+    <section><h3>البيانات الشخصية</h3><div class="grid">
+      <div class="line wide"><span>الاسم الرباعي:</span><span class="blank">{{ patient.name|default:"" }}</span></div>
+      <div class="line"><span>الرقم القومي:</span><span class="blank" dir="ltr">{{ patient.national_id|default:"" }}</span></div>
+      <div class="line"><span>تاريخ الميلاد:</span><span class="blank">{{ patient.birth_date|date:"Y-m-d"|default:"" }}</span></div>
+      <div class="line"><span>النوع:</span><span class="checks"><span class="check">ذكر</span><span class="check">أنثى</span></span></div>
+      <div class="line"><span>الحالة الاجتماعية:</span><span class="blank">{% if patient %}{{ patient.get_marital_status_display }}{% endif %}</span></div>
+    </div></section>
+    {% elif key == "contact" %}
+    <section><h3>بيانات التواصل</h3><div class="grid">
+      <div class="line"><span>الموبايل:</span><span class="blank" dir="ltr">{{ patient.phone1|default:"" }}</span></div>
+      <div class="line"><span>واتساب:</span><span class="blank" dir="ltr">{{ patient.whatsapp|default:"" }}</span></div>
+      <div class="line"><span>المحافظة / المنطقة:</span><span class="blank">{% if patient %}{{ patient.governorate }} {{ patient.area }}{% endif %}</span></div>
+      <div class="line"><span>البريد الإلكتروني:</span><span class="blank" dir="ltr">{{ patient.email|default:"" }}</span></div>
+      <div class="line wide"><span>العنوان:</span><span class="blank">{{ patient.address|default:"" }}</span></div>
+    </div></section>
+    {% elif key == "emergency" %}
+    <section><h3>شخص للطوارئ</h3><div class="grid">
+      <div class="line"><span>الاسم:</span><span class="blank">{{ patient.emergency_contact_name|default:"" }}</span></div>
+      <div class="line"><span>صلة القرابة:</span><span class="blank">{{ patient.emergency_contact_relation|default:"" }}</span></div>
+      <div class="line wide"><span>الموبايل:</span><span class="blank" dir="ltr">{{ patient.emergency_contact_phone|default:"" }}</span></div>
+    </div></section>
+    {% elif key == "visit" %}
+    <section><h3>سبب الزيارة</h3>
+      <div class="box">الشكوى / سبب الزيارة:</div>
+      <div class="line"><span>منذ متى بدأت الأعراض؟</span><span class="blank"></span></div>
+    </section>
+    {% elif key == "medical" %}
+    <section><h3>التاريخ المرضي</h3>
+      <div class="checks">
+        <span class="check">سكر</span><span class="check">ضغط</span><span class="check">قلب</span>
+        <span class="check">حساسية صدر</span><span class="check">أمراض مناعية</span><span class="check">حمل</span>
+      </div>
+      <div class="line"><span>عمليات سابقة:</span><span class="blank"></span></div>
+      <div class="line"><span>أمراض أخرى:</span><span class="blank"></span></div>
+    </section>
+    {% elif key == "allergies" %}
+    <section><h3>الحساسية</h3>
+      <div class="line"><span>هل لديك حساسية من أدوية أو مواد؟</span><span class="checks"><span class="check">لا</span><span class="check">نعم</span></span></div>
+      <div class="line"><span>اذكرها:</span><span class="blank"></span></div>
+    </section>
+    {% elif key == "medications" %}
+    <section><h3>الأدوية الحالية</h3><div class="box"></div></section>
+    {% elif key == "consent" %}
+    {% if layout.extra_fields %}
+    <section><h3>بيانات إضافية</h3><div class="grid">
+      {% for label in layout.extra_fields %}
+        <div class="line wide"><span>{{ label }}:</span><span class="blank"></span></div>
+      {% endfor %}
+    </div></section>
+    {% endif %}
+    <section><h3>الإقرار والتوقيع</h3>
+      <div class="consent">{{ layout.consent|linebreaksbr }}</div>
+      <div class="signs"><div>توقيع المريض / ولي الأمر</div><div>الاسم</div><div>التاريخ</div></div>
+    </section>
+    {% endif %}
+  {% endfor %}
+
+  {# Extra lines go before the signature — or here, when the form has none. #}
+  {% if "consent" not in layout.sections %}
+    {% if layout.extra_fields %}
+    <section><h3>بيانات إضافية</h3><div class="grid">
+      {% for label in layout.extra_fields %}
+        <div class="line wide"><span>{{ label }}:</span><span class="blank"></span></div>
+      {% endfor %}
+    </div></section>
+    {% endif %}
+  {% endif %}
+
+  {% include "print/_footer.html" %}
+</div>
+</body>
+</html>

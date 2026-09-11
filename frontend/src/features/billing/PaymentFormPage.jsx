@@ -1,12 +1,12 @@
 import { useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { api } from '@/api'
 import { Button, Card, CardBody, ErrorState, Loading } from '@/components/ui'
 import { FormFields, nullableNames } from '@/components/form/FormFields'
 import { useForm, useUnsavedWarning } from '@/components/form/useForm'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { useMutation, useRecord } from '@/hooks/useApi'
+import { useAsync, useMutation, useRecord } from '@/hooks/useApi'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
 
@@ -44,8 +44,14 @@ export function PaymentFormPage() {
   const { uuid } = useParams()
   const navigate = useNavigate()
   const toast = useToast()
-  const { branch } = useAuth()
+  const { branch, permissions } = useAuth()
   const editing = Boolean(uuid)
+  // A new payment goes into the recorder's open cash shift; say so before
+  // the form is filled in rather than after it is refused.
+  const shift = useAsync(() => api.shifts.current(), [], {
+    skip: editing || !permissions.works_in_shifts,
+  })
+  const noShift = !editing && permissions.works_in_shifts && shift.data && !shift.data.shift
 
   const { record, loading, error, reload } = useRecord(api.payments, uuid)
   const save = useMutation((values) =>
@@ -109,6 +115,15 @@ export function PaymentFormPage() {
         title={editing ? `تعديل الإيصال ${record?.receipt_number ?? ''}` : 'تسجيل دفعة'}
         back={{ to: '/payments', label: 'رجوع للدفعات' }}
       />
+      {noShift && (
+        <Card>
+          <CardBody>
+            <div className="form-error">
+              لا توجد وردية مفتوحة. <Link to="/shift">افتح ورديتك</Link> أولاً لتسجيل الدفعات.
+            </div>
+          </CardBody>
+        </Card>
+      )}
       <Card>
         <CardBody>
           <form onSubmit={submit}>

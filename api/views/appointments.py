@@ -5,7 +5,8 @@ from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 
-from api.permissions import IsClinicMember
+from accounts.roles import is_front_desk
+from api.permissions import DeleteRequiresAdmin, IsClinicMember
 from api.serializers.appointments import AppointmentSerializer
 from api.viewsets import ClinicViewSet
 from appointments.models import Appointment
@@ -14,7 +15,7 @@ from appointments.models import Appointment
 class AppointmentViewSet(ClinicViewSet):
     queryset = Appointment.objects.all()
     serializer_class = AppointmentSerializer
-    permission_classes = [IsClinicMember]
+    permission_classes = [IsClinicMember, DeleteRequiresAdmin]
     created_by_field = "created_by"
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = [
@@ -26,7 +27,7 @@ class AppointmentViewSet(ClinicViewSet):
     def filter_tenant_queryset(self, queryset):
         queryset = queryset.select_related(
             "patient", "doctor", "service", "branch", "specialization"
-        )
+        ).prefetch_related("visits", "payments")
         params = self.request.query_params
 
         status = params.get("status")
@@ -50,6 +51,19 @@ class AppointmentViewSet(ClinicViewSet):
         date_to = params.get("to")
         if date_to:
             queryset = queryset.filter(scheduled_date__date__lte=date_to)
+
+        # The front desk's view of what is coming: bookings after today, and
+        # which of them are already paid for — to check them in on the day.
+        if params.get("upcoming") == "1":
+            queryset = queryset.filter(scheduled_date__date__gt=timezone.now().date())
+        paid = params.get("paid")
+        if paid in ("1", "0") and is_front_desk(self.request.user):
+            from django.db.models import Exists, OuterRef
+
+            from billing.models import Payment
+
+            has_payment = Exists(Payment.objects.filter(appointment=OuterRef("pk")))
+            queryset = queryset.filter(has_payment if paid == "1" else ~has_payment)
 
         return queryset
 
@@ -97,6 +111,65 @@ class AppointmentViewSet(ClinicViewSet):
                 {"status": [f"قيمة غير صالحة. المسموح: {'، '.join(sorted(allowed))}"]},
                 status=400,
             )
+        if value == "entered" and appointment.doctor_id is None:
+            # Sending a patient in opens their visit under the booking's
+            # doctor (medical/checkin.py); with no doctor it would be a visit
+            # no doctor can see.
+            return Response(
+                {"status": ["حدد الطبيب في الحجز قبل تسجيل دخول المريض."]}, status=400
+            )
         appointment.status = value
         appointment.save(update_fields=["status"])
         return Response(self.get_serializer(appointment).data)
+
+    @action(detail=True, methods=["post"], url_path="follow-up")
+    def follow_up(self, request, uuid=None):
+        """`{date}` — the follow-up date on this booking's visit.
+
+        The one part of a visit the front desk sets (the doctor can too, on
+        the visit itself): booking the next appointment is their job, and it
+        must not require opening the medical record to do it.
+        """
+        from django.utils.dateparse import parse_date
+
+        from medical.models import Visit
+
+        appointment = self.get_object()
+        visit = Visit.all_objects.filter(appointment=appointment).first()
+        if visit is None:
+            return Response({"detail": "لم يدخل المريض للطبيب بعد في هذا الحجز."}, status=400)
+        raw = request.data.get("date")
+        date = parse_date(raw) if raw else None
+        if raw and date is None:
+            return Response({"date": ["تاريخ غير صالح."]}, status=400)
+        visit.follow_up_date = date
+        visit.save(update_fields=["follow_up_date", "updated_at"])
+        # Re-read: the booking's visits were prefetched before the change.
+        return Response(self.get_serializer(self.get_object()).data)
+
+    @action(detail=True, methods=["get"], url_path="prescriptions")
+    def prescriptions(self, request, uuid=None):
+        """This booking's prescriptions, as print links — no medicines, no
+        diagnosis. The front desk prints them for the doctor to sign; the
+        contents are on the printed sheet, not in this list."""
+        from django.urls import reverse
+
+        from medical.models import Prescription
+
+        appointment = self.get_object()
+        rows = (
+            Prescription.all_objects.filter(visit__appointment=appointment)
+            .select_related("doctor")
+            .order_by("issued_at")
+        )
+        return Response([
+            {
+                "uuid": str(row.uuid),
+                "serial_number": row.serial_number,
+                "issued_at": row.issued_at,
+                "doctor_name": getattr(row.doctor, "name", None),
+                "print_url": reverse("medical:prescription_print", args=[row.uuid]),
+            }
+            for row in rows
+        ])
+

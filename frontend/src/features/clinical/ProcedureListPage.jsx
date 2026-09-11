@@ -1,6 +1,7 @@
 import { useSearchParams } from 'react-router-dom'
 
 import { api } from '@/api'
+import { useAuth } from '@/hooks/useAuth'
 import { Badge, PROCEDURE_TONES } from '@/components/ui'
 import { CrudPage } from '@/components/data/CrudPage'
 import { formatDateTime, formatMoney, toDateTimeInput } from '@/lib/format'
@@ -13,6 +14,7 @@ const STATUSES = [
 ]
 
 export function ProcedureListPage() {
+  const { permissions } = useAuth()
   const [search] = useSearchParams()
   const patient = search.get('patient') || undefined
 
@@ -89,8 +91,16 @@ export function ProcedureListPage() {
         { name: 'service', label: 'الخدمة', type: 'relation', resource: api.services },
         { name: 'body_site', label: 'الموضع' },
         { name: 'quantity', label: 'الكمية', type: 'number', min: 1, default: 1 },
-        { name: 'unit_price', label: 'سعر الوحدة', type: 'money' },
-        { name: 'discount', label: 'الخصم', type: 'money' },
+        // Price from the doctor's contract; price and discount are
+        // management's (billing/pricing.py — the server enforces it).
+        {
+          name: 'unit_price',
+          label: 'سعر الوحدة',
+          type: 'money',
+          disabled: !permissions.is_admin,
+          hint: permissions.is_admin ? undefined : 'من تعاقد الطبيب — تعديله للإدارة فقط',
+        },
+        { name: 'discount', label: 'الخصم', type: 'money', disabled: !permissions.is_admin },
         { name: 'findings', label: 'ما تم ملاحظته', type: 'textarea', span: 2 },
         { name: 'outcome', label: 'النتيجة', type: 'textarea', span: 2 },
         { name: 'complications', label: 'مضاعفات', type: 'textarea', span: 2 },

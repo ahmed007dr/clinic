@@ -1,0 +1,15 @@
+{# The clinic's letterhead: logo, name and lines, contact details — all set by the clinic's Admin or the Owner (api/views/print_settings.py). #}
+<header class="lh-head">
+  <div class="lh-brand">
+    {% if letterhead.logo_url %}<img class="lh-logo" src="{{ letterhead.logo_url }}" alt="">{% endif %}
+    <div>
+      <h1 class="lh-title">{{ letterhead.title }}</h1>
+      {% if letterhead.subtitle %}<div class="lh-subtitle">{{ letterhead.subtitle }}</div>{% endif %}
+    </div>
+  </div>
+  <div class="lh-contact">
+    {% if letterhead.address %}<div>{{ letterhead.address }}</div>{% endif %}
+    {% if letterhead.phone %}<div dir="ltr">{{ letterhead.phone }}</div>{% endif %}
+    {% if letterhead.email %}<div dir="ltr">{{ letterhead.email }}</div>{% endif %}
+  </div>
+</header>

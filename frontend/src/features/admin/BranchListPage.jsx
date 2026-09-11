@@ -1,4 +1,5 @@
 import { api } from '@/api'
+import { Badge } from '@/components/ui'
 import { CrudPage } from '@/components/data/CrudPage'
 
 export function BranchListPage() {
@@ -10,6 +11,13 @@ export function BranchListPage() {
       searchPlaceholder="ابحث بالاسم أو الكود…"
       deleteWarning="لا يمكن حذف فرع مرتبط بمرضى أو مواعيد."
       columns={[
+        {
+          key: 'is_active',
+          header: 'الحالة',
+          render: (row) => (
+            <Badge tone={row.is_active ? 'ok' : 'neutral'}>{row.is_active ? 'يعمل' : 'موقوف'}</Badge>
+          ),
+        },
         { key: 'name', header: 'الفرع' },
         { key: 'code', header: 'الكود' },
         {
@@ -30,6 +38,14 @@ export function BranchListPage() {
           label: 'تذييل المطبوعات',
           span: 2,
           hint: 'يظهر أسفل الإيصالات والروشتات المطبوعة.',
+        },
+        {
+          name: 'is_active',
+          label: 'الفرع يعمل',
+          type: 'checkbox',
+          default: true,
+          span: 2,
+          hint: 'إيقاف الفرع يُخرج كل موظفيه من النظام فوراً ويوقف الحجز فيه. سجلاته تبقى كما هي.',
         },
       ]}
       emptyMessage="أضف فروع العيادة."

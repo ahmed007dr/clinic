@@ -50,6 +50,9 @@ const FIELDS = [
       { value: 'called', label: 'تم الاتصال' },
       { value: 'quick', label: 'حجز سريع' },
       { value: 'requested', label: 'طلب من المريض' },
+      { value: 'completed', label: 'مكتمل' },
+      { value: 'cancelled', label: 'ملغي' },
+      { value: 'no_show', label: 'لم يحضر' },
     ],
   },
   { name: 'notes', label: 'ملاحظات', type: 'textarea', span: 2 },
@@ -59,7 +62,14 @@ export function AppointmentFormPage() {
   const { uuid } = useParams()
   const navigate = useNavigate()
   const toast = useToast()
-  const { branch } = useAuth()
+  const { branch, permissions } = useAuth()
+  // The price is the doctor's contract price (billing/pricing.py); only
+  // management may change it. Shown to everyone, editable by them alone.
+  const fields = FIELDS.map((field) =>
+    field.name === 'price' && !permissions.is_admin
+      ? { ...field, disabled: true, hint: 'من تعاقد الطبيب — تعديله للإدارة فقط' }
+      : field,
+  )
   const [search] = useSearchParams()
   const editing = Boolean(uuid)
 
@@ -94,7 +104,10 @@ export function AppointmentFormPage() {
   const submit = async (event) => {
     event.preventDefault()
     try {
-      await save.run(form.payload(nullableNames(FIELDS)))
+      const body = form.payload(nullableNames(fields))
+      // The price is the server's to set for anyone but management.
+      fields.filter((field) => field.disabled).forEach((field) => delete body[field.name])
+      await save.run(body)
       toast.success(editing ? 'تم حفظ الموعد' : 'تم حجز الموعد')
       navigate('/appointments')
     } catch {
@@ -113,7 +126,7 @@ export function AppointmentFormPage() {
           <form onSubmit={submit}>
             {save.formError && <div className="form-error">{save.formError}</div>}
             <FormFields
-              fields={FIELDS}
+              fields={fields}
               form={form}
               errors={save.fieldErrors}
               disabled={save.submitting}

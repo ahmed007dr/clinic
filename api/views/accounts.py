@@ -4,7 +4,9 @@ from django.contrib.auth import get_user_model
 from rest_framework.filters import OrderingFilter, SearchFilter
 
 from accounts.models import ClinicRole
-from accounts.roles import OWNER, scope_queryset_to_user, sees_all_branches
+from rest_framework.exceptions import PermissionDenied
+
+from accounts.roles import OWNER, can_manage_account, scope_queryset_to_user, sees_all_branches
 from api.permissions import IsClinicAdmin, ReadOnlyForNonOwner
 from api.serializers.accounts import ClinicRoleSerializer, StaffUserSerializer
 from api.viewsets import ClinicViewSet
@@ -65,6 +67,17 @@ class StaffUserViewSet(ClinicViewSet):
             extra["branch"] = self.request.user.branch
         serializer.save(tenant=tenant, clinic_code=(tenant.slug or "")[:20].upper(), **extra)
 
+    def check_can_manage(self, target):
+        if not can_manage_account(self.request.user, target):
+            raise PermissionDenied(
+                "لا يمكنك تعديل هذا الحساب أو إيقافه: الأدمن يدير حسابات الموظفين والأطباء "
+                "في فرعه، وصاحب المجمع يدير الجميع، ولا أحد يوقف حسابه بنفسه."
+            )
+
+    def perform_update(self, serializer):
+        self.check_can_manage(serializer.instance)
+        super().perform_update(serializer)
+
     def perform_destroy(self, instance):
         """Deactivate rather than delete.
 
@@ -72,5 +85,6 @@ class StaffUserViewSet(ClinicViewSet):
         expense they ever created; removing the row either fails on a PROTECT
         or orphans the history that makes those records accountable.
         """
+        self.check_can_manage(instance)
         instance.is_active = False
         instance.save(update_fields=["is_active"])

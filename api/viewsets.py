@@ -10,6 +10,7 @@ that returns too little, never one that returns too much.
 from rest_framework import viewsets
 from rest_framework.exceptions import ValidationError
 
+from accounts.roles import is_doctor
 from tenants.context import get_current_tenant
 
 from .permissions import IsClinicMember, scope_queryset_to_user
@@ -48,7 +49,7 @@ class ClinicViewSet(viewsets.ModelViewSet):
         documents. Building it here means it is evaluated while a request, and
         therefore a tenant, is in scope.
         """
-        queryset = self.queryset.model._default_manager.all()
+        queryset = self.base_queryset()
         queryset = self.filter_tenant_queryset(queryset)
         if self.branch_field:
             queryset = scope_queryset_to_user(
@@ -56,6 +57,10 @@ class ClinicViewSet(viewsets.ModelViewSet):
             )
         ordering = getattr(self, "ordering", None)
         return queryset.order_by(*ordering) if ordering else queryset
+
+    def base_queryset(self):
+        """Hook: where the rows come from — the model's default manager."""
+        return self.queryset.model._default_manager.all()
 
     def filter_tenant_queryset(self, queryset):
         """Hook for `select_related` and resource-specific narrowing."""
@@ -76,10 +81,34 @@ class ClinicViewSet(viewsets.ModelViewSet):
             raise ValidationError("تعذّر تحديد العيادة الحالية.")
         if self.plan_limit:
             self.enforce_plan_limit(tenant)
-        extra = {"tenant": tenant}
+        extra = {"tenant": tenant, **self.signed_by_doctor(), **self.creation_fields()}
         if self.created_by_field:
             extra[self.created_by_field] = self.request.user
         serializer.save(**extra)
+
+    def creation_fields(self):
+        """Hook: further server-decided fields for a new record."""
+        return {}
+
+    def signed_by_doctor(self):
+        """A doctor's own records carry their own name, whatever was sent.
+
+        The doctor on a visit or prescription is who is answerable for it, and
+        — with a doctor seeing only their own records (accounts.roles) — who
+        can see it at all. Taking it from input would let a doctor write under
+        a colleague's name, or write a record and lose sight of it.
+        """
+        model = self.queryset.model
+        if not is_doctor(self.request.user):
+            return {}
+        if "doctor" not in {field.name for field in model._meta.get_fields()}:
+            return {}
+        employee = getattr(self.request.user, "employee", None)
+        if employee is None:
+            raise ValidationError(
+                "حسابك غير مرتبط بسجل طبيب. اطلب من إدارة العيادة ربطه أولاً."
+            )
+        return {"doctor": employee}
 
     def plan_limit_count(self):
         """How many already count against the plan. Overridable, because not
@@ -110,7 +139,7 @@ class ClinicViewSet(viewsets.ModelViewSet):
         # Tenant is immutable: a record does not move between clinics, and the
         # serializer has no field for it, but saying so here makes that a
         # property of the base class rather than of every serializer.
-        serializer.save()
+        serializer.save(**self.signed_by_doctor())
 
 
 class ReadOnlyClinicViewSet(ClinicViewSet):

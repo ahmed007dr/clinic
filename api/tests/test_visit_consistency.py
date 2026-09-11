@@ -14,6 +14,7 @@ from branches.models import Branch
 from medical.models import Prescription, Visit
 from patients.models import Patient
 from tenants.context import tenant_context
+from tenants.testing import link_doctor
 from tenants.models import Tenant
 
 User = get_user_model()
@@ -29,10 +30,12 @@ class VisitConsistencyTests(TestCase):
             self.bob = Patient.all_objects.create(tenant=self.tenant, name="Bob", branch=branch)
             self.bobs_visit = Visit.all_objects.create(tenant=self.tenant, patient=self.bob, branch=branch)
             self.alices_visit = Visit.all_objects.create(tenant=self.tenant, patient=self.alice, branch=branch)
-        User.objects.create_user(
+        doctor = link_doctor(User.objects.create_user(
             username="doc", email="doc-vc@t.local", password="pass12345",
             tenant=self.tenant, role=role, branch=branch,
-        )
+        ))
+        with tenant_context(self.tenant):
+            Visit.all_objects.filter(pk__in=[self.bobs_visit.pk, self.alices_visit.pk]).update(doctor=doctor)
         self.client.login(email="doc-vc@t.local", password="pass12345")
 
     def prescribe(self, visit):

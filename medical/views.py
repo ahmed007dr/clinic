@@ -37,19 +37,40 @@ from subscriptions.entitlements import LimitReached
 from subscriptions.usage import check_storage, limit_message
 
 from .permissions import can_view_clinical, scoped_to_user
-from accounts.roles import sees_all_branches
+from accounts.roles import is_doctor, is_front_desk, sees_all_branches
+from billing.pricing import enforce as enforce_price
 
 clinical_required = user_passes_test(can_view_clinical)
 
 
+def _sign_as_doctor(record, user):
+    """A doctor's record carries their own name, whatever the form said —
+    the same rule as the API (api/viewsets.py). Without it a doctor writing
+    here could leave the doctor blank and lose sight of their own record, or
+    write under a colleague's name."""
+    if is_doctor(user) and user.employee_id:
+        record.doctor_id = user.employee_id
+
+
+def _price(record, user, previous=None):
+    """Unit price and discount from the doctor's contract unless management
+    sets them — the same rule as the API (billing.pricing)."""
+    doctor = user.employee if is_doctor(user) and user.employee_id else record.doctor
+    # A session delivers its plan's service when it names none of its own.
+    service = record.service or getattr(getattr(record, "plan", None), "service", None)
+    enforce_price(
+        record, user, price_field="unit_price", discount_field="discount",
+        doctor=doctor, service=service, previous=previous,
+    )
+
+
 def _get_patient(request, patient_uuid):
-    """Tenant scoping comes from the manager; this adds the branch layer."""
-    patient = get_object_or_404(Patient, uuid=patient_uuid)
-    role = request.user.role
-    if not sees_all_branches(request.user) and request.user.branch_id:
-        if patient.branch_id != request.user.branch_id:
-            raise Http404
-    return patient
+    """Tenant scoping comes from the manager; branch and doctor scoping from
+    the same function every other screen uses. The hand-written branch check
+    this replaces also let a user with no branch through to every patient."""
+    return get_object_or_404(
+        scoped_to_user(Patient.objects.all(), request.user), uuid=patient_uuid
+    )
 
 
 def _get_visit(request, uuid):
@@ -60,11 +81,17 @@ def _get_visit(request, uuid):
 @clinical_required
 def visit_create(request, patient_uuid):
     patient = _get_patient(request, patient_uuid)
+    if is_doctor(request.user):
+        # Same rule as the API: a visit is opened by the front desk sending the
+        # patient in (medical/checkin.py), not by the doctor.
+        messages.error(request, "تُسجَّل الزيارة من الاستقبال عند دخول المريض إليك.")
+        return redirect("patients:patient_detail", uuid=patient.uuid)
 
     if request.method == "POST":
         form = VisitForm(request.POST)
         if form.is_valid():
             visit = form.save(commit=False)
+            _sign_as_doctor(visit, request.user)
             visit.tenant = request.user.tenant
             visit.patient = patient
             visit.created_by = request.user
@@ -102,8 +129,12 @@ def visit_update(request, uuid):
     visit = _get_visit(request, uuid)
 
     if request.method == "POST":
+        locked = (visit.doctor_id, visit.branch_id, visit.visit_date)
         form = VisitForm(request.POST, instance=visit)
         if form.is_valid():
+            # Doctor, clinic and date are fixed once the visit exists — the
+            # same rule as the API (VisitSerializer.LOCKED_ON_UPDATE).
+            form.instance.doctor_id, form.instance.branch_id, form.instance.visit_date = locked
             form.save()
             messages.success(request, "تم تعديل الزيارة بنجاح")
             return redirect("medical:visit_detail", uuid=visit.uuid)
@@ -160,6 +191,7 @@ def treatment_plan_create(request, patient_uuid):
         form = TreatmentPlanForm(request.POST)
         if form.is_valid():
             plan = form.save(commit=False)
+            _sign_as_doctor(plan, request.user)
             plan.tenant = request.user.tenant
             plan.patient = patient
             plan.created_by = request.user
@@ -198,6 +230,7 @@ def treatment_plan_update(request, uuid):
     if request.method == "POST":
         form = TreatmentPlanForm(request.POST, instance=plan)
         if form.is_valid():
+            _sign_as_doctor(form.instance, request.user)
             form.save()
             messages.success(request, "تم تعديل خطة العلاج بنجاح")
             return redirect("medical:treatment_plan_detail", uuid=plan.uuid)
@@ -231,12 +264,14 @@ def session_create(request, plan_uuid):
         form = TreatmentSessionForm(request.POST)
         if form.is_valid():
             session = form.save(commit=False)
+            _sign_as_doctor(session, request.user)
             session.tenant = request.user.tenant
             session.plan = plan
             session.patient = plan.patient
             session.created_by = request.user
             if not session.branch_id:
                 session.branch = plan.branch or request.user.branch
+            _price(session, request.user)
             session.save()
             messages.success(request, f"تم تسجيل الجلسة رقم {session.sequence}")
             return redirect("medical:treatment_plan_detail", uuid=plan.uuid)
@@ -276,8 +311,11 @@ def session_update(request, uuid):
     session = _get_session(request, uuid)
 
     if request.method == "POST":
+        previous = TreatmentSession.all_objects.get(pk=session.pk)
         form = TreatmentSessionForm(request.POST, instance=session)
         if form.is_valid():
+            _price(form.instance, request.user, previous)
+            _sign_as_doctor(form.instance, request.user)
             form.save()
             messages.success(request, "تم تعديل الجلسة بنجاح")
             return redirect("medical:session_detail", uuid=session.uuid)
@@ -478,6 +516,7 @@ def procedure_create(request, visit_uuid):
         form = ProcedureForm(request.POST)
         if form.is_valid():
             procedure = form.save(commit=False)
+            _sign_as_doctor(procedure, request.user)
             procedure.tenant = request.user.tenant
             procedure.visit = visit
             procedure.patient = visit.patient
@@ -486,6 +525,7 @@ def procedure_create(request, visit_uuid):
                 procedure.doctor = visit.doctor
             if not procedure.branch_id:
                 procedure.branch = visit.branch or request.user.branch
+            _price(procedure, request.user)
             procedure.save()
             messages.success(request, f"تم تسجيل الإجراء {procedure.serial_number}")
             return redirect("medical:procedure_detail", uuid=procedure.uuid)
@@ -522,8 +562,11 @@ def procedure_update(request, uuid):
     procedure = _get_procedure(request, uuid)
 
     if request.method == "POST":
+        previous = Procedure.all_objects.get(pk=procedure.pk)
         form = ProcedureForm(request.POST, instance=procedure)
         if form.is_valid():
+            _price(form.instance, request.user, previous)
+            _sign_as_doctor(form.instance, request.user)
             form.save()
             messages.success(request, "تم تعديل الإجراء بنجاح")
             return redirect("medical:procedure_detail", uuid=procedure.uuid)
@@ -574,6 +617,7 @@ def prescription_create(request, visit_uuid):
         formset = PrescriptionItemFormSet(request.POST)
         if form.is_valid() and formset.is_valid():
             prescription = form.save(commit=False)
+            _sign_as_doctor(prescription, request.user)
             prescription.tenant = request.user.tenant
             prescription.visit = visit
             prescription.patient = visit.patient
@@ -627,6 +671,7 @@ def prescription_update(request, uuid):
         form = PrescriptionForm(request.POST, instance=prescription)
         formset = PrescriptionItemFormSet(request.POST, instance=prescription)
         if form.is_valid() and formset.is_valid():
+            _sign_as_doctor(form.instance, request.user)
             form.save()
             for item in formset.save(commit=False):
                 item.tenant = prescription.tenant
@@ -653,13 +698,22 @@ def prescription_update(request, uuid):
 
 
 @login_required
-@clinical_required
+@user_passes_test(lambda user: can_view_clinical(user) or is_front_desk(user))
 def prescription_print(request, uuid):
     """Print-friendly view. Rendered as HTML rather than generated as a PDF:
     the browser handles Arabic shaping and RTL correctly, which the reportlab
-    exporter used elsewhere does not."""
+    exporter used elsewhere does not.
+
+    Open to the front desk as well (the group owner's rule, 2026-09-11):
+    reception prints the sheet for the doctor to sign. It is the one clinical
+    page they reach — the printed prescription, which the patient is handed
+    anyway — and only within their own clinic."""
+    from branches.printing import letterhead
+
     prescription = _get_prescription(request, uuid)
     return render(request, "medical/prescription_print.html", {
+        # The clinic's own letterhead — the same one as its intake form.
+        "letterhead": letterhead(prescription.visit.branch, request),
         "prescription": prescription,
         "patient": prescription.patient,
         "allergies": Allergy.objects.filter(patient=prescription.patient),

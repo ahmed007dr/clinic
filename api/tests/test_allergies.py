@@ -9,6 +9,7 @@ from branches.models import Branch
 from medical.models import Allergy, Visit
 from patients.models import Patient
 from tenants.context import tenant_context
+from tenants.testing import link_doctor
 from tenants.models import Tenant
 
 User = get_user_model()
@@ -33,6 +34,9 @@ class AllergyApiTests(TestCase):
                 username=name.lower(), email=f"{name.lower()}-al@t.local",
                 password="pass12345", tenant=self.tenant, role=role, branch=self.here,
             )
+        doctor = link_doctor(User.objects.get(email="doctor-al@t.local"), self.patient)
+        with tenant_context(self.tenant):
+            Visit.all_objects.filter(pk=self.visit.pk).update(doctor=doctor)
 
     def login(self, role):
         self.client.login(email=f"{role}-al@t.local", password="pass12345")

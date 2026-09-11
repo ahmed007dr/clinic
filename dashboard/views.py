@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from appointments.models import Appointment
 from patients.models import Patient
+from billing.access import visible_expenses, visible_payments
 from billing.models import Payment, Expense
 from django.db.models import Sum, Count
 from datetime import datetime, timedelta
@@ -19,9 +20,10 @@ def dashboard(request):
     total_appointments_today = scope_queryset_to_user(Appointment.objects.all(), request.user).filter(scheduled_date__date=today).count()  # صحيح
     total_patients = scope_queryset_to_user(Patient.objects.all(), request.user).count()
 
-    # إذا كانت الحقول DateField
-    total_payments_today = scope_queryset_to_user(Payment.objects.all(), request.user).filter(date__date=today).aggregate(Sum('amount'))['amount__sum'] or 0
-    total_expenses_today = scope_queryset_to_user(Expense.objects.all(), request.user).filter(date=today).aggregate(Sum('amount'))['amount__sum'] or 0
+    # Money through billing.access — the same rule as the React app, so this
+    # older screen is not the way round it.
+    total_payments_today = visible_payments(request.user, Payment.objects.all()).filter(date__date=today).aggregate(Sum('amount'))['amount__sum'] or 0
+    total_expenses_today = visible_expenses(request.user, Expense.objects.all()).filter(date=today).aggregate(Sum('amount'))['amount__sum'] or 0
 
     appointments_by_day = []
     revenue_by_day = []

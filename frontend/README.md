@@ -35,13 +35,30 @@ npm install        # أول مرة فقط
 npm run dev        # http://localhost:5173/app/
 ```
 
-Vite يمرّر `/api` و `/media` إلى `127.0.0.1:8000`، فالتطبيق يعمل من نفس الأصل
-(same-origin) في التطوير كما في الإنتاج. **لا يوجد CORS ولا يجب إضافته** — كوكي الجلسة
-يعمل كما هو، ولا توجد إعدادات CORS يمكن أن تُضبط خطأً.
+Vite يمرّر كل ما هو خارج `/app` (`/api`، `/media`، `/static`، صفحات التصدير والطباعة)
+إلى Django، فالتطبيق يعمل من نفس الأصل (same-origin) في التطوير كما في الإنتاج. **لا
+يوجد CORS ولا يجب إضافته** — كوكي الجلسة يعمل كما هو، ولا توجد إعدادات CORS يمكن أن
+تُضبط خطأً.
+
+### عنوان الخادم: `VITE_BASE_URL`
+
+كل عنوان يتصل به الفرونت إند مشتق من متغيّر واحد، ولا يقرؤه في الكود إلا
+`src/lib/config.js` (`API_URL`، `serverUrl()`، `APP_BASENAME`). لا تكتب `/api` أو
+رابط خادم يدوياً في أي ملف آخر.
+
+| الملف | القيمة | المعنى |
+|---|---|---|
+| `.env.development` | `http://127.0.0.1:8000` | أين يعمل Django؛ Vite يمرّر الطلبات إليه |
+| `.env.production` | فارغ | نفس الأصل — Django يخدم `/app/` بنفسه (نشر cPanel) |
+
+لتغييره على جهازك فقط: `.env.development.local` (خارج git). وضع أصل مختلف في
+`.env.production` يتطلب إعداد CORS وكوكيز cross-site في Django أولاً، وإلا فشل كل طلب.
 
 حسابات التجربة بعد `python manage.py seed_demo --reset`:
-`admin@dr-ahmed.local` · `doctor@dr-ahmed.local` · `reception@dr-ahmed.local`
-وكلمة المرور `demo-clinic-2026`. الدخول بالبريد، لا باسم المستخدم.
+`admin@dr-ahmed.local` (Owner) · `clinicadmin@dr-ahmed.local` (Admin) ·
+`doctor@dr-ahmed.local` · `reception@dr-ahmed.local`. كلمة المرور عشوائية وتُطبع
+مرة واحدة في آخر تشغيل الأمر (أو ثابتة محلياً بـ `--password`). الدخول بالبريد، لا
+باسم المستخدم. قبل الاستخدام الفعلي: `python manage.py disable_demo_accounts`.
 
 ---
 

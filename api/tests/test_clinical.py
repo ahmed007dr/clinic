@@ -9,6 +9,7 @@ from branches.models import Branch
 from medical.models import LabResult
 from patients.models import Patient
 from tenants.context import tenant_context
+from tenants.testing import link_doctor
 from tenants.models import Tenant
 
 User = get_user_model()
@@ -34,10 +35,10 @@ class UnacknowledgedLabTests(TestCase):
                     tenant=self.tenant, patient=patient, branch=branch,
                     test_name=name, flag=flag,
                 )
-        User.objects.create_user(
+        link_doctor(User.objects.create_user(
             username="doc", email="doc-lab@t.local", password="pass12345",
             tenant=self.tenant, role=role, branch=branch,
-        )
+        ), patient)
         self.client.login(email="doc-lab@t.local", password="pass12345")
 
     def test_the_filter_lists_exactly_what_the_dashboard_counts(self):

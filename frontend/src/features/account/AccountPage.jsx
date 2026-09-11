@@ -57,6 +57,7 @@ export function AccountPage() {
       <PageHeader title="حسابي" />
 
       <div className="ui-grid ui-grid--2" style={{ alignItems: 'start' }}>
+        <MyBranches />
         <Card>
           <CardHeader title="البيانات" />
           <CardBody>
@@ -135,5 +136,54 @@ export function AccountPage() {
         </Card>
       </div>
     </>
+  )
+}
+
+/**
+ * A doctor linked by the Owner to several clinics moves between them here
+ * (and from the header). Every screen then shows that clinic: its patients of
+ * theirs, its bookings, their figures there.
+ */
+function MyBranches() {
+  const { user } = useAuth()
+  const toast = useToast()
+  const [switching, setSwitching] = useState(null)
+  const branches = user?.branches ?? []
+  if (branches.length < 2) return null
+
+  const choose = async (uuid) => {
+    setSwitching(uuid)
+    try {
+      await api.auth.setBranch(uuid)
+      window.location.reload()
+    } catch (error) {
+      setSwitching(null)
+      toast.error(error.message)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader title="فروعي" subtitle="اختر الفرع الذي تعمل عليه الآن" />
+      <CardBody>
+        <div className="ui-stack">
+          {branches.map((branch) => {
+            const active = branch.uuid === user.active_branch?.uuid
+            return (
+              <div className="ui-row" key={branch.uuid} style={{ justifyContent: 'space-between' }}>
+                <strong>{branch.name}</strong>
+                {active ? (
+                  <Badge tone="primary">الحالي</Badge>
+                ) : (
+                  <Button size="sm" onClick={() => choose(branch.uuid)} loading={switching === branch.uuid}>
+                    الانتقال لهذا الفرع
+                  </Button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </CardBody>
+    </Card>
   )
 }

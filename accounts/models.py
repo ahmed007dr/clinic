@@ -49,6 +49,14 @@ class User(AbstractUser):
     clinic_code = models.CharField(max_length=20)
     role = models.ForeignKey(ClinicRole, on_delete=models.SET_NULL, null=True, blank=True)
     branch = models.ForeignKey(Branch, on_delete=models.SET_NULL, null=True, blank=True)
+    # Which doctor this login *is*. Visits, bookings and prescriptions name an
+    # Employee, not a User, so without this a doctor's account could not be
+    # told apart from any other doctor's — and "a doctor sees their own
+    # patients" had nothing to filter on. One account per doctor.
+    employee = models.OneToOneField(
+        "employees.Employee", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="user_account",
+    )
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username"]

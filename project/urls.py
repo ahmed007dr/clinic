@@ -43,11 +43,14 @@ urlpatterns = [
     # from /admin/, which is Django's own and stays as it is.
     path('platform/', include(('platform_admin.urls', 'platform_admin'), namespace='platform_admin')),
 
-    #path('', lambda request: redirect('login')),
-    path('', lambda request: redirect('accounts:login'), name='index'),
-    # 'login' is namespaced as 'accounts:login', so the un-namespaced name here
-    # raised NoReverseMatch — every unmatched URL 500'd instead of redirecting.
-    path('<path:unused_path>/', lambda request, unused_path: redirect('accounts:login')),
+    # The React application is the front door. Typing the bare domain, or a
+    # stale bookmark, lands there — never on the old server-rendered login,
+    # whose screens stay reachable at their own URLs only for what the React
+    # app still links to (prescription print, PDF/Excel export, audit log).
+    # A literal path rather than reverse('spa'): that pattern's optional
+    # group is not something to trust reverse() with on every request.
+    path('', lambda request: redirect('/app/'), name='index'),
+    path('<path:unused_path>/', lambda request, unused_path: redirect('/app/')),
 
 ] 
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

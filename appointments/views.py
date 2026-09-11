@@ -13,6 +13,9 @@ from accounts.roles import (
 )
 
 # دالة للتحقق من دور موظف الاستقبال أو الأدمن
+from billing.pricing import enforce as enforce_price
+
+
 def is_reception_or_admin(user):
     return is_front_desk(user)
 
@@ -25,6 +28,11 @@ def appointment_create(request):
             appointment = form.save(commit=False)
             appointment.tenant = request.user.tenant
             appointment.created_by = request.user
+            # The contract price unless management sets one (billing.pricing).
+            enforce_price(
+                appointment, request.user, price_field="price",
+                doctor=appointment.doctor, service=appointment.service,
+            )
             appointment.save()  # serial_number يُولد تلقائيًا في save
             messages.success(request, f'تم حجز الموعد بنجاح (رقم التذكرة: {appointment.serial_number})')
             return redirect('appointments:appointment_list')

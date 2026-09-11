@@ -45,9 +45,13 @@ const SECTIONS = [
   {
     title: 'nav.accounts',
     items: [
-      { to: '/payments', label: 'nav.payments', icon: '💵' },
+      { to: '/shift', label: 'nav.my_shift', icon: '🗃', permission: 'works_in_shifts' },
+      { to: '/payments', label: 'nav.payments', icon: '💵', permission: 'manage_billing' },
       { to: '/expenses', label: 'nav.expenses', icon: '🧾', permission: 'manage_billing' },
-      { to: '/reports/financial', label: 'nav.financial_report', icon: '📊' },
+      { to: '/reports/financial', label: 'nav.financial_report', icon: '📊', permission: 'view_finance' },
+      { to: '/shifts', label: 'nav.shifts', icon: '📒', permission: 'manage_shifts' },
+      { to: '/commissions', label: 'nav.commissions', icon: '٪', permission: 'view_contracts' },
+      { to: '/doctor-rates', label: 'nav.doctor_rates', icon: '📑', permission: 'view_contracts' },
     ],
   },
   {
@@ -60,7 +64,8 @@ const SECTIONS = [
       { to: '/branches', label: 'nav.branches', icon: '🏥', permission: 'is_owner' },
       { to: '/services', label: 'nav.services', icon: '🗂' },
       { to: '/subscription', label: 'nav.subscription', icon: '🎫', permission: 'is_owner' },
-      { to: '/settings', label: 'nav.settings', icon: '⚙' },
+      { to: '/settings/print', label: 'nav.print_design', icon: '🖨' },
+      { to: '/settings', label: 'nav.settings', icon: '⚙', end: true },
     ],
   },
 ]
@@ -110,10 +115,12 @@ export function Sidebar({ onNavigate }) {
         })}
       </div>
 
-      {user?.branch && (
+      {/* The clinic every list is showing — for a doctor linked to several,
+          the one they switched to, not their home branch. */}
+      {(user?.active_branch || user?.branch) && (
         <div className="sidebar__footer">
           <span className="ui-muted">{t('nav.branch')}</span>
-          <strong>{user.branch.name}</strong>
+          <strong>{(user.active_branch || user.branch).name}</strong>
         </div>
       )}
     </nav>

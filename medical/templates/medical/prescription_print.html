@@ -5,13 +5,8 @@
   <title>روشتة {{ prescription.serial_number }} - {{ patient.name }}</title>
   {# Served locally: a prescription must print correctly with no internet. #}
   <link rel="stylesheet" href="{% static 'css/cairo.css' %}">
+  {% include "print/_styles.html" %}
   <style>
-    body { font-family: 'Cairo', Arial, sans-serif; color: #111; margin: 0; padding: 32px; background: #fff; }
-    .sheet { max-width: 800px; margin: 0 auto; }
-    header { border-bottom: 3px solid #111; padding-bottom: 12px; margin-bottom: 20px;
-             display: flex; justify-content: space-between; align-items: flex-end; }
-    header h1 { font-size: 22px; margin: 0; }
-    header .meta { text-align: left; font-size: 13px; line-height: 1.7; }
     .patient { display: flex; gap: 32px; flex-wrap: wrap; font-size: 15px;
                background: #f4f6f7; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px; }
     .patient div span { color: #555; }
@@ -22,30 +17,18 @@
     th { background: #f0f2f3; font-size: 13px; letter-spacing: .02em; }
     .rx { font-size: 34px; font-weight: 700; margin: 0 0 8px; }
     .notes { font-size: 14px; border-top: 1px dashed #999; padding-top: 12px; }
-    footer { margin-top: 48px; display: flex; justify-content: space-between;
-             font-size: 13px; color: #555; }
     .sign { border-top: 1px solid #111; padding-top: 6px; min-width: 220px; text-align: center; color: #111; }
-    .print-btn { margin-bottom: 20px; }
-    @media print {
-      body { padding: 0; }
-      .print-btn { display: none; }
-    }
   </style>
 </head>
 <body>
   <div class="sheet">
     <button class="print-btn" onclick="window.print()">طباعة</button>
 
-    <header>
-      <div>
-        <h1>{{ clinic_name|default:"عيادة" }}</h1>
-        <div style="font-size:13px;color:#555">{{ prescription.visit.branch.name|default:"" }}</div>
-      </div>
-      <div class="meta">
-        <div>روشتة رقم: <strong>{{ prescription.serial_number }}</strong></div>
-        <div>التاريخ: {{ prescription.issued_at|date:"Y-m-d" }}</div>
-      </div>
-    </header>
+    {% include "print/_header.html" %}
+    <div style="display:flex;justify-content:space-between;font-size:13px;margin:-8px 0 16px">
+      <div>روشتة رقم: <strong>{{ prescription.serial_number }}</strong></div>
+      <div>التاريخ: {{ prescription.issued_at|date:"Y-m-d" }}</div>
+    </div>
 
     <div class="patient">
       <div><span>المريض:</span> <strong>{{ patient.name }}</strong></div>
@@ -84,10 +67,10 @@
       <div class="notes"><strong>ملاحظات:</strong> {{ prescription.notes|linebreaksbr }}</div>
     {% endif %}
 
-    <footer>
-      <div>{{ footer_text|default:"" }}</div>
+    <div style="display:flex;justify-content:flex-end;margin-top:40px">
       <div class="sign">توقيع الطبيب</div>
-    </footer>
+    </div>
+    {% include "print/_footer.html" %}
   </div>
 </body>
 </html>

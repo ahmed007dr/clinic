@@ -1,4 +1,5 @@
 import { api } from '@/api'
+import { Badge } from '@/components/ui'
 import { CrudPage } from '@/components/data/CrudPage'
 import { formatMoney } from '@/lib/format'
 
@@ -11,6 +12,13 @@ export function ServiceListPage() {
       createLabel="إضافة خدمة"
       searchPlaceholder="ابحث باسم الخدمة…"
       columns={[
+        {
+          key: 'is_active',
+          header: 'الحالة',
+          render: (row) => (
+            <Badge tone={row.is_active ? 'ok' : 'neutral'}>{row.is_active ? 'يعمل' : 'موقوف'}</Badge>
+          ),
+        },
         { key: 'name', header: 'الخدمة' },
         {
           key: 'specialization_name',
@@ -26,6 +34,13 @@ export function ServiceListPage() {
       ]}
       fields={[
         { name: 'name', label: 'اسم الخدمة', required: true },
+        {
+          name: 'is_active',
+          label: 'الخدمة متاحة',
+          type: 'checkbox',
+          default: true,
+          hint: 'الخدمة الموقوفة تختفي من الحجز والإجراءات؛ ما سُجّل بها سابقاً يبقى.',
+        },
         {
           name: 'base_price',
           label: 'السعر الأساسي',

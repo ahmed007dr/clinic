@@ -13,7 +13,7 @@ from django.utils import timezone
 
 from accounts.models import ClinicRole
 from appointments.models import Appointment
-from billing.models import Payment
+from billing.models import CashShift, Payment
 from branches.models import Branch
 from medical.models import Visit
 from patients.models import Patient
@@ -204,6 +204,11 @@ class RoleTests(TestCase):
                     tenant=self.tenant, appointment=appointment,
                     patient=appointment.patient, receipt_number=f"R{amount}",
                     amount=amount, branch=branch,
+                    # Reception's figure is their own open shift (billing.access).
+                    shift=CashShift.all_objects.create(
+                        tenant=self.tenant, branch=branch,
+                        user=User.objects.get(email="reception-perm@t.local"),
+                    ) if branch == self.branch else None,
                 )
 
         self.login("Reception")
@@ -230,9 +235,9 @@ class AnonymousTests(TestCase):
                     response.status_code, (401, 403),
                     f"{name} answered {response.status_code}",
                 )
-                # A 302 to the login form is the failure this guards against:
-                # the catch-all in project/urls.py redirects every unmatched
-                # path, and a client that follows it receives HTML with a 200
+                # A 302 is the failure this guards against: the catch-all in
+                # project/urls.py redirects every unmatched path to the React
+                # app, and a client that follows it receives HTML with a 200
                 # and reports the app as hanging.
                 self.assertNotEqual(response.status_code, 302)
 

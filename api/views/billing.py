@@ -1,11 +1,28 @@
 """Payments, expenses and the financial report."""
 
 from django.db.models import Count, Sum
+from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 
-from api.permissions import IsClinicMember, ReadOnlyForNonAdmin, sees_all_branches
+from api.permissions import (
+    ChangeRequiresAdmin,
+    IsClinicAdmin,
+    IsClinicMember,
+    IsFrontDesk,
+    ReadOnlyForNonAdmin,
+    WriteRequiresFrontDesk,
+    is_clinic_admin,
+    sees_all_branches,
+)
+from billing.access import (
+    restrict_expenses,
+    restrict_payments,
+    visible_expenses,
+    visible_payments,
+)
 from api.serializers.billing import (
     ExpenseCategorySerializer,
     ExpenseSerializer,
@@ -14,11 +31,52 @@ from api.serializers.billing import (
 )
 from api.viewsets import ClinicViewSet
 from billing.models import Expense, ExpenseCategory, Payment, PaymentMethod
+from billing.shifts import ShiftError, shift_for_recording
+from billing.voiding import VoidError, void
 from branches.models import Branch
 
 
 def _date_range(params):
     return params.get("from"), params.get("to")
+
+
+class RecordedInShiftMixin:
+    """New money goes into the recorder's open cash shift (billing.shifts).
+
+    The shift, its clinic, and who recorded it are stamped here, never taken
+    from input; with no open shift the request is refused with the reason.
+    """
+
+    def base_queryset(self):
+        # `?voided=1`: management reviewing what was cancelled. Everyone else,
+        # and every other request, sees only money that still counts.
+        model = self.queryset.model
+        if self.request.query_params.get("voided") == "1" and is_clinic_admin(self.request.user):
+            return model.objects.with_voided().filter(voided_at__isnull=False)
+        return model.objects.all()
+
+    @action(detail=True, methods=["post"], url_path="void")
+    def void(self, request, uuid=None):
+        """`{reason}` — cancel it: kept on record, out of every total."""
+        record = self.get_object()
+        try:
+            void(request.user, record, request.data.get("reason"))
+        except VoidError as error:
+            raise ValidationError({"detail": str(error)})
+        return Response(self.get_serializer(record).data)
+
+    def creation_fields(self):
+        try:
+            shift = shift_for_recording(self.request.user)
+        except ShiftError as error:
+            raise ValidationError({"detail": str(error)})
+        if shift is None:
+            return {}
+        return {"shift": shift, "branch": shift.branch}
+
+    def perform_update(self, serializer):
+        # Correcting a recorded amount never moves it to another drawer.
+        serializer.save()
 
 
 class PaymentMethodViewSet(ClinicViewSet):
@@ -39,16 +97,20 @@ class ExpenseCategoryViewSet(ClinicViewSet):
     ordering = ["name"]
 
 
-class PaymentViewSet(ClinicViewSet):
+class PaymentViewSet(RecordedInShiftMixin, ClinicViewSet):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
-    permission_classes = [IsClinicMember]
+    # The front desk records a payment; only an admin may change or remove
+    # one. What each role may *read* is billing.access's decision.
+    permission_classes = [IsClinicMember, WriteRequiresFrontDesk, ChangeRequiresAdmin]
+    created_by_field = "created_by"
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ["receipt_number", "patient__name", "appointment__serial_number"]
     ordering_fields = ["date", "amount", "receipt_number"]
     ordering = ["-date"]
 
     def filter_tenant_queryset(self, queryset):
+        queryset = restrict_payments(queryset, self.request.user)
         queryset = queryset.select_related("patient", "method", "branch", "appointment")
         date_from, date_to = _date_range(self.request.query_params)
         if date_from:
@@ -64,17 +126,27 @@ class PaymentViewSet(ClinicViewSet):
         return queryset
 
 
-class ExpenseViewSet(ClinicViewSet):
+class ExpenseViewSet(RecordedInShiftMixin, ClinicViewSet):
     queryset = Expense.objects.all()
     serializer_class = ExpenseSerializer
-    permission_classes = [IsClinicMember]
+    # The same audience the expenses screen is shown to (manage_billing).
+    permission_classes = [IsFrontDesk]
     created_by_field = "created_by"
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ["notes", "category__name", "employee__name"]
     ordering_fields = ["date", "amount"]
     ordering = ["-date"]
 
+    def creation_fields(self):
+        extra = super().creation_fields()
+        if extra:
+            # Inside a shift the date is the day it was paid out, not a
+            # field: a back-dated expense would land in a closed day's books.
+            extra["date"] = timezone.now().date()
+        return extra
+
     def filter_tenant_queryset(self, queryset):
+        queryset = restrict_expenses(queryset, self.request.user)
         queryset = queryset.select_related("branch", "category", "employee")
         date_from, date_to = _date_range(self.request.query_params)
         if date_from:
@@ -93,15 +165,14 @@ class ExpenseViewSet(ClinicViewSet):
 class FinancialReportView(ClinicViewSet):
     """Revenue against expenses, over a period, for whatever the caller may see.
 
-    A viewset with a single list action rather than a plain APIView so it
-    inherits the branch scoping instead of restating it — the numbers a
-    receptionist sees must cover their branch only, and a report that quietly
-    totals the whole clinic is worse than no report.
+    Management only (billing.access): a period report is exactly the "every
+    balance on any date" view the front desk must not have. An Admin's figures
+    still cover their own clinic only.
     """
 
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
-    permission_classes = [IsClinicMember]
+    permission_classes = [IsClinicAdmin]
     http_method_names = ["get", "head", "options"]
     pagination_class = None
 
@@ -110,10 +181,8 @@ class FinancialReportView(ClinicViewSet):
         date_from, date_to = _date_range(params)
         branch = params.get("branch")
 
-        from api.permissions import scope_queryset_to_user
-
-        payments = scope_queryset_to_user(Payment.objects.all(), request.user)
-        expenses = scope_queryset_to_user(Expense.objects.all(), request.user)
+        payments = visible_payments(request.user, Payment.objects.all())
+        expenses = visible_expenses(request.user, Expense.objects.all())
 
         if date_from:
             payments = payments.filter(date__date__gte=date_from)

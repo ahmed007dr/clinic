@@ -1,0 +1,7 @@
+<footer class="lh-foot">
+  <div>
+    {% if letterhead.logo_in_footer and letterhead.logo_url %}<img class="lh-logo" src="{{ letterhead.logo_url }}" alt="">{% endif %}
+    {{ letterhead.footer }}
+  </div>
+  <div>{{ letterhead.title }}{% if letterhead.phone %} · <span dir="ltr">{{ letterhead.phone }}</span>{% endif %}</div>
+</footer>

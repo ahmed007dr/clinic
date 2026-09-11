@@ -26,6 +26,7 @@ from accounts.roles import (
     CLINICAL_ROLES,
     can_view_clinical,
     is_clinic_admin,
+    is_front_desk,
     is_owner,
     role_name,
     scope_queryset_to_user,
@@ -36,11 +37,15 @@ from accounts.roles import (
 __all__ = [
     "CLINICAL_ROLES",
     "CanViewClinical",
+    "ChangeRequiresAdmin",
+    "DeleteRequiresAdmin",
     "IsClinicAdmin",
     "IsClinicMember",
+    "IsFrontDesk",
     "IsGroupOwner",
     "ReadOnlyForNonAdmin",
     "ReadOnlyForNonOwner",
+    "WriteRequiresFrontDesk",
     "can_view_clinical",
     "is_clinic_admin",
     "is_group_owner",
@@ -138,3 +143,56 @@ class CanViewClinical(IsClinicMember):
 
     def has_permission(self, request, view):
         return super().has_permission(request, view) and can_view_clinical(request.user)
+
+
+class IsFrontDesk(IsClinicMember):
+    """Registration, booking and money at the desk: Owner, Admin, Reception.
+    Clinical staff do not need the expense ledger to do their job."""
+
+    message = "هذا القسم مقصور على الاستقبال والإدارة."
+
+    def has_permission(self, request, view):
+        return super().has_permission(request, view) and is_front_desk(request.user)
+
+
+# The two below are *added* to a resource's gate, never used alone — DRF
+# requires every class in `permission_classes` to agree, so
+# `[IsClinicMember, DeleteRequiresAdmin]` means "any member may read and write,
+# and only an admin may delete". Keeping them separate from the membership
+# check is what lets one rule sit on top of CanViewClinical and IsClinicMember
+# alike without a subclass for every pairing.
+
+
+class DeleteRequiresAdmin(permissions.BasePermission):
+    """Only an admin may delete. For records whose removal erases history —
+    a patient, a booking, a visit — which the front desk and clinicians work
+    with every day and must not be able to make disappear."""
+
+    message = "الحذف مقصور على إدارة العيادة."
+
+    def has_permission(self, request, view):
+        return request.method != "DELETE" or is_clinic_admin(request.user)
+
+
+class WriteRequiresFrontDesk(permissions.BasePermission):
+    """Anyone allowed in may read (what they read is narrowed elsewhere); only
+    the front desk may record. Money is taken at the desk — a doctor recording
+    a payment would be taking money outside any cash shift."""
+
+    message = "تسجيل المبالغ مقصور على الاستقبال والإدارة."
+
+    def has_permission(self, request, view):
+        return request.method in permissions.SAFE_METHODS or is_front_desk(request.user)
+
+
+class ChangeRequiresAdmin(permissions.BasePermission):
+    """Anyone allowed in may create; only an admin may edit or delete. For
+    money already recorded: reception takes the payment, but changing or
+    removing it afterwards changes the clinic's revenue (docs/readme.md §14)."""
+
+    message = "تعديل أو حذف السجلات المالية مقصور على إدارة العيادة."
+
+    def has_permission(self, request, view):
+        if request.method in ("PUT", "PATCH", "DELETE"):
+            return is_clinic_admin(request.user)
+        return True

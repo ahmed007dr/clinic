@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.db import models
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from branches.models import Branch
 from django.utils import timezone
 from tenants.models import SerialCounter, TenantOwnedModel
@@ -38,6 +38,20 @@ class Employee(TenantOwnedModel):
     salary_type = models.ForeignKey(SalaryType, on_delete=models.SET_NULL, null=True, blank=True)
     salary_value = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     specializations = models.ManyToManyField(Specialization, blank=True)
+    # Other clinics of the group this doctor also works in, besides `branch`
+    # (their home clinic). Set by the Owner only — it widens what the doctor's
+    # login can reach — and switched between from the doctor's own profile
+    # (accounts.roles.doctor_branch_ids).
+    extra_branches = models.ManyToManyField(
+        Branch, blank=True, related_name="visiting_doctors"
+    )
+    # A doctor's share of what is actually paid, when their contract line for
+    # a service (billing.DoctorServiceRate) sets none of its own. Management
+    # only. Null = no share agreed yet, so nothing accrues.
+    commission_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+    )
     serial_number = models.CharField(max_length=20, blank=True)
 
     class Meta(TenantOwnedModel.Meta):

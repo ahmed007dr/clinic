@@ -7,9 +7,11 @@ import { ResourceTable } from '@/components/data/ResourceTable'
 import { RelationSelect } from '@/components/data/RelationSelect'
 import { useForm } from '@/components/form/useForm'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { useMutation } from '@/hooks/useApi'
+import { useAsync, useMutation } from '@/hooks/useApi'
+import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
-import { formatDateTime, toDateTimeInput } from '@/lib/format'
+import { serverUrl } from '@/lib/config'
+import { formatDateTime } from '@/lib/format'
 
 import { AllergyBanner } from './AllergyPanel'
 import './prescription.css'
@@ -32,19 +34,38 @@ const BLANK_ITEM = {
  */
 export function PrescriptionListPage() {
   const toast = useToast()
+  const { user, permissions } = useAuth()
   const [search] = useSearchParams()
   const [editing, setEditing] = useState(null)
   const [items, setItems] = useState([{ ...BLANK_ITEM }])
   const [refreshKey, setRefreshKey] = useState(0)
+  // Who the prescription is for: a visit and its patient. Chosen from the
+  // patients in the doctor's room; fixed once the prescription exists.
+  const [target, setTarget] = useState(null)
+
+  // The doctor's room right now (medical/checkin.py). Management has no room
+  // and picks a visit instead.
+  const room = useAsync(() => api.visits.inRoom(), [refreshKey], { skip: !permissions.is_doctor })
+  const inRoom = room.data ?? []
 
   const save = useMutation((body) =>
     editing === 'new'
       ? api.prescriptions.create(body)
       : api.prescriptions.update(editing.uuid, body),
   )
+  const copy = useMutation((uuid, visit) => api.prescriptions.copy(uuid, visit))
+
+  const fromRoom = (row) => ({ visit: row.visit, patient: row.patient, patient_name: row.patient_name })
 
   const open = (row) => {
     setEditing(row)
+    setTarget(
+      row === 'new'
+        ? inRoom.length
+          ? fromRoom(inRoom[0])
+          : null
+        : { visit: row.visit, patient: row.patient, patient_name: row.patient_name },
+    )
     setItems(
       row === 'new'
         ? [{ ...BLANK_ITEM }]
@@ -54,22 +75,34 @@ export function PrescriptionListPage() {
     )
   }
 
-  const initial =
-    editing && editing !== 'new'
-      ? {
-          patient: editing.patient ?? '',
-          visit: editing.visit ?? '',
-          doctor: editing.doctor ?? '',
-          issued_at: toDateTimeInput(editing.issued_at),
-          notes: editing.notes ?? '',
-        }
-      : {
-          patient: search.get('patient') ?? '',
-          visit: '',
-          doctor: '',
-          issued_at: toDateTimeInput(new Date()),
-          notes: '',
-        }
+  /** Copy an old prescription onto the patient in the room, then open it to adjust. */
+  const copyToRoom = async (row) => {
+    if (inRoom.length === 0) {
+      toast.error('لا يوجد مريض في غرفتك الآن لنسخ الروشتة له.')
+      return
+    }
+    // With several patients sent in, the copy goes to the one who came in
+    // first; the doctor sees the name on the opened copy before saving.
+    try {
+      const copied = await copy.run(row.uuid, inRoom[0].visit)
+      toast.success(`نُسخت الروشتة للمريض ${copied.patient_name} — راجعها وعدّلها`)
+      setRefreshKey((value) => value + 1)
+      open(copied)
+    } catch (error) {
+      toast.error(error.message)
+    }
+  }
+
+  const chooseVisit = async (uuid) => {
+    if (!uuid) {
+      setTarget(null)
+      return
+    }
+    const visit = await api.visits.get(uuid)
+    setTarget({ visit: visit.uuid, patient: visit.patient, patient_name: visit.patient_name })
+  }
+
+  const initial = { notes: editing && editing !== 'new' ? editing.notes ?? '' : '' }
 
   const form = useForm(initial, { serverErrors: save.fieldErrors })
 
@@ -89,11 +122,17 @@ export function PrescriptionListPage() {
       toast.error('أضف دواءً واحداً على الأقل.')
       return
     }
+    if (editing === 'new' && !target) {
+      toast.error('اختر المريض أولاً.')
+      return
+    }
     try {
+      // Doctor and date are the server's (the signed-in doctor, now); the
+      // visit — and with it the patient — only on a new prescription.
       const saved = await save.run({
-        ...form.values,
-        doctor: form.values.doctor || null,
+        notes: form.values.notes,
         items: filled,
+        ...(editing === 'new' ? { visit: target.visit } : {}),
       })
       toast.success('تم حفظ الروشتة')
       // The server's own check, the same one the printed prescription uses.
@@ -139,7 +178,7 @@ export function PrescriptionListPage() {
               lays out RTL correctly, which a generated PDF does not. */}
           <a
             className="ui-btn ui-btn--ghost ui-btn--sm"
-            href={`/medical/prescription/${row.uuid}/print/`}
+            href={serverUrl(`/medical/prescription/${row.uuid}/print/`)}
             target="_blank"
             rel="noopener"
           >
@@ -148,6 +187,11 @@ export function PrescriptionListPage() {
           <Button size="sm" variant="ghost" onClick={() => open(row)}>
             تعديل
           </Button>
+          {permissions.is_doctor && (
+            <Button size="sm" variant="ghost" onClick={() => copyToRoom(row)} loading={copy.submitting}>
+              نسخ للمريض الحالي
+            </Button>
+          )}
         </div>
       ),
     },
@@ -197,52 +241,68 @@ export function PrescriptionListPage() {
       >
         <form onSubmit={submit}>
           {save.formError && <div className="form-error">{save.formError}</div>}
-          <AllergyBanner patientUuid={form.values.patient} />
+          <AllergyBanner patientUuid={target?.patient} />
 
-          <div className="form-grid">
-            <div className="form-grid__cell">
-              <RelationSelect
-                label="المريض"
-                required
-                resource={api.patients}
-                searchable
-                value={form.values.patient}
-                error={save.fieldErrors.patient}
-                onChange={(value) => form.setValue('patient', value)}
-              />
+          {editing === 'new' && permissions.is_doctor && (
+            <div className="rx__room">
+              {inRoom.length === 0 ? (
+                <div className="form-error">
+                  لا يوجد مريض في غرفتك الآن. يظهر المريض هنا عندما يسجّل الاستقبال دخوله إليك.
+                </div>
+              ) : (
+                <div className="ui-row" role="radiogroup" aria-label="المريض في الغرفة">
+                  {inRoom.map((row) => (
+                    <Button
+                      key={row.visit}
+                      size="sm"
+                      variant={target?.visit === row.visit ? 'primary' : 'secondary'}
+                      onClick={() => setTarget(fromRoom(row))}
+                    >
+                      {row.patient_name}
+                    </Button>
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="form-grid__cell">
-              <RelationSelect
-                label="الطبيب"
-                resource={api.doctors}
-                value={form.values.doctor}
-                error={save.fieldErrors.doctor}
-                onChange={(value) => form.setValue('doctor', value)}
-              />
+          )}
+
+          {editing === 'new' && !permissions.is_doctor && (
+            <RelationSelect
+              label="الزيارة"
+              required
+              resource={api.visits}
+              searchable
+              labelKey="patient_name"
+              params={{ patient: search.get('patient') || undefined }}
+              value={target?.visit ?? ''}
+              error={save.fieldErrors.visit}
+              onChange={chooseVisit}
+            />
+          )}
+
+          {/* Who, by whom and when are fixed: the patient from the visit, the
+              doctor from the signed-in account, the date from the moment it
+              is saved. Shown, never edited. */}
+          <dl className="rx__facts">
+            <div>
+              <dt>المريض</dt>
+              <dd>{target?.patient_name ?? '—'}</dd>
             </div>
-            <div className="form-grid__cell">
-              <RelationSelect
-                label="الزيارة"
-                required
-                resource={api.visits}
-                searchable
-                labelKey="serial_number"
-                params={{ patient: form.values.patient || undefined }}
-                hint="زيارات المريض المختار فقط"
-                value={form.values.visit}
-                error={save.fieldErrors.visit}
-                onChange={(value) => form.setValue('visit', value)}
-              />
+            <div>
+              <dt>الطبيب</dt>
+              <dd>
+                {editing && editing !== 'new'
+                  ? editing.doctor_name ?? '—'
+                  : user?.doctor?.name ?? '—'}
+              </dd>
             </div>
-            <div className="form-grid__cell">
-              <Input
-                label="التاريخ"
-                type="datetime-local"
-                error={save.fieldErrors.issued_at}
-                {...form.field('issued_at')}
-              />
+            <div>
+              <dt>التاريخ</dt>
+              <dd>
+                {editing && editing !== 'new' ? formatDateTime(editing.issued_at) : 'الآن (تلقائي)'}
+              </dd>
             </div>
-          </div>
+          </dl>
 
           <div className="rx">
             <div className="rx__head">

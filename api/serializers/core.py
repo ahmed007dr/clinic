@@ -16,6 +16,8 @@ class BranchSerializer(ClinicSerializer):
         model = Branch
         fields = [
             "uuid", "name", "code", "address", "phone", "email", "footer_text",
+            # Stopped by the Owner (branches.Branch.is_active).
+            "is_active",
         ]
 
 
@@ -50,6 +52,8 @@ class ServiceSerializer(ClinicSerializer):
         fields = [
             "uuid", "name", "description",
             "specialization", "specialization_name", "base_price",
+            # Stopped by management: out of every picker (api/views/core.py).
+            "is_active",
         ]
 
 
@@ -64,6 +68,8 @@ class EmployeeSerializer(ClinicSerializer):
     specializations = TenantScopedRelatedField(
         model=Specialization, many=True, required=False
     )
+    # Further clinics a doctor works in. Owner only (validate_extra_branches).
+    extra_branches = TenantScopedRelatedField(model=Branch, many=True, required=False)
 
     # The model defaults this to `timezone.now`, which is a *datetime*: an
     # employee created without a hire date then held a datetime in a DateField
@@ -75,6 +81,7 @@ class EmployeeSerializer(ClinicSerializer):
     )
     branch_name = serializers.CharField(source="branch.name", read_only=True)
     specialization_names = serializers.SerializerMethodField()
+    extra_branch_names = serializers.SerializerMethodField()
 
     class Meta:
         model = Employee
@@ -85,10 +92,32 @@ class EmployeeSerializer(ClinicSerializer):
             "national_id", "phone1", "phone2", "email",
             "hire_date", "salary_type", "salary_value",
             "specializations", "specialization_names",
+            "extra_branches", "extra_branch_names",
+            # The doctor's default share of what is paid (billing.pricing).
+            "commission_percent",
         ]
 
     def get_specialization_names(self, employee):
         return [s.name for s in employee.specializations.all()]
+
+    def get_extra_branch_names(self, employee):
+        return [b.name for b in employee.extra_branches.all()]
+
+    def validate_extra_branches(self, branches):
+        """Linking a doctor to another clinic opens that clinic's patients to
+        the doctor's login, which is a group decision: the Owner's alone. A
+        clinic Admin sending the field unchanged is fine; changing it is not."""
+        from accounts.roles import is_owner
+
+        current = set(self.instance.extra_branches.values_list("pk", flat=True)) if self.instance else set()
+        wanted = {b.pk for b in branches}
+        if wanted != current and not is_owner(self.request_user):
+            raise serializers.ValidationError("ربط الطبيب بفروع أخرى من صلاحية صاحب المجمع فقط.")
+        # The home branch is already theirs; listing it again is noise.
+        home = self.initial_data.get("branch") or (
+            self.instance.branch.uuid if self.instance and self.instance.branch_id else None
+        )
+        return [b for b in branches if str(b.uuid) != str(home)]
 
 
 class DoctorBriefSerializer(ClinicSerializer):

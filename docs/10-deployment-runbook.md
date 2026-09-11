@@ -287,8 +287,26 @@ venv/bin/python manage.py seed_demo --reset
 
 This creates two clinics with Arabic patients, appointments, visits,
 prescriptions, treatment plans, sessions, procedures, lab results and payments,
-plus Admin, Reception and Doctor logins for each. It prints the accounts and the
-shared password when it finishes.
+plus Owner (`admin@…`), Admin (`clinicadmin@…`), Reception and Doctor logins for
+each, all on `.local` addresses. The password is **generated per run and printed
+once** at the end — it is not stored readable anywhere. Accounts that already
+existed keep the password they had. (`--password <pw>` fixes it, for a local
+machine only.)
+
+### 9a. Before the clinic enters real data: switch the demo logins off
+
+Anyone who saw the seeder's output can sign in with those accounts, so they must
+not survive the handover:
+
+```bash
+venv/bin/python manage.py disable_demo_accounts --dry-run   # lists them
+venv/bin/python manage.py disable_demo_accounts
+```
+
+The accounts are deactivated, not deleted — the demo records still point at
+them — and any session they had stops on its next request. Real staff accounts
+are never touched: the command matches only the exact `<role>@<slug>.local`
+addresses the seeder creates.
 
 It runs on a production install: `Faker` is a development dependency and is
 deliberately absent from `requirements.txt`, so the seeder falls back to a
@@ -326,7 +344,8 @@ Honest list. None of these blocks day-to-day clinical use.
 |---|---|
 | No live payment gateway | Subscription billing is manual — record transfers out of band. The clinic-facing patient billing is unaffected and works |
 | Cross-tenant reporting | Platform totals need a per-tenant loop; RLS means an unbound aggregate returns nothing rather than a wrong number |
-| Storage limit not enforced | `max_storage_mb` exists on plans but nothing counts usage yet |
-| Patient portal | Not built. A design document is required first |
+| No appointment conflict check | Two bookings for the same doctor at the same time are both accepted; reception checks the doctor's list before booking |
+| No SMS / WhatsApp | Portal invitations and appointment confirmations are sent by hand; there is no provider |
+| Demo accounts | Present on a seeded install until `disable_demo_accounts` is run — see §9a |
 | Scheduled reports unwired | See section 10 |
 | `passenger_wsgi.py` | Inert and unused. `project/wsgi.py` is the real entry point; delete the former or repair it deliberately |

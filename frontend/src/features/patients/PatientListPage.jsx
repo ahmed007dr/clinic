@@ -7,6 +7,7 @@ import { ExportButtons } from '@/components/data/ExportButtons'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useAuth } from '@/hooks/useAuth'
 import { useT } from '@/i18n'
+import { serverUrl } from '@/lib/config'
 import { formatDate } from '@/lib/format'
 
 const GENDER = { male: 'ذكر', female: 'أنثى' }
@@ -57,6 +58,19 @@ export function PatientListPage() {
         actions={
           <>
           <ExportButtons path="/patients/export/" />
+          {/* The server-rendered, printable intake form in the clinic's own design
+              (Print design screen): the patient fills it in by hand and signs. */}
+          {permissions.front_desk && (
+            <a
+              className="ui-btn ui-btn--secondary"
+              href={serverUrl('/patients/print/intake/')}
+              target="_blank"
+              rel="noopener"
+            >
+              {t('patients.print_intake')}
+            </a>
+          )}
+          
           {permissions.front_desk && (
             <Button onClick={() => navigate('/patients/review')}>{t('nav.review')}</Button>
           )}

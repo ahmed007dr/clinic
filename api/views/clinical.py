@@ -9,7 +9,9 @@ from rest_framework.response import Response
 
 from rest_framework.exceptions import PermissionDenied
 
-from api.permissions import CanViewClinical
+from accounts.roles import is_doctor
+from api.permissions import CanViewClinical, DeleteRequiresAdmin
+from medical.checkin import in_room
 from subscriptions.entitlements import LimitReached
 from subscriptions.usage import check_storage, limit_message
 from tenants.context import get_current_tenant
@@ -66,6 +68,9 @@ class ReleaseToPatientMixin:
 class VisitViewSet(ClinicalViewSet):
     queryset = Visit.objects.all()
     serializer_class = VisitSerializer
+    # Doctors write visits; removing one erases part of the medical record, so
+    # only an admin may. The old screens never offered a delete at all.
+    permission_classes = [CanViewClinical, DeleteRequiresAdmin]
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = [
         "serial_number", "patient__name", "chief_complaint", "diagnosis",
@@ -77,6 +82,32 @@ class VisitViewSet(ClinicalViewSet):
         return self.patient_filtered(
             queryset.select_related("patient", "doctor", "branch")
         )
+
+    def create(self, request, *args, **kwargs):
+        # A visit is opened by the front desk sending the patient in
+        # (medical/checkin.py); a doctor writes into it, and never opens one
+        # of their own. Management keeps the door for corrections.
+        if is_doctor(request.user):
+            raise PermissionDenied(
+                "تُسجَّل الزيارة من الاستقبال عند دخول المريض إليك؛ ستجدها في «المريض في الغرفة»."
+            )
+        return super().create(request, *args, **kwargs)
+
+    @action(detail=False, methods=["get"], url_path="in-room")
+    def in_room(self, request):
+        """The patients sent in to this doctor today, with their visits —
+        who the new prescription or note is for, without searching."""
+        return Response([
+            {
+                "appointment": str(booking.uuid),
+                "visit": str(visit.uuid),
+                "visit_serial": visit.serial_number,
+                "patient": str(booking.patient.uuid),
+                "patient_name": booking.patient.name,
+                "since": booking.scheduled_date,
+            }
+            for booking, visit in in_room(request.user)
+        ])
 
 
 class PrescriptionViewSet(ClinicalViewSet):
@@ -95,6 +126,25 @@ class PrescriptionViewSet(ClinicalViewSet):
                 "items"
             )
         ).distinct()
+
+    @action(detail=True, methods=["post"], url_path="copy")
+    def copy(self, request, uuid=None):
+        """`{visit}` — a new prescription for that visit's patient, with this
+        one's medicines and notes, ready to adjust rather than retype. Dated
+        now and signed by whoever copies it; the original is untouched."""
+        source = self.get_object()
+        serializer = self.get_serializer(data={
+            "visit": request.data.get("visit"),
+            "notes": source.notes,
+            "items": [
+                {field: getattr(item, field) for field in
+                 ("medication", "dosage", "frequency", "duration", "instructions")}
+                for item in source.items.all()
+            ],
+        })
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response(serializer.data, status=201)
 
 
 class TreatmentPlanViewSet(ClinicalViewSet):

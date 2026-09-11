@@ -17,6 +17,7 @@ import {
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useRecord } from '@/hooks/useApi'
 import { useAuth } from '@/hooks/useAuth'
+import { serverUrl } from '@/lib/config'
 import { formatDate, formatMoney } from '@/lib/format'
 
 import { AllergyPanel } from '@/features/clinical/AllergyPanel'
@@ -94,6 +95,17 @@ export function PatientDetailPage() {
             >
               حجز موعد
             </Button>
+            {/* Pre-filled with what is on record, for the patient to check and sign. */}
+            {permissions.front_desk && (
+              <a
+                className="ui-btn ui-btn--ghost"
+                href={serverUrl(`/patients/print/intake/?patient=${uuid}`)}
+                target="_blank"
+                rel="noopener"
+              >
+                {t('patients.print_intake')}
+              </a>
+            )}
             <Button variant="ghost" onClick={() => navigate(`/patients/${uuid}/edit`)}>
               تعديل
             </Button>

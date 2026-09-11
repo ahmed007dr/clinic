@@ -9,12 +9,11 @@ other clinical record.
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.roles import is_front_desk, scope_queryset_to_user, sees_all_branches
-from api.permissions import CanViewClinical, IsClinicMember
+from accounts.roles import scope_queryset_to_user, sees_all_branches
+from api.permissions import CanViewClinical, IsFrontDesk
 from api.serializers.intake import (
     IntakeRegistrationSerializer,
     MedicalHistorySerializer,
@@ -35,13 +34,6 @@ from patients.models import Patient
 from subscriptions.entitlements import LimitReached, check_limit
 from subscriptions.usage import limit_message
 from tenants.context import get_current_tenant
-
-
-class IsFrontDesk(IsClinicMember):
-    message = "التسجيل مقصور على الاستقبال والإدارة."
-
-    def has_permission(self, request, view):
-        return super().has_permission(request, view) and is_front_desk(request.user)
 
 
 def duplicate_payload(user, candidates):

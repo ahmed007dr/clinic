@@ -27,7 +27,9 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
+from accounts.roles import account_is_usable
 from api.permissions import IsClinicMember
+from tenants.context import tenant_context
 from platform_admin.permissions import is_platform_staff
 from api.serializers.accounts import (
     CurrentUserSerializer,
@@ -110,6 +112,13 @@ class LoginView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
         tenant = user.tenant
+        with tenant_context(tenant):
+            clinic_stopped = not account_is_usable(user)
+        if clinic_stopped:
+            return Response(
+                {"detail": "تم إيقاف الفرع الذي تعمل به. تواصل مع صاحب المجمع."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         if not tenant.is_usable:
             # A suspended clinic must not be able to keep recording work; the
             # refusal is at sign-in so it is unambiguous rather than surfacing
@@ -149,3 +158,26 @@ class PasswordChangeView(APIView):
         # changing a password rotates the session hash.
         update_session_auth_hash(request, user)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ActiveBranchView(APIView):
+    """`POST {branch: <uuid>}` — a doctor linked to several clinics chooses
+    which one they are looking at. Every list, figure and screen follows it
+    (accounts.roles.current_branch_id). Only clinics the Owner has linked the
+    doctor to are accepted; anything else is refused, not ignored."""
+
+    permission_classes = [IsClinicMember]
+
+    def post(self, request):
+        from accounts.middleware import SESSION_KEY
+        from accounts.roles import doctor_branch_ids
+        from branches.models import Branch
+
+        branch = Branch.objects.filter(uuid=request.data.get("branch")).first()
+        if branch is None or branch.pk not in doctor_branch_ids(request.user):
+            return Response(
+                {"detail": "هذا الفرع غير مرتبط بحسابك."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        request.session[SESSION_KEY] = branch.pk
+        request.user.active_branch_id = branch.pk
+        return Response({"user": CurrentUserSerializer(request.user).data})

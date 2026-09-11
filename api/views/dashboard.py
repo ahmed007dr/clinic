@@ -17,14 +17,16 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.roles import is_doctor, is_front_desk
 from api.permissions import (
     IsClinicMember,
     can_view_clinical,
-    is_clinic_admin,
     scope_queryset_to_user,
 )
 from appointments.models import Appointment
-from billing.models import Expense, Payment
+from billing.access import can_view_finance, visible_expenses, visible_payments
+from billing.commissions import totals
+from billing.models import DoctorCommission, Expense, Payment
 from medical.models import LabResult, TreatmentPlan, Visit
 from patients.models import Patient
 
@@ -39,10 +41,11 @@ class DashboardView(APIView):
 
         patients = scope_queryset_to_user(Patient.objects.all(), user)
         appointments = scope_queryset_to_user(Appointment.objects.all(), user)
-        payments = scope_queryset_to_user(Payment.objects.all(), user)
+        # Role-narrowed too (billing.access): reception gets today, a doctor
+        # nothing, so the aggregates below can never say more than the lists.
+        payments = visible_payments(user, Payment.objects.all())
 
         today_appointments = appointments.filter(scheduled_date__date=today)
-        month_payments = payments.filter(date__date__gte=month_start)
 
         data = {
             "today": today,
@@ -62,19 +65,27 @@ class DashboardView(APIView):
                     scheduled_date__date__lte=today + timedelta(days=7),
                 ).count(),
             },
-            "revenue": {
-                "today": payments.filter(date__date=today).aggregate(
-                    total=Sum("amount")
-                )["total"]
-                or 0,
-                "month": month_payments.aggregate(total=Sum("amount"))["total"] or 0,
-            },
         }
 
-        # Money out is an Admin figure. Reception records payments; the clinic's
-        # margin is not theirs to see.
-        if is_clinic_admin(user):
-            expenses = scope_queryset_to_user(Expense.objects.all(), user)
+        # Whoever handles money at the desk sees what they are handling: for
+        # management, today's takings; for reception, their own open shift
+        # (which is all `visible_payments` gives them). Anything wider — the
+        # month, the margin, the chart — is management's.
+        if is_front_desk(user):
+            desk = payments if not can_view_finance(user) else payments.filter(date__date=today)
+            data["revenue"] = {
+                "today": desk.aggregate(total=Sum("amount"))["total"] or 0,
+                "scope": "day" if can_view_finance(user) else "shift",
+            }
+
+        if can_view_finance(user):
+            data["revenue"]["month"] = (
+                payments.filter(date__date__gte=month_start).aggregate(
+                    total=Sum("amount")
+                )["total"]
+                or 0
+            )
+            expenses = visible_expenses(user, Expense.objects.all())
             month_expenses = (
                 expenses.filter(date__gte=month_start).aggregate(
                     total=Sum("amount")
@@ -100,7 +111,21 @@ class DashboardView(APIView):
                 ).count(),
             }
 
-        # A fortnight of daily takings, for the chart.
+        if can_view_finance(user):
+            data["revenue_series"] = self.revenue_series(payments, today)
+
+        # A doctor's own money: their share of what has been paid, received
+        # and still pending (billing.commissions) — never the clinic's.
+        if is_doctor(user):
+            data["commissions"] = totals(
+                scope_queryset_to_user(DoctorCommission.objects.all(), user).order_by()
+            )
+
+        return Response(data)
+
+    @staticmethod
+    def revenue_series(payments, today):
+        """A fortnight of daily takings, for the chart."""
         series = (
             payments.filter(date__date__gte=today - timedelta(days=13))
             .values("date__date")
@@ -108,7 +133,7 @@ class DashboardView(APIView):
             .order_by("date__date")
         )
         by_day = {row["date__date"]: row for row in series}
-        data["revenue_series"] = [
+        return [
             {
                 "date": day,
                 "total": by_day.get(day, {}).get("total") or 0,
@@ -116,5 +141,3 @@ class DashboardView(APIView):
             }
             for day in (today - timedelta(days=offset) for offset in range(13, -1, -1))
         ]
-
-        return Response(data)

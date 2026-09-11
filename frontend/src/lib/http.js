@@ -8,7 +8,7 @@
  * broken form rather than a security control doing its job.
  */
 
-const BASE = '/api'
+import { API_URL } from './config'
 
 /** Django's CSRF cookie. Readable by design — the token is not the secret. */
 function csrfToken() {
@@ -122,7 +122,7 @@ export async function request(path, options = {}) {
     if (token) headers['X-CSRFToken'] = token
   }
 
-  const response = await fetch(`${BASE}${path}${buildQuery(params)}`, {
+  const response = await fetch(`${API_URL}${path}${buildQuery(params)}`, {
     method,
     headers,
     body: payload,

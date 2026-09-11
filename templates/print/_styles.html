@@ -1,0 +1,22 @@
+{# Shared look of every printed sheet. `accent` is the clinic's chosen colour (Branch.print_accent_color). #}
+<style>
+  :root { --accent: {{ letterhead.accent }}; }
+  body { font-family: 'Cairo', Arial, sans-serif; color: #111; margin: 0; padding: 32px; background: #fff; }
+  .sheet { max-width: 800px; margin: 0 auto; }
+  .lh-head { border-bottom: 3px solid var(--accent); padding-bottom: 12px; margin-bottom: 20px;
+             display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+  .lh-brand { display: flex; align-items: center; gap: 14px; }
+  .lh-logo { max-height: 72px; max-width: 160px; object-fit: contain; }
+  .lh-title { font-size: 22px; margin: 0; color: var(--accent); }
+  .lh-subtitle { font-size: 13px; color: #555; }
+  .lh-contact { text-align: left; font-size: 12px; line-height: 1.7; color: #333; }
+  .lh-foot { margin-top: 40px; border-top: 2px solid var(--accent); padding-top: 10px;
+             display: flex; justify-content: space-between; align-items: center; gap: 16px;
+             font-size: 12px; color: #555; }
+  .lh-foot .lh-logo { max-height: 36px; }
+  .print-btn { margin-bottom: 20px; }
+  @media print {
+    body { padding: 0; }
+    .print-btn { display: none; }
+  }
+</style>

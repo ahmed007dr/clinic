@@ -43,6 +43,10 @@ export const appointments = {
   today: (params) => http.get('/appointments/today/', params),
   waiting: (params) => http.get('/appointments/waiting/', params),
   setStatus: (uuid, status) => http.post(`/appointments/${uuid}/status/`, { status }),
+  /** The follow-up date on the visit this booking opened (front desk). */
+  followUp: (uuid, date) => http.post(`/appointments/${uuid}/follow-up/`, { date }),
+  /** This booking's prescriptions, as print links only. */
+  prescriptions: (uuid) => http.get(`/appointments/${uuid}/prescriptions/`),
 }
 
 /* Money */
@@ -55,8 +59,16 @@ export const financialReport = {
 }
 
 /* Clinical */
-export const visits = createResource('visits')
-export const prescriptions = createResource('prescriptions')
+export const visits = {
+  ...createResource('visits'),
+  /** Patients sent in to the signed-in doctor today, with their visits. */
+  inRoom: () => http.get('/visits/in-room/'),
+}
+export const prescriptions = {
+  ...createResource('prescriptions'),
+  /** A new prescription for `visit`'s patient with this one's medicines. */
+  copy: (uuid, visit) => http.post(`/prescriptions/${uuid}/copy/`, { visit }),
+}
 export const treatmentPlans = createResource('treatment-plans')
 export const treatmentSessions = createResource('treatment-sessions')
 export const procedures = createResource('procedures')
@@ -96,6 +108,18 @@ export const auth = {
       current_password: currentPassword,
       new_password: newPassword,
     }),
+  /** A doctor linked to several clinics picks the one they are looking at. */
+  setBranch: (branch) => http.post('/auth/branch/', { branch }),
+}
+
+/* Cash shifts: your own through `current`/`open`/`close`; management lists,
+   reviews and reopens (billing/shifts.py on the server). */
+export const shifts = {
+  ...createResource('shifts'),
+  current: () => http.get('/shifts/current/'),
+  open: (body) => http.post('/shifts/open/', body),
+  close: (uuid, notes) => http.post(`/shifts/${uuid}/close/`, { notes }),
+  reopen: (uuid) => http.post(`/shifts/${uuid}/reopen/`),
 }
 
 export const subscription = {
@@ -149,6 +173,30 @@ export const attendance = {
   saveSheet: (body) => http.post('/attendance/sheet/', body),
 }
 
+/* Doctor contracts (management writes; a doctor reads their own) and the
+   doctor's share of every payment (billing/commissions.py). */
+export const doctorRates = {
+  ...createResource('doctor-rates'),
+  /** The price a booking with this doctor and service gets. */
+  quote: (doctor, service) => http.get('/doctor-rates/quote/', { doctor, service }),
+}
+export const commissions = {
+  ...createResource('commissions'),
+  summary: (params) => http.get('/commissions/summary/', params),
+  settle: (uuids) => http.post('/commissions/settle/', { uuids }),
+}
+
+/* A clinic's printed look: letterhead and intake form (branches/printing.py). */
+export const printSettings = {
+  get: (branch) => http.get(`/branches/${branch}/print-settings/`),
+  update: (branch, body) => http.patch(`/branches/${branch}/print-settings/`, body),
+  uploadLogo: (branch, file) => {
+    const body = new FormData()
+    body.append('logo', file)
+    return http.patch(`/branches/${branch}/print-settings/`, body)
+  },
+}
+
 export const api = {
   branches,
   services,
@@ -185,6 +233,10 @@ export const api = {
   intakes,
   owner,
   attendance,
+  shifts,
+  doctorRates,
+  commissions,
+  printSettings,
 }
 
 export default api

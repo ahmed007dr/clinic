@@ -1,0 +1,676 @@
+<meta charset="utf-8">
+<title>دليل تشغيل العيادة</title>
+<!-- No web fonts on purpose: like every page in this project, the guide must
+     render with no internet (dashboard/tests.py). Cairo is used when installed,
+     otherwise Segoe UI / Tahoma, which both render Arabic well. -->
+<style>
+/* Tokens copied from frontend/src/styles/tokens.css so the guide looks like the product it documents. */
+:root {
+  --ground: #f7f6f3;
+  --surface: #ffffff;
+  --sunken: #f1efeb;
+  --ink: #1a1f21;
+  --ink-muted: #5f6c6e;
+  --ink-faint: #8b9698;
+  --line: #e3e1db;
+  --line-strong: #cfccc4;
+  --primary: #0e6e63;
+  --primary-soft: #e2efec;
+  --ok: #2e7d4f;   --ok-soft: #e4f1e9;
+  --warn: #a6720e; --warn-soft: #f8efdc;
+  --urgent: #b5401c; --urgent-soft: #f9e7e0;
+  --info: #2b5f8a; --info-soft: #e4eef6;
+  --font: 'Cairo', 'Segoe UI', Tahoma, system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #15181a; --surface: #1d2124; --sunken: #191d1f;
+    --ink: #e8eae9; --ink-muted: #a0abac; --ink-faint: #75807f;
+    --line: #2c3236; --line-strong: #3d4448;
+    --primary: #35a396; --primary-soft: #17302d;
+    --ok: #56b57e; --ok-soft: #16291f;
+    --warn: #d4a24a; --warn-soft: #2a2317;
+    --urgent: #e2795a; --urgent-soft: #2e1c16;
+    --info: #6ba3d0; --info-soft: #17242e;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #15181a; --surface: #1d2124; --sunken: #191d1f;
+  --ink: #e8eae9; --ink-muted: #a0abac; --ink-faint: #75807f;
+  --line: #2c3236; --line-strong: #3d4448;
+  --primary: #35a396; --primary-soft: #17302d;
+  --ok: #56b57e; --ok-soft: #16291f;
+  --warn: #d4a24a; --warn-soft: #2a2317;
+  --urgent: #e2795a; --urgent-soft: #2e1c16;
+  --info: #6ba3d0; --info-soft: #17242e;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--ground); color: var(--ink); margin: 0; }
+.guide {
+  font-family: var(--font);
+  font-size: 1rem;
+  line-height: 1.85;
+  font-variant-numeric: tabular-nums;
+  display: grid;
+  grid-template-columns: 16rem minmax(0, 1fr);
+  gap: 3rem;
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 5rem;
+}
+.guide a { color: var(--primary); text-decoration: none; }
+.guide a:hover { text-decoration: underline; }
+.guide :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+.guide h1, .guide h2, .guide h3 { line-height: 1.35; text-wrap: balance; margin: 0; }
+.guide p { margin: 0; }
+
+/* ---------- table of contents */
+.toc { position: sticky; top: 1.5rem; align-self: start; max-height: calc(100vh - 3rem); overflow-y: auto; font-size: .875rem; }
+.toc__label { font-size: .75rem; letter-spacing: .04em; color: var(--ink-faint); font-weight: 700; margin-bottom: .5rem; }
+.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: .1rem; }
+.toc a { display: block; padding: .3rem .75rem; border-radius: 6px; color: var(--ink-muted); }
+.toc a:hover { background: var(--sunken); color: var(--ink); text-decoration: none; }
+.toc .toc__sub a { padding-inline-start: 1.5rem; font-size: .8125rem; }
+
+/* ---------- content column */
+main { min-width: 0; max-width: 46rem; display: grid; gap: 3.5rem; }
+.cover { display: grid; gap: 1rem; padding-bottom: 2rem; border-bottom: 1px solid var(--line); }
+.cover__mark { width: 2.75rem; height: 2.75rem; border-radius: 10px; background: var(--primary); color: var(--surface); display: grid; place-items: center; font-size: 1.5rem; font-weight: 800; }
+.cover h1 { font-size: 2.25rem; font-weight: 800; }
+.cover__lead { font-size: 1.125rem; color: var(--ink-muted); max-width: 38rem; }
+.cover__meta { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; font-size: .8125rem; color: var(--ink-faint); }
+
+section { display: grid; gap: 1.1rem; scroll-margin-top: 1.5rem; }
+section > h2 { font-size: 1.6rem; font-weight: 800; display: flex; align-items: baseline; gap: .75rem; }
+.chapter-no { font-size: .9rem; font-weight: 700; color: var(--primary); font-family: var(--mono); }
+section h3 { font-size: 1.15rem; font-weight: 700; margin-top: .75rem; scroll-margin-top: 1.5rem; }
+.muted { color: var(--ink-muted); }
+
+/* who this applies to */
+.who { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; font-size: .8125rem; color: var(--ink-faint); }
+.role { display: inline-flex; align-items: center; gap: .35rem; padding: .05rem .6rem; border-radius: 999px; background: var(--primary-soft); color: var(--primary); font-weight: 700; font-size: .8125rem; }
+
+/* sidebar path, drawn like the app's own menu */
+.path { display: inline-flex; align-items: center; gap: .3rem; flex-wrap: wrap; font-weight: 600; font-size: .9rem; }
+.path span { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 6px; padding: 0 .5rem; line-height: 1.7; }
+.path i { font-style: normal; color: var(--ink-faint); }
+.btn { display: inline-block; background: var(--primary); color: var(--surface); border-radius: 6px; padding: 0 .55rem; font-weight: 700; font-size: .875rem; line-height: 1.8; white-space: nowrap; }
+.btn--ghost { background: transparent; color: var(--ink); border: 1px solid var(--line-strong); }
+code, .code { font-family: var(--mono); font-size: .85em; background: var(--sunken); border: 1px solid var(--line); border-radius: 4px; padding: 0 .35rem; direction: ltr; unicode-bidi: isolate; }
+
+/* procedures: real sequences only */
+ol.steps { counter-reset: step; list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
+ol.steps > li { counter-increment: step; display: grid; grid-template-columns: 2rem minmax(0,1fr); gap: .75rem; align-items: start; }
+ol.steps > li::before { content: counter(step); width: 1.75rem; height: 1.75rem; border-radius: 50%; border: 1.5px solid var(--primary); color: var(--primary); font-weight: 800; font-size: .85rem; display: grid; place-items: center; margin-top: .2rem; }
+ul.plain { margin: 0; padding-inline-start: 1.25rem; display: grid; gap: .35rem; }
+
+/* notes */
+.note { border-radius: 8px; padding: .85rem 1rem; display: grid; gap: .25rem; font-size: .95rem; }
+.note strong:first-child { font-size: .8125rem; letter-spacing: .02em; }
+.note--tip { background: var(--primary-soft); }
+.note--tip strong:first-child { color: var(--primary); }
+.note--warn { background: var(--warn-soft); }
+.note--warn strong:first-child { color: var(--warn); }
+.note--stop { background: var(--urgent-soft); }
+.note--stop strong:first-child { color: var(--urgent); }
+
+/* tables */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+th, td { padding: .6rem .85rem; text-align: start; border-bottom: 1px solid var(--line); vertical-align: top; }
+thead th { background: var(--sunken); font-size: .8125rem; color: var(--ink-muted); font-weight: 700; white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+td.c, th.c { text-align: center; }
+.yes { color: var(--ok); font-weight: 800; }
+.no { color: var(--ink-faint); }
+.part { color: var(--warn); font-weight: 700; font-size: .8125rem; }
+
+.badge { display: inline-block; border-radius: 999px; padding: 0 .6rem; font-size: .8125rem; font-weight: 700; white-space: nowrap; }
+.b-neutral { background: var(--sunken); color: var(--ink-muted); border: 1px solid var(--line); }
+.b-info { background: var(--info-soft); color: var(--info); }
+.b-ok { background: var(--ok-soft); color: var(--ok); }
+.b-warn { background: var(--warn-soft); color: var(--warn); }
+.b-urgent { background: var(--urgent-soft); color: var(--urgent); }
+.b-primary { background: var(--primary-soft); color: var(--primary); }
+
+/* the daily patient journey */
+.journey { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: .5rem; counter-reset: j; }
+.journey li { counter-increment: j; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: .7rem .8rem; display: grid; gap: .15rem; font-size: .875rem; }
+.journey li::before { content: counter(j); font-family: var(--mono); font-size: .75rem; color: var(--primary); font-weight: 500; }
+.journey b { font-size: .95rem; }
+.journey small { color: var(--ink-muted); font-size: .78rem; line-height: 1.5; }
+
+dl.faq { margin: 0; display: grid; gap: .9rem; }
+dl.faq dt { font-weight: 700; }
+dl.faq dd { margin: .15rem 0 0; color: var(--ink-muted); }
+dl.faq dt q { quotes: "«" "»"; color: var(--urgent); }
+
+.foot { border-top: 1px solid var(--line); padding-top: 1.5rem; font-size: .8125rem; color: var(--ink-faint); }
+
+@media (max-width: 860px) {
+  .guide { grid-template-columns: 1fr; gap: 1.5rem; padding-top: 1.5rem; }
+  .toc { position: static; max-height: none; border: 1px solid var(--line); border-radius: 8px; padding: .75rem; background: var(--surface); }
+  .cover h1 { font-size: 1.8rem; }
+}
+@media print {
+  body { background: #fff; }
+  .toc { display: none; }
+  .guide { display: block; padding: 0; max-width: none; }
+  main { max-width: none; }
+  section { break-before: page; }
+  .cover + section { break-before: auto; }
+  .note, .table-wrap, ol.steps > li, .journey li { break-inside: avoid; }
+}
+</style>
+
+<div class="guide" dir="rtl" lang="ar">
+
+<nav class="toc" aria-label="محتويات الدليل">
+  <div class="toc__label">المحتويات</div>
+  <ol>
+    <li><a href="#start">البدء والدخول</a></li>
+    <li><a href="#roles">الأدوار والصلاحيات</a></li>
+    <li><a href="#setup">إعداد المجموعة لأول مرة</a></li>
+    <li><a href="#day">يوم العمل في العيادة</a></li>
+    <li><a href="#reception">دليل الاستقبال</a></li>
+    <li class="toc__sub"><a href="#r-register">تسجيل مريض جديد</a></li>
+    <li class="toc__sub"><a href="#r-review">طلبات التسجيل</a></li>
+    <li class="toc__sub"><a href="#r-appointments">المواعيد</a></li>
+    <li class="toc__sub"><a href="#r-queue">قائمة الانتظار</a></li>
+    <li class="toc__sub"><a href="#r-payments">الدفعات والمصروفات</a></li>
+    <li class="toc__sub"><a href="#r-portal">دعوة المريض للبوابة</a></li>
+    <li><a href="#doctor">دليل الطبيب</a></li>
+    <li class="toc__sub"><a href="#d-visits">الزيارات والحساسية</a></li>
+    <li class="toc__sub"><a href="#d-rx">الروشتات</a></li>
+    <li class="toc__sub"><a href="#d-plans">خطط العلاج والجلسات</a></li>
+    <li class="toc__sub"><a href="#d-labs">التحاليل</a></li>
+    <li class="toc__sub"><a href="#d-files">المستندات</a></li>
+    <li><a href="#admin">دليل مدير الفرع</a></li>
+    <li><a href="#owner">دليل مالك المجموعة</a></li>
+    <li><a href="#patient">بوابة المرضى (للمريض)</a></li>
+    <li><a href="#platform">بوابة مالك المنصة</a></li>
+    <li><a href="#statuses">الحالات وألوانها</a></li>
+    <li><a href="#faq">رسائل ومشكلات شائعة</a></li>
+    <li><a href="#limits">حدود الإصدار الحالي</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<header class="cover">
+  <div class="cover__mark" aria-hidden="true">⊕</div>
+  <h1>دليل تشغيل العيادة</h1>
+  <p class="cover__lead">كل ما يحتاجه فريق العيادة ليبدأ العمل من اليوم الأول: الاستقبال، والأطباء، ومدير الفرع، ومالك المجموعة، والمريض على بوابته، ومالك المنصة. كل قسم يبدأ بسطر «لمن هذا القسم» — اقرأ ما يخصك وارجع للباقي عند الحاجة.</p>
+  <div class="cover__meta">
+    <span>الإصدار: سبتمبر ٢٠٢٦</span>
+    <span>العربية والإنجليزية</span>
+    <span>يعمل على الكمبيوتر والتابلت والموبايل</span>
+  </div>
+</header>
+
+<!-- ============================================================ 1 -->
+<section id="start">
+  <h2><span class="chapter-no">01</span> البدء والدخول</h2>
+  <div class="who">لمن هذا القسم: <span class="role">الجميع</span></div>
+
+  <h3>رابط النظام</h3>
+  <p>افتح النظام من نطاق العيادة واحفظه في المفضلة. كتابة النطاق وحده تفتح النظام مباشرة:</p>
+  <p><span class="code">https://&lt;نطاق-العيادة&gt;/app/</span></p>
+
+  <h3>تسجيل الدخول</h3>
+  <ol class="steps">
+    <li><span>اكتب <b>البريد الإلكتروني</b> — وليس اسم المستخدم — ثم <b>كلمة المرور</b>.</span></li>
+    <li><span>اضغط <span class="btn">تسجيل الدخول</span>. تفتح «الرئيسية» وعليها ملخص يومك.</span></li>
+  </ol>
+  <p class="muted">إذا نسيت كلمة المرور، اطلب من مدير الفرع أو مالك المجموعة تعيين كلمة جديدة لك (<a href="#admin-users">طريقة ذلك</a>). لا توجد حالياً استعادة ذاتية بالبريد.</p>
+
+  <h3>أجزاء الشاشة</h3>
+  <ul class="plain">
+    <li><b>القائمة الجانبية</b>: تظهر فيها الأقسام المسموح لك بها فقط. على الموبايل تفتحها بزر <b>☰</b>.</li>
+    <li><b>زر اللغة</b> (<b>English</b> / العربية) أعلى الشاشة وفي صفحة الدخول: يحوّل الواجهة بالكامل واتجاهها. القائمة والشاشات الجديدة مترجمة؛ بعض الشاشات الأقدم تبقى نصوصها بالعربية حتى في الوضع الإنجليزي.</li>
+    <li><b>الجرس 🔔</b>: عدد الإشعارات غير المقروءة، ويتحدث تلقائياً كل دقيقة.</li>
+    <li><b>زر السمة</b>: للتبديل بين الوضع الفاتح والداكن.</li>
+    <li><b>اسمك</b> أعلى الشاشة: منه تفتح <b>حسابي</b> (بياناتك وتغيير كلمة المرور) و<b>تسجيل الخروج</b>.</li>
+    <li>أسفل القائمة الجانبية يظهر <b>الفرع</b> الذي تعمل عليه.</li>
+  </ul>
+
+  <h3>تغيير كلمة المرور</h3>
+  <ol class="steps">
+    <li><span>اضغط اسمك أعلى الشاشة ← <b>حسابي</b>.</span></li>
+    <li><span>اكتب كلمة المرور الحالية، ثم الجديدة (٨ أحرف على الأقل) مرتين، واضغط <span class="btn">تغيير كلمة المرور</span>.</span></li>
+  </ol>
+
+  <h3>قواعد عامة في كل الشاشات</h3>
+  <ul class="plain">
+    <li>كل قائمة فيها <b>بحث</b> أعلاها، وتقسيم إلى صفحات أسفلها.</li>
+    <li>إذا رفض النظام الحفظ تظهر رسالة الخطأ تحت الحقل نفسه.</li>
+    <li>عند محاولة مغادرة نموذج فيه تعديلات غير محفوظة، يسألك النظام قبل الخروج.</li>
+    <li>قائمة المرضى وقائمة الدفعات فيهما زرا <span class="btn btn--ghost">PDF</span> و<span class="btn btn--ghost">Excel</span> للتصدير.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ 2 -->
+<section id="roles">
+  <h2><span class="chapter-no">02</span> الأدوار والصلاحيات</h2>
+  <div class="who">لمن هذا القسم: <span class="role">مالك المجموعة</span> <span class="role">مدير الفرع</span> <span class="role">الجميع للاطلاع</span></div>
+  <p>النظام مبني على <b>مجموعة طبية</b> فيها عيادة أو أكثر (كل عيادة = <b>فرع</b>). لكل مستخدم دور واحد من أربعة. الدور يحدد ما يظهر في القائمة وما يسمح به الخادم نفسه — إخفاء الزر ليس هو الحماية، فالنظام يرفض أي طلب خارج الصلاحية.</p>
+
+  <div class="table-wrap">
+  <table>
+    <thead><tr>
+      <th>القسم</th>
+      <th class="c">الاستقبال<br><small>Reception</small></th>
+      <th class="c">الطبيب<br><small>Doctor</small></th>
+      <th class="c">مدير الفرع<br><small>Admin</small></th>
+      <th class="c">مالك المجموعة<br><small>Owner</small></th>
+    </tr></thead>
+    <tbody>
+      <tr><td>الرئيسية، المرضى، المواعيد، قائمة الانتظار</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td></tr>
+      <tr><td>تسجيل مريض جديد، طلبات التسجيل من البوابة</td><td class="c yes">✓</td><td class="c no">—</td><td class="c yes">✓</td><td class="c yes">✓</td></tr>
+      <tr><td>تسجيل دفعة، التقرير المالي</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td></tr>
+      <tr><td>تعديل أو حذف دفعة مسجلة</td><td class="c no">—</td><td class="c no">—</td><td class="c yes">✓</td><td class="c yes">✓</td></tr>
+      <tr><td>المصروفات</td><td class="c yes">✓</td><td class="c no">—</td><td class="c yes">✓</td><td class="c yes">✓</td></tr>
+      <tr><td>السجلات الطبية: الزيارات، الروشتات، خطط العلاج، الإجراءات، التحاليل، المستندات، الحساسية</td><td class="c no">—</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td></tr>
+      <tr><td>حذف مريض أو موعد أو زيارة</td><td class="c no">—</td><td class="c no">—</td><td class="c yes">✓</td><td class="c yes">✓</td></tr>
+      <tr><td>المستخدمون، الموظفون، الحضور والغياب، الخدمات، الإعدادات</td><td class="c no">—</td><td class="c no">—</td><td class="c yes">✓</td><td class="c yes">✓</td></tr>
+      <tr><td>لوحة المجموعة، الفروع، الباقة والاشتراك</td><td class="c no">—</td><td class="c no">—</td><td class="c no">—</td><td class="c yes">✓</td></tr>
+      <tr><td>البيانات المعروضة</td><td class="c part">فرعه</td><td class="c part">فرعه</td><td class="c part">فرعه</td><td class="c part">كل الفروع</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note note--stop">
+    <strong>لا تترك مستخدماً بلا فرع</strong>
+    <span>كل الأدوار عدا مالك المجموعة ترى بيانات فرعها فقط. المستخدم الذي ليس له فرع سيرى كل القوائم فارغة. حدّد الفرع لكل مستخدم عند إنشائه.</span>
+  </div>
+  <ul class="plain">
+    <li>الاستقبال لا يرى أي تشخيص أو بيانات طبية، حتى في السجل الزمني للمريض. يمكنه <b>إدخال</b> التاريخ المرضي عند تسجيل المريض لكنه لا يطّلع عليه بعد الحفظ.</li>
+    <li>مدير الفرع يضيف مستخدمين بأدوار مدير فرع وطبيب واستقبال لفرعه فقط، ولا يستطيع إنشاء «مالك مجموعة».</li>
+    <li>يمكن تسجيل أي عدد من «أنواع الوظائف» للموظفين (ممرضة، مساعد…)، لكن حسابات الدخول تعمل بأحد الأدوار الأربعة فقط. الممرضة التي تحتاج الدخول تأخذ دور «الاستقبال».</li>
+  </ul>
+</section>
+
+<!-- ============================================================ 3 -->
+<section id="setup">
+  <h2><span class="chapter-no">03</span> إعداد المجموعة لأول مرة</h2>
+  <div class="who">لمن هذا القسم: <span class="role">مالك المجموعة</span></div>
+  <p>الحساب الأول الذي يسلّمه مالك المنصة هو حساب <b>مالك المجموعة</b>. نفّذ الخطوات التالية بهذا الترتيب، لأن كل خطوة تعتمد على التي قبلها: الموظف يحتاج فرعاً، والحجز يحتاج طبيباً وخدمة.</p>
+
+  <ol class="steps">
+    <li><span><b>غيّر كلمة المرور</b> المؤقتة من <span class="path"><span>حسابي</span></span>.</span></li>
+    <li><span><b>الفروع:</b> <span class="path"><span>الإدارة</span><i>›</i><span>الفروع</span></span> — عدّل الفرع الأول (الاسم، الهاتف، العنوان، و«تذييل المطبوعات» أسفل الروشتات والإيصالات)، وأضف باقي العيادات. عدد الفروع محدود بالباقة.</span></li>
+    <li><span><b>القوائم المرجعية:</b> <span class="path"><span>الإدارة</span><i>›</i><span>الإعدادات</span></span> — في التبويبات: <b>طرق الدفع</b>، <b>بنود المصروفات</b>، <b>التخصصات</b>، <b>أنواع الوظائف</b>، <b>أنواع الرواتب</b>.</span></li>
+    <li><span><b>الخدمات وأسعارها:</b> <span class="path"><span>الإدارة</span><i>›</i><span>الخدمات</span></span> — اسم الخدمة، السعر الأساسي، التخصص.</span></li>
+    <li><span><b>الموظفون:</b> <span class="path"><span>الإدارة</span><i>›</i><span>الموظفون</span></span> — سجّل كل موظف على فرعه. <b>الأطباء يجب أن تكون وظيفتهم <code>Doctor</code></b>، مع تخصصاتهم، وإلا لن يظهروا عند الحجز وفي خطوة «الطبيب والتخصص» عند التسجيل.</span></li>
+    <li><span><b>حسابات الدخول:</b> <span class="path"><span>الإدارة</span><i>›</i><span>المستخدمون</span></span> — مدير لكل فرع (دور Admin)، ثم الأطباء والاستقبال. أو اترك لكل مدير فرع إضافة فريقه.</span></li>
+    <li><span><b>بوابة المرضى:</b> <span class="path"><span>الإعدادات</span><i>›</i><span>بوابة المرضى</span></span> — انسخ رابط البوابة، وقرر هل يرى المريض نص التشخيص، وهل يُسمح للمرضى الجدد بالتسجيل من البوابة.</span></li>
+    <li><span><b>راجع الباقة:</b> <span class="path"><span>الإدارة</span><i>›</i><span>الباقة والاشتراك</span></span> — حدودها واستهلاكك.</span></li>
+  </ol>
+
+  <div class="note note--tip">
+    <strong>الطبيب يحتاج سجلين</strong>
+    <span><b>موظف</b> وظيفته <code>Doctor</code> ليظهر اسمه في الحجوزات والروشتات، و<b>مستخدم</b> دوره <code>Doctor</code> ليستطيع الدخول ورؤية السجلات الطبية. السجلان منفصلان في النظام، فأنشئ الاثنين لكل طبيب.</span>
+  </div>
+  <div class="note note--warn">
+    <strong>لا تحذف الأساسيات</strong>
+    <span>لا تحذف نوع الوظيفة <code>Doctor</code> ولا الأدوار Owner وAdmin وReception وDoctor؛ النظام يعتمد عليها بالاسم.</span>
+  </div>
+</section>
+
+<!-- ============================================================ 4 -->
+<section id="day">
+  <h2><span class="chapter-no">04</span> يوم العمل في العيادة</h2>
+  <div class="who">لمن هذا القسم: <span class="role">الاستقبال</span> <span class="role">الطبيب</span></div>
+  <p>رحلة مريض واحد من الباب إلى الإيصال. كل خطوة مشروحة بالتفصيل في قسم صاحبها.</p>
+  <ol class="journey">
+    <li><b>تسجيل المريض</b><small>الاستقبال — مرة واحدة، ٦ خطوات قصيرة</small></li>
+    <li><b>حجز موعد</b><small>الاستقبال — الطبيب والخدمة والسعر</small></li>
+    <li><b>قائمة الانتظار</b><small>«نداء» ثم «دخول»</small></li>
+    <li><b>الزيارة</b><small>الطبيب — الشكوى، الفحص، التشخيص</small></li>
+    <li><b>الروشتة والتحاليل</b><small>الطبيب — مع تنبيه الحساسية</small></li>
+    <li><b>إنهاء الزيارة والدفع</b><small>الاستقبال — «إنهاء الزيارة» ثم الدفعة</small></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 5 -->
+<section id="reception">
+  <h2><span class="chapter-no">05</span> دليل الاستقبال</h2>
+  <div class="who">لمن هذا القسم: <span class="role">الاستقبال</span> <span class="role">مدير الفرع</span></div>
+
+  <h3>الرئيسية</h3>
+  <p>عند الدخول ترى: عدد <b>من في الانتظار الآن</b>، <b>مواعيد اليوم</b> والأسبوع، <b>إيراد اليوم</b> والشهر، <b>إجمالي المرضى</b>، أول ٨ في قائمة الانتظار، ورسماً لإيراد آخر ١٤ يوماً. اضغط أي بطاقة لتفتح القسم الخاص بها.</p>
+
+  <h3>البحث عن مريض</h3>
+  <p><span class="path"><span>العيادة</span><i>›</i><span>المرضى</span></span> ثم ابحث بالاسم أو رقم الملف أو الهاتف أو الرقم القومي. ابحث دائماً قبل التسجيل حتى لا يتكرر ملف المريض.</p>
+
+  <h3 id="r-register">تسجيل مريض جديد</h3>
+  <p>من قائمة المرضى اضغط <span class="btn">تسجيل مريض</span>. التسجيل ست خطوات قصيرة، وشريط الخطوات أعلاها يسمح بالرجوع لأي خطوة دون فقد ما كُتب:</p>
+  <ol class="steps">
+    <li><span><b>البيانات الشخصية</b> — المطلوب: الاسم الكامل، النوع، <b>رقم الهاتف</b> (به يدخل المريض للبوابة). وأيضاً: واتساب، تاريخ الميلاد، الرقم القومي، المحافظة والمنطقة، وجهة اتصال للطوارئ. التسجيل يكون على فرعك تلقائياً.</span></li>
+    <li><span><b>سبب الزيارة</b> — نوع الحالة (كشف، متابعة، شكوى حادة…)، سبب الزيارة كما يقوله المريض (مطلوب)، الأعراض ومنذ متى، وأي تشخيص سابق ذكره المريض. التشخيص الفعلي يكتبه الطبيب بعد الكشف.</span></li>
+    <li><span><b>التاريخ المرضي</b> (اختيارية) — الأمراض المزمنة مع تفاصيل وعلاج كل مرض، حساسية الأدوية وشدتها، التدخين، الأدوية الحالية، العمليات السابقة، التاريخ العائلي.</span></li>
+    <li><span><b>كيف عرفتنا</b> (اختيارية) — المصدر (صديق، طبيب محوِّل، فيسبوك، جوجل…)، ومن رشّح العيادة أو طبيباً معيناً.</span></li>
+    <li><span><b>الطبيب والتخصص</b> — طبيب محدد، أو التخصص فقط، أو «لا يعرف».</span></li>
+    <li><span><b>المراجعة والتأكيد</b> — راجع الملخص، علّم <b>موافقة المريض على حفظ بياناته</b> (مطلوبة) وطرق التواصل المسموحة، ثم <span class="btn">حفظ وتسجيل المريض</span>.</span></li>
+  </ol>
+  <p>بعد الحفظ يظهر رقم الملف مع زري <span class="btn">فتح ملف المريض</span> و<span class="btn btn--ghost">تسجيل مريض آخر</span>.</p>
+  <div class="note note--warn">
+    <strong>«قد يكون هذا المريض مسجلاً بالفعل»</strong>
+    <span>إذا وُجد ملف بنفس الهاتف أو الرقم القومي يوقفك النظام بعد الخطوة الأولى. افتح الملف الموجود بـ<b>فتح الملف</b>، أو اضغط <b>شخص مختلف — تابع التسجيل</b> إن كان شخصاً آخر. إن كان المريض مسجلاً في عيادة أخرى بالمجموعة يظهر عدد الملفات فقط دون بياناتها.</span>
+  </div>
+
+  <h3>ملف المريض</h3>
+  <p>فيه تبويب <b>السجل الزمني</b> (كل ما حدث للمريض مرتباً من الأحدث) وتبويب <b>البيانات</b>، وبجانبهما بطاقة <b>بوابة المرضى</b> و<b>روابط سريعة</b> لمواعيده ودفعاته. من أعلى الملف: <span class="btn btn--ghost">حجز موعد</span> و<span class="btn btn--ghost">تعديل</span>.</p>
+
+  <h3 id="r-review">طلبات التسجيل من البوابة</h3>
+  <p>إذا فعّل مالك المجموعة التسجيل الذاتي، يرسل المرضى الجدد بياناتهم من البوابة، وتنتظر في <span class="path"><span>العيادة</span><i>›</i><span>طلبات التسجيل</span></span> (أو زر <b>طلبات التسجيل</b> في قائمة المرضى). هذه الطلبات لا تظهر في قائمة المرضى ولا تُحسب من الباقة حتى تؤكَّد.</p>
+  <ol class="steps">
+    <li><span>اضغط الطلب لتفتح بياناته، ومعها <b>ملفات محتملة لنفس الشخص</b> إن وُجدت.</span></li>
+    <li><span>اختر واحداً:
+      <span class="btn">تأكيد كمريض جديد</span> ليصبح ملفاً عادياً،
+      أو <span class="btn btn--ghost">دمج في هذا الملف</span> إن كان مسجلاً من قبل،
+      أو <span class="btn btn--ghost">رفض الطلب</span> — يحذف الطلب وبياناته نهائياً.</span></li>
+  </ol>
+
+  <h3 id="r-appointments">المواعيد</h3>
+  <ol class="steps">
+    <li><span>من ملف المريض اضغط <span class="btn btn--ghost">حجز موعد</span> (يُملأ المريض تلقائياً)، أو من <span class="path"><span>المواعيد</span></span> اضغط <span class="btn">حجز موعد</span> وابحث عن المريض.</span></li>
+    <li><span>حدد <b>موعد الحجز</b>، <b>الطبيب</b>، <b>الخدمة</b>، <b>التخصص</b>، <b>السعر</b>.</span></li>
+    <li><span>اترك <b>الحالة</b> على «الانتظار» للمريض الموجود الآن، واضغط <span class="btn">حفظ</span>. يأخذ الموعد <b>رقم تذكرة</b> تلقائياً.</span></li>
+  </ol>
+  <p>في قائمة المواعيد يمكنك التصفية بالحالة والتاريخ، والبحث برقم التذكرة أو اسم المريض أو هاتفه. اضغط أي صف لتعديله. <b>لإلغاء موعد</b> أو تسجيل أن المريض لم يحضر: افتح الموعد، واختر الحالة «ملغي» أو «لم يحضر»، ثم <span class="btn">حفظ</span>. حذف الموعد نهائياً متاح لمدير الفرع فقط.</p>
+  <div class="note note--warn">
+    <strong>انتبه</strong>
+    <span>النظام لا يمنع حجز موعدين للطبيب نفسه في الوقت نفسه. راجع قائمة مواعيد الطبيب قبل الحجز.</span>
+  </div>
+  <p><b>تأكيد طلبات المواعيد من البوابة:</b> صفِّ المواعيد بحالة <span class="badge b-info">طلب من المريض</span> — لا يصلك إشعار عنها، فراجعها أكثر من مرة يومياً. اتصل بالمريض، ثم افتح الطلب وحدد الطبيب والخدمة والسعر والموعد، وغيّر الحالة إلى «الانتظار» واضغط <span class="btn">حفظ</span>.</p>
+
+  <h3 id="r-queue">قائمة الانتظار</h3>
+  <p><span class="path"><span>العيادة</span><i>›</i><span>قائمة الانتظار</span></span> تعرض حجوزات <b>اليوم</b> بترتيب الوقت، وتتحدث وحدها كل ٣٠ ثانية، فيمكن أن يعمل عليها الاستقبال والتمريض معاً.</p>
+  <ol class="steps">
+    <li><span>المريض الواصل يظهر بحالة <span class="badge b-neutral">الانتظار</span>.</span></li>
+    <li><span>عند دوره اضغط <span class="btn">نداء</span> ← تصبح حالته «تم الاتصال».</span></li>
+    <li><span>عند دخوله للطبيب اضغط <span class="btn">دخول</span> ← «تم الدخول».</span></li>
+    <li><span>بعد خروجه اضغط <span class="btn">إنهاء الزيارة</span> ← «مكتمل»، ويخرج من القائمة.</span></li>
+  </ol>
+  <p class="muted">زر <b>الملف</b> يفتح ملف المريض، والهاتف قابل للضغط للاتصال من الموبايل. زر <span class="btn">حجز سريع</span> يفتح نموذج حجز جديد.</p>
+
+  <h3 id="r-payments">الدفعات والمصروفات</h3>
+  <ol class="steps">
+    <li><span><span class="path"><span>الحسابات</span><i>›</i><span>الدفعات</span></span> ← <span class="btn">تسجيل دفعة</span>.</span></li>
+    <li><span>اختر <b>الموعد</b> أولاً (ابحث برقم التذكرة): يُملأ المريض والمبلغ والفرع تلقائياً.</span></li>
+    <li><span>اكتب <b>رقم الإيصال</b> — لا يتكرر داخل المجموعة — واختر <b>طريقة الدفع</b>، ثم <span class="btn">حفظ</span>.</span></li>
+  </ol>
+  <div class="note note--stop">
+    <strong>راجع قبل الحفظ</strong>
+    <span>بعد حفظ الدفعة لا يستطيع الاستقبال تعديلها أو حذفها؛ التصحيح يطلبه من مدير الفرع. هذا يحمي إيراد العيادة من التغيير دون علم الإدارة.</span>
+  </div>
+  <p class="muted">كل دفعة ترتبط بموعد. لمريض بلا موعد (جلسة ضمن خطة علاج مثلاً)، سجّل له موعداً أولاً ثم الدفعة.</p>
+  <p><b>المصروفات:</b> <span class="path"><span>الحسابات</span><i>›</i><span>المصروفات</span></span> ← <span class="btn">تسجيل مصروف</span>: المبلغ، التاريخ، البند، الفرع، والموظف إن كان المصروف راتباً أو سلفة.</p>
+  <p><b>التقرير المالي:</b> <span class="path"><span>الحسابات</span><i>›</i><span>التقرير المالي</span></span> يفتح على الشهر الحالي: الإيراد، المصروفات، الصافي، والإيراد حسب طريقة الدفع والمصروفات حسب البند. غيّر التاريخ من/إلى لأي فترة. الأرقام لفرعك فقط.</p>
+
+  <h3 id="r-portal">دعوة المريض للبوابة</h3>
+  <p>المريض يدخل البوابة برابط دعوة من العيادة.</p>
+  <ol class="steps">
+    <li><span>افتح ملف المريض وتأكد أن رقم <b>الهاتف</b> مسجل وصحيح.</span></li>
+    <li><span>في بطاقة <b>بوابة المرضى</b> اضغط <span class="btn btn--ghost">دعوة للبوابة</span>.</span></li>
+    <li><span>اضغط <span class="btn">نسخ الرابط</span> وأرسله للمريض على واتساب أو برسالة. <b>الرابط يظهر مرة واحدة</b>، صالح ٧٢ ساعة، ويُستخدم مرة واحدة.</span></li>
+  </ol>
+  <ul class="plain">
+    <li>ضاع الرابط أو انتهت صلاحيته أو نسي المريض كلمة مروره؟ اضغط <span class="btn btn--ghost">رابط دعوة جديد</span> — يلغي القديم تلقائياً.</li>
+    <li><span class="btn btn--ghost">إيقاف الوصول</span> يُخرج المريض من البوابة فوراً، ولا يدخل بعدها إلا بدعوة جديدة.</li>
+    <li>البطاقة تعرض حالة الحساب (<span class="badge b-ok">مفعّل</span> / موقوف / لا يوجد حساب) وآخر دخول.</li>
+    <li>تغيير رقم هاتف المريض يُخرجه من البوابة؛ ويدخل بعدها بالرقم الجديد.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ 6 -->
+<section id="doctor">
+  <h2><span class="chapter-no">06</span> دليل الطبيب</h2>
+  <div class="who">لمن هذا القسم: <span class="role">الطبيب</span> <span class="role">مدير الفرع</span></div>
+  <p>تظهر لك في القائمة مجموعة <b>السجلات الطبية</b>. في الرئيسية بطاقتان إضافيتان: <b>زيارات اليوم</b>، و<b>تحاليل غير مُطّلع عليها</b> — تتحول للون التحذير عندما توجد نتيجة غير طبيعية لم يراجعها أحد.</p>
+
+  <h3 id="d-visits">الزيارات والحساسية والتاريخ المرضي</h3>
+  <ol class="steps">
+    <li><span>افتح ملف المريض (من قائمة الانتظار زر <b>الملف</b>، أو بالبحث في المرضى).</span></li>
+    <li><span>راجع بطاقة <b>الحساسية</b>، وبطاقة <b>التاريخ المرضي (كما ذكره المريض)</b>: الأمراض المزمنة وأسباب الزيارات المسجلة عند الاستقبال. هذه معلومات أفاد بها المريض، وليست تشخيصاً.</span></li>
+    <li><span>اضغط <span class="btn">زيارة جديدة</span>، ثم في الصفحة التي تفتح اضغط <span class="btn">تسجيل زيارة</span> — يكون المريض مختاراً.</span></li>
+    <li><span>املأ: تاريخ الزيارة، الطبيب، الشكوى، الفحص، التشخيص، خطة العلاج، موعد المتابعة. ثم <span class="btn">حفظ</span>.</span></li>
+  </ol>
+  <p class="muted">يمكن للطبيب تعديل الزيارة؛ أما حذفها فمتاح لمدير الفرع فقط، لأنها جزء من السجل الطبي.</p>
+  <p><b>تسجيل حساسية:</b> في بطاقة الحساسية اضغط <span class="btn btn--ghost">إضافة</span>: المادة، رد الفعل، الشدة <span class="badge b-warn">خفيفة</span> <span class="badge b-warn">متوسطة</span> <span class="badge b-urgent">شديدة</span>. تنبيه الروشتة يعتمد على الحساسية المسجلة، فسجّلها دائماً.</p>
+
+  <h3 id="d-rx">الروشتات</h3>
+  <ol class="steps">
+    <li><span><span class="path"><span>السجلات الطبية</span><i>›</i><span>الروشتات</span></span> ← <span class="btn">روشتة جديدة</span>.</span></li>
+    <li><span>اختر <b>المريض</b> — تظهر حساسيته في شريط أعلى النموذج — ثم <b>الزيارة</b> (زيارات هذا المريض فقط، وهي مطلوبة) و<b>الطبيب</b>.</span></li>
+    <li><span>لكل دواء: الدواء، الجرعة، التكرار، المدة، التعليمات. <span class="btn btn--ghost">إضافة دواء</span> لسطر جديد، و<b>✕</b> لحذف سطر.</span></li>
+    <li><span><span class="btn">حفظ</span>. إن طابق دواءٌ حساسيةً مسجلة يظهر <b>تنبيه حساسية</b>. التنبيه لا يمنع الحفظ؛ القرار للطبيب.</span></li>
+    <li><span>اضغط <b>طباعة</b> بجانب الروشتة لتفتح صفحة الطباعة في نافذة جديدة.</span></li>
+  </ol>
+
+  <h3 id="d-plans">خطط العلاج والجلسات والإجراءات</h3>
+  <p><b>خطة علاج</b> لكورس جلسات: <span class="path"><span>خطط العلاج</span></span> ← <span class="btn">خطة جديدة</span> — الاسم، المريض، عدد الجلسات، الطبيب، الخدمة، تاريخ البدء، الحالة. عمود <b>التقدم</b> يعرض المكتمل من المخطط، مثل <code>3 / 6</code>.</p>
+  <p><b>جلسات العلاج</b> تُفتح من الرابط <code>/app/treatment-sessions</code> (غير موجودة في القائمة الجانبية حالياً) ← <span class="btn">إضافة جلسة</span>: الخطة، المريض، رقم الجلسة، الموعد، الحالة (<span class="badge b-info">مجدولة</span> <span class="badge b-ok">مكتملة</span> <span class="badge b-neutral">ملغاة</span> <span class="badge b-warn">لم يحضر</span>)، تاريخ التنفيذ، الكمية وسعر الوحدة والخصم، والنتيجة. الكمية لخدمات النبضات مثلاً: ٢٥ نبضة × سعر النبضة. الخصم لا يزيد عن إجمالي السطر.</p>
+  <p><b>الإجراءات</b>: <span class="path"><span>الإجراءات</span></span> ← <span class="btn">تسجيل إجراء</span> — مرتبط بزيارة، مع الموضع، ما تم ملاحظته، النتيجة، والمضاعفات إن وُجدت.</p>
+
+  <h3 id="d-labs">التحاليل</h3>
+  <ol class="steps">
+    <li><span><span class="path"><span>التحاليل</span></span> ← <span class="btn">تسجيل تحليل</span>: اسم التحليل، المريض، الزيارة، من طلبه، العينة، المعمل.</span></li>
+    <li><span>عند وصول النتيجة افتحه بـ<b>تعديل</b> وسجّل: النتيجة، الوحدة، المعدل المرجعي، التقييم (<span class="badge b-ok">طبيعي</span> <span class="badge b-warn">غير طبيعي</span> <span class="badge b-urgent">حرج</span>)، والحالة «صدرت النتيجة».</span></li>
+    <li><span>بعد مراجعة الطبيب للنتيجة يضغط <span class="btn btn--ghost">تسجيل الاطلاع</span>، فيُحفظ اسمه ووقت المراجعة.</span></li>
+    <li><span>لتظهر النتيجة للمريض في البوابة اضغط <span class="btn btn--ghost">إصدار للمريض</span>. يصبح الزر «✓ متاحة — إخفاء» للتراجع.</span></li>
+  </ol>
+  <p class="muted">علامة <b>«غير الطبيعية بانتظار الاطلاع»</b> تعرض ما يحتاج مراجعة فقط. اتصل بالمريض قبل إصدار أي نتيجة حرجة له.</p>
+
+  <h3 id="d-files">المستندات</h3>
+  <ol class="steps">
+    <li><span><span class="path"><span>المستندات</span></span> ← <span class="btn">رفع مستند</span>: العنوان، المريض، النوع (تقرير تحاليل، أشعة، إقرار موافقة، إحالة، صورة إكلينيكية، أخرى).</span></li>
+    <li><span>اختر الملف: <b>PDF أو صورة (JPG / PNG / WEBP)</b> بحد أقصى <b>١٠ ميجابايت</b>. يُفحص محتوى الملف نفسه وليس امتداده فقط.</span></li>
+    <li><span><span class="btn">رفع</span>. للتنزيل اضغط <b>تنزيل</b>، وللمشاركة مع المريض <b>إصدار للمريض</b>.</span></li>
+  </ol>
+  <p class="muted">المستندات محفوظة في مكان غير متاح على الإنترنت، ولا تُفتح إلا من داخل النظام لمن له صلاحية. لا تُحذف بعد رفعها، ويُحسب حجمها من مساحة الباقة.</p>
+</section>
+
+<!-- ============================================================ 7 -->
+<section id="admin">
+  <h2><span class="chapter-no">07</span> دليل مدير الفرع</h2>
+  <div class="who">لمن هذا القسم: <span class="role">مدير الفرع</span> <span class="role">مالك المجموعة</span></div>
+  <p>مدير الفرع يرى كل ما يراه الاستقبال والطبيب في فرعه، بالإضافة إلى مجموعة <b>الإدارة</b>، وتعديل الدفعات وحذف المرضى والمواعيد والزيارات. في الرئيسية بطاقة إضافية: <b>صافي الشهر</b> (الإيراد ناقص المصروفات).</p>
+
+  <h3 id="admin-users">المستخدمون (حسابات الدخول)</h3>
+  <ul class="plain">
+    <li><b>إضافة:</b> <span class="btn">إضافة مستخدم</span> — اسم المستخدم، البريد (للدخول)، الاسم، <b>الدور</b>، <b>الفرع</b>، كلمة المرور (٨ أحرف على الأقل). بدون كلمة مرور ينشأ الحساب لكن لا يستطيع صاحبه الدخول حتى تعيّن له كلمة.</li>
+    <li><b>إعادة تعيين كلمة مرور موظف نسيها:</b> <b>تعديل</b> ← اكتب كلمة جديدة ← <span class="btn">حفظ</span>. ترك الحقل فارغاً عند التعديل يُبقي الكلمة القديمة.</li>
+    <li><b>حذف</b> المستخدم يعطّل حسابه ولا يمسح سجلاته. لإعادته: تعديل ← «الحساب نشط».</li>
+  </ul>
+
+  <h3>تصحيح دفعة</h3>
+  <p>في <span class="path"><span>الدفعات</span></span> اضغط صف الدفعة لفتحها، صحّح المبلغ أو طريقة الدفع، ثم <span class="btn">حفظ</span>. هذه الشاشة تفتح للمدير فقط.</p>
+
+  <h3>الحضور والغياب</h3>
+  <ol class="steps">
+    <li><span><span class="path"><span>الإدارة</span><i>›</i><span>الحضور والغياب</span></span> — يفتح على سجل اليوم لكل موظفي الفرع.</span></li>
+    <li><span>لكل موظف اختر: <span class="badge b-ok">حاضر</span> <span class="badge b-warn">متأخر</span> <span class="badge b-urgent">غائب</span> <span class="badge b-neutral">إجازة</span>، ووقت الحضور والانصراف، ودقائق التأخير للمتأخر، وملاحظة إن لزم. زر <span class="btn btn--ghost">الباقي حاضر</span> يعلّم كل من لم يُسجَّل بعد كحاضر.</span></li>
+    <li><span><span class="btn">حفظ السجل</span>. لتسجيل يوم سابق غيّر التاريخ أعلى الشاشة (لا يُقبل تاريخ مستقبلي).</span></li>
+  </ol>
+
+  <h3>الموظفون، الخدمات، الإعدادات</h3>
+  <p>قوائم فيها <b>إضافة</b> و<b>تعديل</b> و<b>حذف</b> (راجع <a href="#setup">الإعداد</a>). بيانات الموظفين تشمل الراتب، ولا يراها غير الإدارة.</p>
+</section>
+
+<!-- ============================================================ 8 -->
+<section id="owner">
+  <h2><span class="chapter-no">08</span> دليل مالك المجموعة</h2>
+  <div class="who">لمن هذا القسم: <span class="role">مالك المجموعة</span></div>
+  <p>مالك المجموعة يرى <b>كل الفروع</b> في كل الشاشات، ويملك وحده: لوحة المجموعة، الفروع، الباقة والاشتراك، إعدادات المجموعة، وإنشاء «مالك مجموعة» آخر.</p>
+
+  <h3>لوحة المجموعة</h3>
+  <p><span class="path"><span>المجموعة</span><i>›</i><span>لوحة المجموعة</span></span>. أعلاها <b>مبدّل العيادات</b> («كل العيادات» أو عيادة بعينها) وفترة من/إلى — تفتح على الشهر الحالي، والاختيار يبقى في الرابط فيمكن حفظه أو إرساله.</p>
+  <ul class="plain">
+    <li><b>البطاقات:</b> الإيرادات، المصروفات، صافي الربح، المُحصَّل مع المستحق والمتبقي، المرضى الجدد والعائدون، مواعيد اليوم والأيام السبعة القادمة، نسبة الحضور، وطلبات التسجيل المعلّقة إن وُجدت.</li>
+    <li><b>مقارنة العيادات:</b> لكل عيادة الإيراد والمصروف والصافي والمواعيد والمكتمل ولم يحضر والمرضى الجدد والأطباء والحضور، مع <b>عرض</b> للتركيز عليها وروابط لمرضاها ومواعيدها ودفعاتها.</li>
+    <li><b>التحليل:</b> الإيرادات والمصروفات يومياً، الإيرادات حسب الطبيب والتخصص، المصروفات حسب البند، المواعيد حسب الحالة، مصادر المرضى الجدد، أنواع الحالات، وجدول الأطباء: الحمل والحضور.</li>
+  </ul>
+
+  <h3>الباقة والاشتراك</h3>
+  <p><span class="path"><span>الإدارة</span><i>›</i><span>الباقة والاشتراك</span></span>: اسم الباقة وسعرها، التواريخ، المزايا، وجدول <b>الاستهلاك</b> مقابل المسموح للفروع والأطباء والموظفين والمرضى والمساحة: <span class="badge b-ok">متاح</span> <span class="badge b-warn">وصل للحد</span> <span class="badge b-urgent">تجاوز الحد</span>. الترقية بالتواصل مع مالك المنصة؛ الدفع حالياً خارج النظام. المزايا المعلّمة <span class="badge b-info">قريباً</span> لم تُطلق بعد.</p>
+
+  <h3>إعدادات بوابة المرضى</h3>
+  <p><span class="path"><span>الإعدادات</span><i>›</i><span>بوابة المرضى</span></span>:</p>
+  <ul class="plain">
+    <li><b>رابط البوابة لمرضاك</b> جاهز للنسخ.</li>
+    <li><b>إظهار نص التشخيص للمريض</b> — مغلق افتراضياً.</li>
+    <li><b>السماح للمرضى الجدد بالتسجيل من البوابة</b> — عند تفعيله يظهر <b>رابط التسجيل للمرضى الجدد</b> لتنشره. الطلبات تصل إلى «طلبات التسجيل» للمراجعة قبل أن تصبح ملفات.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ 9 -->
+<section id="patient">
+  <h2><span class="chapter-no">09</span> بوابة المرضى</h2>
+  <div class="who">لمن هذا القسم: <span class="role">المريض</span> <span class="role">الاستقبال لشرحها للمريض</span></div>
+  <p>البوابة مصممة للموبايل. رابطها لكل مجموعة: <span class="code">https://&lt;النطاق&gt;/app/portal/&lt;معرّف-العيادة&gt;/</span> — ويظهر جاهزاً للنسخ في الإعدادات.</p>
+
+  <h3>مريض جديد يسجّل بنفسه</h3>
+  <p>متاح فقط إن فعّلته العيادة. من رابط التسجيل (أو «مريض جديد؟ سجّل بياناتك» في صفحة الدخول) يملأ المريض نفس خطوات التسجيل الست ويختار العيادة، ثم <span class="btn">إرسال طلب التسجيل</span>. تظهر رسالة «تم استلام طلبك»، وتتواصل العيادة معه للتأكيد. للدخول لملفه بعد ذلك يحتاج رابط دعوة من الاستقبال.</p>
+
+  <h3>تفعيل الحساب (أول مرة)</h3>
+  <ol class="steps">
+    <li><span>افتح رابط الدعوة الذي أرسلته العيادة كما هو، دون تعديل.</span></li>
+    <li><span>اختر كلمة مرور (٨ أحرف على الأقل) واكتبها مرتين، ثم <span class="btn">تفعيل الحساب</span>. تدخل إلى ملفك مباشرة.</span></li>
+  </ol>
+
+  <h3>الدخول بعد ذلك</h3>
+  <p>من رابط البوابة: <b>رقم الهاتف</b> المسجل في العيادة + <b>كلمة المرور</b> ← <span class="btn">دخول</span>.</p>
+  <ul class="plain">
+    <li>بعد ٥ محاولات خاطئة يُقفل الحساب ١٥ دقيقة.</li>
+    <li>يخرجك النظام بعد ٣٠ دقيقة بلا استخدام، وبعد ٧ أيام في كل الأحوال.</li>
+    <li>نسيت كلمة المرور؟ اطلب من الاستقبال رابط دعوة جديداً.</li>
+  </ul>
+
+  <h3>ما يظهر للمريض</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>التبويب</th><th>المحتوى</th></tr></thead>
+    <tbody>
+      <tr><td>مواعيدي</td><td>المواعيد السابقة والقادمة، والطلبات «بانتظار تأكيد العيادة»</td></tr>
+      <tr><td>الروشتات</td><td>كل روشتة بأدويتها وجرعاتها، مع زر <b>طباعة</b></td></tr>
+      <tr><td>التحاليل</td><td>فقط ما أصدره الطبيب للمريض</td></tr>
+      <tr><td>المستندات</td><td>فقط ما أصدره الطبيب، مع زر <b>تنزيل</b></td></tr>
+      <tr><td>خطط العلاج</td><td>شريط التقدم: كم جلسة تمت من كم</td></tr>
+      <tr><td>الزيارات</td><td>التاريخ والطبيب وموعد المتابعة، والتشخيص فقط إن فعّلته العيادة</td></tr>
+      <tr><td>المدفوعات</td><td>المبلغ والتاريخ ورقم الإيصال وطريقة الدفع</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="muted">أعلى الصفحة تظهر الحساسية المسجلة. ملاحظات الفحص وأي بيانات داخلية لا تظهر للمريض أبداً، ولا يستطيع مريض رؤية بيانات مريض آخر.</p>
+
+  <h3>طلب موعد</h3>
+  <ol class="steps">
+    <li><span>اضغط <span class="btn">طلب موعد</span>، واختر الموعد المفضل (في المستقبل)، واكتب سبب الزيارة إن أردت.</span></li>
+    <li><span><span class="btn">إرسال الطلب</span>. هذا طلب وليس حجزاً نهائياً: تتواصل معك العيادة لتأكيده. يمكن أن يكون لك حتى ٣ طلبات بانتظار التأكيد.</span></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 10 -->
+<section id="platform">
+  <h2><span class="chapter-no">10</span> بوابة مالك المنصة</h2>
+  <div class="who">لمن هذا القسم: <span class="role">مالك المنصة</span></div>
+  <p>حساب مالك المنصة لا ينتمي لأي مجموعة. يدخل من نفس صفحة الدخول فتفتح له <b>العيادات</b> مباشرة على <code>/app/platform</code>. شاشات العيادات العادية مغلقة أمامه.</p>
+
+  <h3>إنشاء مجموعة جديدة</h3>
+  <ol class="steps">
+    <li><span>اضغط <span class="btn">عيادة جديدة</span>.</span></li>
+    <li><span>اكتب: اسم العيادة، <b>المعرّف</b> بحروف لاتينية (مثل <code>dr-ahmed</code> — مطلوب إذا كان الاسم عربياً، وهو جزء من رابط بوابة المرضى)، بريد المسؤول، اسم الفرع الأول وكوده، والحالة.</span></li>
+    <li><span><span class="btn">إنشاء العيادة</span>. تُنشأ بأدوارها وفرعها وحساب <b>مالك المجموعة</b>، على الباقة الأساسية كفترة تجريبية ٣٠ يوماً.</span></li>
+    <li><span><b>انسخ كلمة المرور فوراً.</b> تظهر مرة واحدة فقط ولا يمكن استرجاعها بعد إغلاق النافذة. سلّمها للعميل بطريقة آمنة.</span></li>
+  </ol>
+
+  <h3>متابعة مجموعة</h3>
+  <p>اضغط أي عيادة لترى: المرضى، المواعيد، الزيارات، الإيراد، الاستهلاك مقابل الباقة، وسجل الاشتراكات. فتح هذه الصفحة يُسجَّل في سجل تدقيق العيادة.</p>
+  <ul class="plain">
+    <li><b>الحالة:</b> تجريبي، نشط، <span class="badge b-urgent">موقوف</span>، ملغي. الإيقاف يمنع كل موظفي المجموعة فوراً، حتى من هم داخل النظام الآن.</li>
+    <li><b>الباقة:</b> اختر الباقة واضغط <span class="btn btn--ghost">تطبيق</span>. حدودها تُطبق فوراً.</li>
+  </ul>
+
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>الباقة</th><th class="c">السعر</th><th class="c">فروع</th><th class="c">أطباء</th><th class="c">موظفون</th><th class="c">مرضى</th><th class="c">مساحة</th></tr></thead>
+    <tbody>
+      <tr><td><b>Basic</b></td><td class="c">500</td><td class="c">1</td><td class="c">2</td><td class="c">5</td><td class="c">500</td><td class="c">1 GB</td></tr>
+      <tr><td><b>Professional</b></td><td class="c">1500</td><td class="c">3</td><td class="c">10</td><td class="c">25</td><td class="c">5000</td><td class="c">10 GB</td></tr>
+      <tr><td><b>Enterprise</b></td><td class="c">4000</td><td class="c" colspan="5">بدون حدود</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ============================================================ 11 -->
+<section id="statuses">
+  <h2><span class="chapter-no">11</span> الحالات وألوانها</h2>
+  <div class="who">لمن هذا القسم: <span class="role">الجميع</span></div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>حالة الموعد</th><th>معناها</th><th>في قائمة الانتظار؟</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge b-info">طلب من المريض</span></td><td>طلب من البوابة ينتظر تأكيد الاستقبال</td><td class="no">لا</td></tr>
+      <tr><td><span class="badge b-primary">حجز سريع</span></td><td>حجز مسجل دون وصول المريض بعد</td><td class="no">لا — غيّره إلى «الانتظار» عند وصوله</td></tr>
+      <tr><td><span class="badge b-neutral">الانتظار</span></td><td>المريض وصل وينتظر دوره</td><td class="yes">نعم</td></tr>
+      <tr><td><span class="badge b-warn">تم الاتصال</span></td><td>نودي على المريض</td><td class="yes">نعم</td></tr>
+      <tr><td><span class="badge b-ok">تم الدخول</span></td><td>المريض عند الطبيب</td><td class="yes">نعم</td></tr>
+      <tr><td><span class="badge b-ok">مكتمل</span></td><td>انتهت الزيارة («إنهاء الزيارة»)</td><td class="no">لا</td></tr>
+      <tr><td><span class="badge b-neutral">ملغي</span> / <span class="badge b-warn">لم يحضر</span></td><td>تُسجَّل من نموذج الموعد، وتظهر في التصفية ولوحة المجموعة</td><td class="no">لا</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="muted">خطط العلاج: مسودة، جارية، مكتملة، ملغاة. الإجراءات: مخطط، تم، توقف، ملغي. التحاليل: مطلوب، صدرت النتيجة، ملغي. الحضور: حاضر، متأخر، غائب، إجازة.</p>
+</section>
+
+<!-- ============================================================ 12 -->
+<section id="faq">
+  <h2><span class="chapter-no">12</span> رسائل ومشكلات شائعة</h2>
+  <div class="who">لمن هذا القسم: <span class="role">الجميع</span></div>
+  <dl class="faq">
+    <div><dt><q>لا تملك صلاحية الوصول</q></dt><dd>القسم خارج دورك. اطلب من مدير الفرع تغيير دورك إن كنت تحتاجه.</dd></div>
+    <div><dt>القوائم كلها فارغة رغم وجود بيانات</dt><dd>حسابك ليس له فرع. يحدده المدير من المستخدمين ← تعديل ← الفرع.</dd></div>
+    <div><dt><q>تعديل أو حذف السجلات المالية مقصور على إدارة العيادة</q></dt><dd>الدفعة المسجلة يصححها مدير الفرع. أبلغه برقم الإيصال والتصحيح المطلوب.</dd></div>
+    <div><dt><q>الحذف مقصور على إدارة العيادة</q></dt><dd>حذف المرضى والمواعيد والزيارات لمدير الفرع فقط.</dd></div>
+    <div><dt><q>قد يكون هذا المريض مسجلاً بالفعل</q></dt><dd>يوجد ملف بنفس الهاتف أو الرقم القومي. افتحه بدلاً من إنشاء ملف مكرر، أو تابع إن كان شخصاً آخر.</dd></div>
+    <div><dt><q>الموافقة على حفظ البيانات مطلوبة لإتمام التسجيل</q></dt><dd>في خطوة «المراجعة والتأكيد» علّم موافقة المريض بعد إبلاغه.</dd></div>
+    <div><dt><q>باقتك الحالية تسمح بـ … فقط</q></dt><dd>وصلت المجموعة لحد الباقة في هذا البند. يراجع مالك المجموعة «الباقة والاشتراك» ويتواصل للترقية.</dd></div>
+    <div><dt><q>اشتراك العيادة غير نشط</q></dt><dd>المجموعة موقوفة من المنصة. يتواصل مالك المجموعة مع الدعم.</dd></div>
+    <div><dt><q>لا يمكن حجز موعد إلا مع طبيب</q></dt><dd>الموظف المختار وظيفته ليست <code>Doctor</code>. تُصحَّح من «الموظفون».</dd></div>
+    <div><dt>اسم الطبيب لا يظهر في قائمة «الطبيب»</dt><dd>لم يُسجَّل كموظف بوظيفة <code>Doctor</code>، أو مسجل على فرع آخر، أو لا يطابق التخصص المختار.</dd></div>
+    <div><dt><q>المريض لا يطابق المريض المرتبط بالموعد</q></dt><dd>في الدفعة، اختر الموعد أولاً ودع النظام يملأ المريض.</dd></div>
+    <div><dt>رقم الإيصال مرفوض</dt><dd>الرقم مستخدم من قبل. استخدم رقماً آخر.</dd></div>
+    <div><dt><q>أضف دواءً واحداً على الأقل</q></dt><dd>الروشتة لا تُحفظ بلا أدوية.</dd></div>
+    <div><dt>زر «دعوة للبوابة» معطّل</dt><dd>رقم هاتف المريض غير مسجل. سجّله من «تعديل» في ملف المريض.</dd></div>
+    <div><dt><q>لديك طلبات مواعيد لم تُؤكَّد بعد</q></dt><dd>للمريض ٣ طلبات معلقة. يؤكدها الاستقبال أولاً.</dd></div>
+    <div><dt>حفظت البيانات والصفحة عادت دون أن يُحفظ شيء</dt><dd>مشكلة في إعداد الاتصال الآمن (HTTPS) على الخادم. أوقف الإدخال وتواصل مع الدعم الفني فوراً.</dd></div>
+    <div><dt>نسي مالك المجموعة كلمة مروره</dt><dd>تواصل مع الدعم الفني لإعادة تعيينها.</dd></div>
+  </dl>
+</section>
+
+<!-- ============================================================ 13 -->
+<section id="limits">
+  <h2><span class="chapter-no">13</span> حدود الإصدار الحالي</h2>
+  <div class="who">لمن هذا القسم: <span class="role">مالك المجموعة</span> <span class="role">مدير الفرع</span></div>
+  <p>ما لا يقوم به النظام في هذا الإصدار، وكيف تتعامل معه حتى يُضاف:</p>
+  <ul class="plain">
+    <li><b>لا يمنع النظام تعارض المواعيد</b> لنفس الطبيب في نفس الوقت.</li>
+    <li><b>لا تصل للمرضى رسائل SMS أو واتساب</b>. أرسل روابط الدعوة وتأكيد المواعيد يدوياً.</li>
+    <li><b>لا توجد فواتير مستقلة ولا طباعة إيصال</b>: كل دفعة مرتبطة بموعد، ورقم الإيصال يُكتب يدوياً.</li>
+    <li><b>لا دفع إلكتروني</b> للمرضى ولا لاشتراك المجموعة.</li>
+    <li><b>لا عمولات أو عقود للأطباء، ولا جداول عمل أو رواتب مبنية على الحضور، ولا مخزون.</b></li>
+    <li>شاشة <b>جلسات العلاج</b> تُفتح من الرابط <code>/app/treatment-sessions</code>.</li>
+    <li><b>سجل التدقيق</b> (من فعل ماذا ومتى) يُسجَّل، ويُعرض حالياً من الواجهة القديمة على <code>/audit/</code> لمالك المجموعة.</li>
+    <li>في الوضع الإنجليزي تبقى نصوص بعض الشاشات الأقدم بالعربية.</li>
+  </ul>
+</section>
+
+<footer class="foot">دليل تشغيل العيادة · سبتمبر ٢٠٢٦ · للطباعة أو الحفظ PDF: اطبع الصفحة من المتصفح؛ يبدأ كل قسم في صفحة جديدة.</footer>
+
+</main>
+</div>

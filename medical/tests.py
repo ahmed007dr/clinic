@@ -24,6 +24,7 @@ from django.urls import reverse
 
 from accounts.models import ClinicRole
 from branches.models import Branch
+from employees.models import Employee, EmployeeType
 from patients.models import Patient
 from services.models import Service
 from tenants.models import Tenant
@@ -73,11 +74,22 @@ class ClinicalTestBase(TestCase):
         self.admin_user = user('admin', 'admin@t.local', 'Admin')
         self.reception_user = user('rec', 'rec@t.local', 'Reception')
 
+        # A doctor sees only their own patients (accounts.roles), so the
+        # doctor account is linked to a doctor record and the visit that makes
+        # this patient theirs is under that record.
+        self.doctor = Employee.all_objects.create(
+            tenant=self.tenant, name='Dr Test', branch=self.branch,
+            employee_type=EmployeeType.all_objects.get(tenant=self.tenant, name='Doctor'),
+            national_id='DOC-1', salary_value=0,
+        )
+        self.doctor_user.employee = self.doctor
+        self.doctor_user.save(update_fields=['employee'])
+
         self.patient = Patient.all_objects.create(
             tenant=self.tenant, name='Test Patient', branch=self.branch,
         )
         self.visit = Visit.all_objects.create(
-            tenant=self.tenant, patient=self.patient, branch=self.branch,
+            tenant=self.tenant, patient=self.patient, branch=self.branch, doctor=self.doctor,
             chief_complaint='صداع', diagnosis='CONFIDENTIAL DIAGNOSIS',
         )
 
@@ -133,8 +145,8 @@ class ClinicalAccessTests(ClinicalTestBase):
 
 
 class ClinicalRecordingTests(ClinicalTestBase):
-    def test_doctor_can_record_a_visit_and_it_gets_a_serial(self):
-        self.client.login(email='doc@t.local', password='pass12345')
+    def test_an_admin_can_record_a_visit_and_it_gets_a_serial(self):
+        self.client.login(email='admin@t.local', password='pass12345')
         response = self.client.post(
             reverse('medical:visit_create', args=[self.patient.uuid]),
             {'visit_date': '2026-09-08T10:00', 'diagnosis': 'Eczema', 'branch': self.branch.pk},
@@ -142,8 +154,17 @@ class ClinicalRecordingTests(ClinicalTestBase):
         self.assertEqual(response.status_code, 302)
         visit = Visit.all_objects.get(diagnosis='Eczema')
         self.assertEqual(visit.tenant, self.tenant)
-        self.assertEqual(visit.created_by, self.doctor_user)
+        self.assertEqual(visit.created_by, self.admin_user)
         self.assertTrue(visit.serial_number)
+
+    def test_a_doctor_does_not_open_visits_the_desk_does(self):
+        """Visits open when reception sends the patient in (medical/checkin.py)."""
+        self.client.login(email='doc@t.local', password='pass12345')
+        self.client.post(
+            reverse('medical:visit_create', args=[self.patient.uuid]),
+            {'visit_date': '2026-09-08T10:00', 'diagnosis': 'Doc-opened', 'branch': self.branch.pk},
+        )
+        self.assertFalse(Visit.all_objects.filter(diagnosis='Doc-opened').exists())
 
     def test_allergies_are_recorded_once_per_substance(self):
         Allergy.all_objects.create(tenant=self.tenant, patient=self.patient, substance='Penicillin')
@@ -246,7 +267,7 @@ class PrescriptionTests(ClinicalTestBase):
         """Worth pinning because it surprises: prescription.items is filtered
         by the current tenant, so code running outside a request must either
         enter tenant_context or use all_objects."""
-        prescription = Prescription.all_objects.create(
+        prescription = Prescription.all_objects.create(doctor=self.doctor, 
             tenant=self.tenant, visit=self.visit, patient=self.patient
         )
         PrescriptionItem.all_objects.create(
@@ -275,7 +296,7 @@ class PrescriptionTests(ClinicalTestBase):
         self.assertFalse(Prescription.all_objects.exists())
 
     def test_reception_cannot_read_a_prescription(self):
-        prescription = Prescription.all_objects.create(
+        prescription = Prescription.all_objects.create(doctor=self.doctor, 
             tenant=self.tenant, visit=self.visit, patient=self.patient
         )
         self.client.login(email='rec@t.local', password='pass12345')
@@ -350,7 +371,7 @@ class AllergyWarningTests(ClinicalTestBase):
 
 class PrescriptionIsolationTests(ClinicalIsolationTests):
     def test_another_tenants_doctor_cannot_open_a_prescription(self):
-        prescription = Prescription.all_objects.create(
+        prescription = Prescription.all_objects.create(doctor=self.doctor, 
             tenant=self.tenant, visit=self.visit, patient=self.patient
         )
         self.client.login(email='otherdoc@t.local', password='pass12345')
@@ -477,7 +498,7 @@ class PrescriptionUrlAccessTests(ClinicalTestBase):
 
     def setUp(self):
         super().setUp()
-        self.prescription = Prescription.all_objects.create(
+        self.prescription = Prescription.all_objects.create(doctor=self.doctor, 
             tenant=self.tenant, visit=self.visit, patient=self.patient
         )
 
@@ -487,12 +508,18 @@ class PrescriptionUrlAccessTests(ClinicalTestBase):
             reverse('medical:prescription_create', args=[self.visit.uuid]),
             reverse('medical:prescription_detail', args=[self.prescription.uuid]),
             reverse('medical:prescription_update', args=[self.prescription.uuid]),
-            reverse('medical:prescription_print', args=[self.prescription.uuid]),
         ]
         for url in urls:
             with self.subTest(url=url):
                 self.assertNotEqual(self.client.get(url).status_code, 200)
                 self.assertNotEqual(self.client.post(url, {}).status_code, 200)
+
+    def test_reception_prints_for_the_doctor_to_sign(self):
+        """The one prescription page the desk reaches (2026-09-11): the sheet
+        itself, in their own clinic, read-only."""
+        self.client.login(email='rec@t.local', password='pass12345')
+        url = reverse('medical:prescription_print', args=[self.prescription.uuid])
+        self.assertEqual(self.client.get(url).status_code, 200)
 
     def test_doctor_reaches_every_prescription_url(self):
         self.client.login(email='doc@t.local', password='pass12345')
@@ -600,7 +627,7 @@ class TreatmentPlanAccessTests(ClinicalTestBase):
 
     def setUp(self):
         super().setUp()
-        self.plan = TreatmentPlan.all_objects.create(
+        self.plan = TreatmentPlan.all_objects.create(doctor=self.doctor, 
             tenant=self.tenant, patient=self.patient, branch=self.branch,
             title='CONFIDENTIAL COURSE', planned_sessions=3,
         )
@@ -641,7 +668,7 @@ class TreatmentPlanAccessTests(ClinicalTestBase):
 
 class TreatmentPlanIsolationTests(ClinicalIsolationTests):
     def test_another_tenants_doctor_cannot_open_a_plan(self):
-        plan = TreatmentPlan.all_objects.create(
+        plan = TreatmentPlan.all_objects.create(doctor=self.doctor, 
             tenant=self.tenant, patient=self.patient, branch=self.branch,
             title='Ours', planned_sessions=2,
         )
@@ -668,7 +695,7 @@ class TreatmentSessionTests(ClinicalTestBase):
         self.service = Service.all_objects.create(
             tenant=self.tenant, name='ليزر', base_price=Decimal('100.00')
         )
-        self.plan = TreatmentPlan.all_objects.create(
+        self.plan = TreatmentPlan.all_objects.create(doctor=self.doctor, 
             tenant=self.tenant, patient=self.patient, branch=self.branch,
             service=self.service, title='علاج بالليزر', planned_sessions=3,
         )
@@ -708,7 +735,7 @@ class TreatmentSessionTests(ClinicalTestBase):
         """Sequence is a position in a course — session 1 of 6 — not a global
         identifier, so a second plan starts at 1 again."""
         self._post()
-        other = TreatmentPlan.all_objects.create(
+        other = TreatmentPlan.all_objects.create(doctor=self.doctor, 
             tenant=self.tenant, patient=self.patient, branch=self.branch,
             title='خطة أخرى', planned_sessions=2,
         )
@@ -730,6 +757,8 @@ class TreatmentSessionTests(ClinicalTestBase):
         self.assertEqual(session.total_amount, Decimal('2500.00'))
 
     def test_a_discount_reduces_the_total(self):
+        # Price and discount are management's to set (billing.pricing).
+        self.client.login(email='admin@t.local', password='pass12345')
         self._post(quantity='10', unit_price='100.00', discount='250.00')
         self.assertEqual(
             TreatmentSession.all_objects.get().total_amount, Decimal('750.00')
@@ -780,6 +809,8 @@ class TreatmentSessionTests(ClinicalTestBase):
             self.assertEqual(plan.remaining_sessions, 1)
 
     def test_sessions_appear_on_the_plan_page(self):
+        # Price and discount are management's to set (billing.pricing).
+        self.client.login(email='admin@t.local', password='pass12345')
         self._post(unit_price='125.00')
         response = self.client.get(
             reverse('medical:treatment_plan_detail', args=[self.plan.uuid])
@@ -817,7 +848,7 @@ class TreatmentSessionAccessTests(ClinicalTestBase):
 
     def setUp(self):
         super().setUp()
-        self.plan = TreatmentPlan.all_objects.create(
+        self.plan = TreatmentPlan.all_objects.create(doctor=self.doctor, 
             tenant=self.tenant, patient=self.patient, branch=self.branch,
             title='CONFIDENTIAL COURSE', planned_sessions=2,
         )
@@ -854,7 +885,7 @@ class TreatmentSessionAccessTests(ClinicalTestBase):
 
 class TreatmentSessionIsolationTests(ClinicalIsolationTests):
     def test_another_tenants_doctor_cannot_open_a_session(self):
-        plan = TreatmentPlan.all_objects.create(
+        plan = TreatmentPlan.all_objects.create(doctor=self.doctor, 
             tenant=self.tenant, patient=self.patient, branch=self.branch,
             title='Ours', planned_sessions=1,
         )
@@ -938,6 +969,8 @@ class ProcedureTests(ClinicalTestBase):
         self.assertEqual(procedure.branch, self.visit.branch)
 
     def test_money_is_computed_from_quantity_and_discount(self):
+        # Price and discount are management's to set (billing.pricing).
+        self.client.login(email='admin@t.local', password='pass12345')
         self._post(quantity='3', unit_price='500.00', discount='250.00')
         procedure = Procedure.all_objects.get()
         self.assertEqual(procedure.gross_amount, Decimal('1500.00'))

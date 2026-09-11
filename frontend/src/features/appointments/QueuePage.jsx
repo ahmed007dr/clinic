@@ -15,9 +15,11 @@ import {
 } from '@/components/ui'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useAsync, useMutation } from '@/hooks/useApi'
+import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
 import { formatTime } from '@/lib/format'
 
+import { VisitDeskActions } from './VisitDeskActions'
 import './queue.css'
 
 /**
@@ -40,6 +42,7 @@ const NEXT_STEP = {
 export function QueuePage() {
   const navigate = useNavigate()
   const toast = useToast()
+  const { permissions } = useAuth()
   const { data, loading, error, reload } = useAsync(() => api.appointments.waiting(), [])
   const move = useMutation((uuid, status) => api.appointments.setStatus(uuid, status))
 
@@ -146,6 +149,9 @@ export function QueuePage() {
                       >
                         الملف
                       </Button>
+                      {permissions.front_desk && (
+                        <VisitDeskActions appointment={row} onChanged={reload} />
+                      )}
                     </div>
                   </div>
                 </CardBody>

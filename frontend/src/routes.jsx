@@ -29,6 +29,11 @@ const PaymentListPage = page(() => import('@/features/billing/PaymentListPage'),
 const PaymentFormPage = page(() => import('@/features/billing/PaymentFormPage'), 'PaymentFormPage')
 const ExpenseListPage = page(() => import('@/features/billing/ExpenseListPage'), 'ExpenseListPage')
 const FinancialReportPage = page(() => import('@/features/billing/FinancialReportPage'), 'FinancialReportPage')
+const DoctorRatesPage = page(() => import('@/features/billing/DoctorRatesPage'), 'DoctorRatesPage')
+const CommissionsPage = page(() => import('@/features/billing/CommissionsPage'), 'CommissionsPage')
+const MyShiftPage = page(() => import('@/features/shifts/MyShiftPage'), 'MyShiftPage')
+const ShiftListPage = page(() => import('@/features/shifts/ShiftListPage'), 'ShiftListPage')
+const ShiftDetailPage = page(() => import('@/features/shifts/ShiftDetailPage'), 'ShiftDetailPage')
 const VisitListPage = page(() => import('@/features/clinical/VisitListPage'), 'VisitListPage')
 const PrescriptionListPage = page(() => import('@/features/clinical/PrescriptionListPage'), 'PrescriptionListPage')
 const TreatmentPlanListPage = page(() => import('@/features/clinical/TreatmentPlanListPage'), 'TreatmentPlanListPage')
@@ -40,6 +45,7 @@ const StaffListPage = page(() => import('@/features/admin/StaffListPage'), 'Staf
 const EmployeeListPage = page(() => import('@/features/admin/EmployeeListPage'), 'EmployeeListPage')
 const BranchListPage = page(() => import('@/features/admin/BranchListPage'), 'BranchListPage')
 const ServiceListPage = page(() => import('@/features/admin/ServiceListPage'), 'ServiceListPage')
+const PrintSettingsPage = page(() => import('@/features/admin/PrintSettingsPage'), 'PrintSettingsPage')
 const SettingsPage = page(() => import('@/features/admin/SettingsPage'), 'SettingsPage')
 const SubscriptionPage = page(() => import('@/features/admin/SubscriptionPage'), 'SubscriptionPage')
 const AccountPage = page(() => import('@/features/account/AccountPage'), 'AccountPage')
@@ -62,11 +68,18 @@ export const routes = [
   { path: 'appointments/:uuid/edit', element: AppointmentFormPage },
   { path: 'queue', element: QueuePage },
 
-  { path: 'payments', element: PaymentListPage },
-  { path: 'payments/new', element: PaymentFormPage },
-  { path: 'payments/:uuid/edit', element: PaymentFormPage },
+  { path: 'payments', element: PaymentListPage, permission: 'manage_billing' },
+  { path: 'payments/new', element: PaymentFormPage, permission: 'manage_billing' },
+  // Changing a recorded payment changes the clinic's revenue: admins only.
+  { path: 'payments/:uuid/edit', element: PaymentFormPage, permission: 'is_admin' },
   { path: 'expenses', element: ExpenseListPage, permission: 'manage_billing' },
-  { path: 'reports/financial', element: FinancialReportPage },
+  { path: 'reports/financial', element: FinancialReportPage, permission: 'view_finance' },
+  { path: 'shift', element: MyShiftPage, permission: 'works_in_shifts' },
+  // A doctor's own contract and shares; management's for the clinic.
+  { path: 'doctor-rates', element: DoctorRatesPage, permission: 'view_contracts' },
+  { path: 'commissions', element: CommissionsPage, permission: 'view_contracts' },
+  { path: 'shifts', element: ShiftListPage, permission: 'manage_shifts' },
+  { path: 'shifts/:uuid', element: ShiftDetailPage, permission: 'manage_shifts' },
 
   { path: 'visits', element: VisitListPage, permission: 'view_clinical' },
   { path: 'visits/new', element: VisitListPage, permission: 'view_clinical' },
@@ -83,6 +96,7 @@ export const routes = [
   { path: 'branches', element: BranchListPage, permission: 'is_owner' },
   { path: 'services', element: ServiceListPage, permission: 'is_admin' },
   { path: 'settings', element: SettingsPage, permission: 'is_admin' },
+  { path: 'settings/print', element: PrintSettingsPage, permission: 'is_admin' },
   { path: 'subscription', element: SubscriptionPage, permission: 'is_owner' },
 
   { path: 'settings/account', element: AccountPage },

@@ -2,7 +2,8 @@ import { useSearchParams } from 'react-router-dom'
 
 import { api } from '@/api'
 import { CrudPage } from '@/components/data/CrudPage'
-import { formatDateTime, toDateTimeInput } from '@/lib/format'
+import { useAuth } from '@/hooks/useAuth'
+import { formatDateTime } from '@/lib/format'
 
 /** Truncated in the table; the full text is on the record. */
 function excerpt(text, limit = 60) {
@@ -13,14 +14,24 @@ function excerpt(text, limit = 60) {
 export function VisitListPage() {
   const [search] = useSearchParams()
   const patient = search.get('patient') || undefined
+  const { permissions } = useAuth()
 
   return (
     <CrudPage
       title="الزيارات"
-      subtitle={patient ? 'مُصفّاة على مريض واحد' : undefined}
+      // A visit is part of the medical record: only an admin may remove one,
+      // and the server refuses anyone else regardless.
+      canDelete={permissions.is_admin}
+      // A visit opens when the front desk sends the patient in
+      // (medical/checkin.py); nobody types one up here.
+      canCreate={false}
+      subtitle={
+        patient
+          ? 'مُصفّاة على مريض واحد'
+          : 'تُفتح الزيارة تلقائياً عند تسجيل الاستقبال دخول المريض للطبيب'
+      }
       resource={api.visits}
       params={{ patient }}
-      createLabel="تسجيل زيارة"
       searchPlaceholder="ابحث بالمريض أو الشكوى أو التشخيص…"
       columns={[
         { key: 'serial_number', header: 'الرقم', numeric: true },
@@ -46,25 +57,10 @@ export function VisitListPage() {
           render: (row) => excerpt(row.diagnosis),
         },
       ]}
+      // Patient, date, doctor and clinic are fixed from check-in (the server
+      // ignores them on edit); only the clinical content and the follow-up
+      // date are written here. They are in the table, not the form.
       fields={[
-        {
-          name: 'patient',
-          label: 'المريض',
-          type: 'relation',
-          resource: api.patients,
-          searchable: true,
-          required: true,
-          default: patient ?? '',
-        },
-        {
-          name: 'visit_date',
-          label: 'تاريخ الزيارة',
-          type: 'datetime',
-          required: true,
-          default: toDateTimeInput(new Date()),
-        },
-        { name: 'doctor', label: 'الطبيب', type: 'relation', resource: api.doctors },
-        { name: 'branch', label: 'الفرع', type: 'relation', resource: api.branches },
         { name: 'chief_complaint', label: 'الشكوى', type: 'textarea', span: 2 },
         { name: 'examination', label: 'الفحص', type: 'textarea', span: 2 },
         { name: 'diagnosis', label: 'التشخيص', type: 'textarea', span: 2 },

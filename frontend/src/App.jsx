@@ -7,6 +7,7 @@ import { ErrorBoundary } from '@/components/layout/ErrorBoundary'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { AuthProvider } from '@/hooks/useAuth'
 import { ToastProvider } from '@/hooks/useToast'
+import { APP_BASENAME } from '@/lib/config'
 
 import { platformRoutes, PlatformShell, PortalApp, routes } from './routes'
 
@@ -15,7 +16,7 @@ import { platformRoutes, PlatformShell, PortalApp, routes } from './routes'
  * works under that prefix. Keeping the SPA off `/` leaves every existing
  * server-rendered URL exactly where it was while both run side by side.
  */
-export const BASENAME = '/app'
+export const BASENAME = APP_BASENAME
 
 function render(route) {
   const Element = route.element

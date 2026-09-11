@@ -18,6 +18,7 @@ from branches.models import Branch
 from medical.models import LabResult, Prescription, PrescriptionItem, Visit
 from patients.models import Patient
 from tenants.context import tenant_context
+from tenants.testing import link_doctor
 from tenants.models import Tenant
 
 from .models import PortalInvitation
@@ -253,6 +254,7 @@ class StaffSideTests(PortalBase):
         for name, role in roles.items():
             User.objects.create_user(username=name.lower(), email=f"{name.lower()}-ps@t.local",
                                      password="pass12345", tenant=self.a, role=role, branch=self.branch)
+        link_doctor(User.objects.get(email="doctor-ps@t.local"), self.alice)
         self.staff = Client()
 
     def as_staff(self, role):

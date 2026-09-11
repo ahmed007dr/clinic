@@ -32,6 +32,8 @@ export function DashboardPage() {
   const { user, permissions } = useAuth()
   const { data, loading, error, reload } = useAsync(() => api.dashboard.get(), [])
   const queue = useAsync(() => api.appointments.waiting(), [])
+  // A doctor's first question: who is in with me now (medical/checkin.py).
+  const room = useAsync(() => api.visits.inRoom(), [], { skip: !permissions.is_doctor })
 
   if (loading && !data) return <Loading />
   if (error) return <ErrorState error={error} onRetry={reload} />
@@ -51,6 +53,63 @@ export function DashboardPage() {
       />
 
       <div className="ui-stack">
+        {permissions.is_doctor && (
+          <Card>
+            <CardHeader
+              title="في غرفتك الآن"
+              subtitle="المرضى الذين سجّل الاستقبال دخولهم إليك اليوم"
+            />
+            <CardBody flush>
+              <Table
+                columns={[
+                  { key: 'patient_name', header: 'المريض' },
+                  { key: 'visit_serial', header: 'الزيارة', numeric: true },
+                  { key: 'since', header: 'الموعد', render: (row) => formatTime(row.since) },
+                  {
+                    key: '__go',
+                    actions: true,
+                    render: (row) => (
+                      <div className="ui-row">
+                        <Link to={`/visits?patient=${row.patient}`}>الزيارة</Link>
+                        <Link to={`/prescriptions?patient=${row.patient}`}>روشتة</Link>
+                        <Link to={`/patients/${row.patient}`}>الملف</Link>
+                      </div>
+                    ),
+                  },
+                ]}
+                rows={(room.data ?? []).map((row) => ({ ...row, uuid: row.visit }))}
+                loading={room.loading}
+                error={room.error}
+                onRetry={room.reload}
+                empty={{
+                  title: 'لا أحد في غرفتك الآن',
+                  message: 'يظهر المريض هنا فور تسجيل الاستقبال دخوله إليك.',
+                }}
+              />
+            </CardBody>
+          </Card>
+        )}
+
+        {/* A doctor's own money: their share, received and still pending. */}
+        {data?.commissions && (
+          <div className="ui-grid">
+            <StatTile
+              label="نسبتي المعلّقة"
+              value={formatMoney(data.commissions.pending)}
+              tone="primary"
+              to="/commissions"
+              icon="⏳"
+            />
+            <StatTile
+              label="نسبتي المستلمة"
+              value={formatMoney(data.commissions.settled)}
+              tone="ok"
+              to="/commissions"
+              icon="✓"
+            />
+          </div>
+        )}
+
         <div className="ui-grid dashboard__tiles">
           <StatTile
             label="في الانتظار الآن"
@@ -67,13 +126,21 @@ export function DashboardPage() {
             to="/appointments"
             icon="📅"
           />
-          <StatTile
-            label="إيراد اليوم"
-            value={formatMoney(data?.revenue?.today)}
-            hint={`الشهر: ${formatMoney(data?.revenue?.month)}`}
-            to="/payments"
-            icon="💵"
-          />
+          {/* Only sent to whoever may see it (billing.access): today's figure
+              for the front desk, the month as well for management. */}
+          {data?.revenue && (
+            <StatTile
+              label={data.revenue.scope === 'shift' ? 'إيراد ورديتي' : 'إيراد اليوم'}
+              value={formatMoney(data.revenue.today)}
+              hint={
+                data.revenue.month !== undefined
+                  ? `الشهر: ${formatMoney(data.revenue.month)}`
+                  : undefined
+              }
+              to={data.revenue.scope === 'shift' ? '/shift' : '/payments'}
+              icon="💵"
+            />
+          )}
           <StatTile
             label="إجمالي المرضى"
             value={formatNumber(data?.patients?.total)}
@@ -120,7 +187,7 @@ export function DashboardPage() {
           )}
         </div>
 
-        <div className="dashboard__split">
+        <div className={data?.revenue_series ? 'dashboard__split' : 'ui-stack'}>
           <Card>
             <CardHeader
               title="قائمة الانتظار"
@@ -163,12 +230,14 @@ export function DashboardPage() {
             </CardBody>
           </Card>
 
-          <Card>
-            <CardHeader title="الإيراد" subtitle="آخر ١٤ يوماً" />
-            <CardBody>
-              <BarChart data={revenueSeries} format="money" height={180} />
-            </CardBody>
-          </Card>
+          {data?.revenue_series && (
+            <Card>
+              <CardHeader title="الإيراد" subtitle="آخر ١٤ يوماً" />
+              <CardBody>
+                <BarChart data={revenueSeries} format="money" height={180} />
+              </CardBody>
+            </Card>
+          )}
         </div>
       </div>
     </>

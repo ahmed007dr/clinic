@@ -4,9 +4,10 @@ from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 
-from api.permissions import IsClinicMember, can_view_clinical
+from api.permissions import DeleteRequiresAdmin, IsClinicMember, can_view_clinical
 from api.serializers.patients import PatientListSerializer, PatientSerializer
 from api.viewsets import ClinicViewSet
+from billing.access import restrict_payments
 from patients.models import Patient
 from django.utils import timezone
 from portal.models import PatientAccount, PortalInvitation
@@ -16,7 +17,7 @@ from tenants.context import get_current_tenant
 class PatientViewSet(ClinicViewSet):
     queryset = Patient.objects.all()
     serializer_class = PatientSerializer
-    permission_classes = [IsClinicMember]
+    permission_classes = [IsClinicMember, DeleteRequiresAdmin]
     plan_limit = "max_patients"
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ["name", "serial_number", "phone1", "phone2", "national_id"]
@@ -62,9 +63,9 @@ class PatientViewSet(ClinicViewSet):
         requests and a merge that goes wrong the first time two things share a
         timestamp.
 
-        Clinical entries are included only for clinical roles. Reception sees
-        the appointments and payments it created and nothing else — the same
-        rule as everywhere, applied to a merged list.
+        Clinical entries are included only for clinical roles, and payments
+        only as far as billing.access allows — the same rules as everywhere,
+        applied to a merged list.
         """
         patient = self.get_object()
         entries = []
@@ -95,7 +96,10 @@ class PatientViewSet(ClinicViewSet):
                 {"doctor": getattr(appointment.doctor, "name", None)},
             )
 
-        for payment in patient.payment_set.select_related("method"):
+        # The same money rule as the payments list, or the timeline becomes the
+        # way round it: one patient at a time, every amount on every date.
+        payments = restrict_payments(patient.payment_set.all(), request.user)
+        for payment in payments.select_related("method"):
             add(
                 "payment",
                 payment.date,

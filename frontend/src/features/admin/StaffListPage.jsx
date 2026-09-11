@@ -18,7 +18,7 @@ export function StaffListPage() {
       resource={api.staff}
       createLabel="إضافة مستخدم"
       searchPlaceholder="ابحث بالاسم أو البريد…"
-      deleteWarning="سيُعطَّل الحساب ولن يستطيع صاحبه الدخول. لا تُحذف سجلاته."
+      deleteWarning="سيُوقف الحساب ويخرج صاحبه من النظام فوراً. لا تُحذف سجلاته، ويمكن إعادة تشغيله من «تعديل». الأدمن يوقف حسابات الموظفين والأطباء في فرعه، وصاحب المجمع يوقف أي حساب."
       columns={[
         { key: 'username', header: 'اسم المستخدم' },
         { key: 'email', header: 'البريد', render: (row) => <span dir="ltr">{row.email}</span> },
@@ -38,6 +38,14 @@ export function StaffListPage() {
           render: (row) => row.branch_name || '—',
         },
         {
+          key: 'employee_name',
+          header: 'سجل الطبيب',
+          // An unlinked doctor account sees no patients at all — worth a flag.
+          render: (row) =>
+            row.employee_name ||
+            (row.role_name === 'Doctor' ? <Badge tone="warn">غير مرتبط</Badge> : '—'),
+        },
+        {
           key: 'is_active',
           header: 'الحالة',
           render: (row) => (
@@ -54,6 +62,14 @@ export function StaffListPage() {
         { name: 'last_name', label: 'اسم العائلة' },
         { name: 'role', label: 'الدور', type: 'relation', resource: api.roles },
         { name: 'branch', label: 'الفرع', type: 'relation', resource: api.branches },
+        {
+          name: 'employee',
+          label: 'سجل الطبيب',
+          type: 'relation',
+          resource: api.doctors,
+          span: 2,
+          hint: 'لحسابات الأطباء فقط: الطبيب يرى مرضاه وزياراته هو فقط، وتُكتب باسمه.',
+        },
         {
           name: 'password',
           label: 'كلمة المرور',

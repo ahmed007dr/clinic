@@ -19,6 +19,7 @@ from medical.models import Allergy, PatientCondition, PatientIntake, PatientMedi
 from patients.models import Patient
 from subscriptions.models import Subscription
 from tenants.context import tenant_context
+from tenants.testing import link_doctor
 from tenants.models import Tenant
 
 User = get_user_model()
@@ -224,6 +225,8 @@ class IntakeTests(TestCase):
         response = self.register(body(history={"conditions": [{"condition": "hypertension"}]}))
         uuid = response.json()["patient"]["uuid"]
         self.assertEqual(self.client.get(reverse("api:patient-history", args=[uuid])).status_code, 403)
+        with tenant_context(self.tenant):
+            link_doctor(self.doctor, Patient.all_objects.get(uuid=uuid))
         self.login(self.doctor)
         history = self.client.get(reverse("api:patient-history", args=[uuid]))
         self.assertEqual(history.status_code, 200)
