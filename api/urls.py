@@ -103,6 +103,9 @@ urlpatterns = [
     path("portal/<slug:slug>/", include("portal.urls")),
     # The owner portal. Gated by is_platform_staff; see api/platform.py.
     path("platform/plans/", platform.PlanListView.as_view(), name="platform-plans"),
+    path("platform/overview/", platform.OverviewView.as_view(), name="platform-overview"),
+    path("platform/online/", platform.OnlineView.as_view(), name="platform-online"),
+    path("platform/tenants/<uuid:uuid>/people/", platform.TenantPeopleView.as_view(), name="platform-tenant-people"),
     path("platform/tenants/", platform.TenantListView.as_view(), name="platform-tenants"),
     path("platform/tenants/<uuid:uuid>/", platform.TenantDetailView.as_view(), name="platform-tenant"),
     path("platform/tenants/<uuid:uuid>/status/", platform.TenantStatusView.as_view(), name="platform-tenant-status"),

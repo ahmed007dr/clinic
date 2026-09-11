@@ -281,3 +281,48 @@ class TenantPlanView(APIView):
                 model_name="Subscription", object_id=subscription.pk,
             )
         return Response(tenant_summary(tenant))
+
+
+# ------------------------------------------------------------- monitoring
+# Developer portal, phase 1 (platform_admin/monitoring.py holds the queries).
+
+
+class OverviewView(APIView):
+    """Every group with its people, activity and limits, and the totals."""
+
+    permission_classes = [IsPlatformStaff]
+
+    def get(self, request):
+        from platform_admin.monitoring import overview
+
+        return Response(overview())
+
+
+class TenantPeopleView(APIView):
+    """One group's clinics (doctors, employees, accounts, online) and every
+    account with its last activity."""
+
+    permission_classes = [IsPlatformStaff]
+
+    def get(self, request, uuid):
+        from platform_admin.monitoring import people_of
+
+        tenant = get_object_or_404(Tenant, uuid=uuid)
+        data = people_of(tenant)
+        record(
+            request, tenant, "inspect",
+            f"viewed the accounts and clinics of {tenant.slug}",
+            model_name="Tenant", object_id=tenant.pk,
+        )
+        return Response(data)
+
+
+class OnlineView(APIView):
+    """Who is active right now, across every group."""
+
+    permission_classes = [IsPlatformStaff]
+
+    def get(self, request):
+        from platform_admin.monitoring import online_now
+
+        return Response(online_now())

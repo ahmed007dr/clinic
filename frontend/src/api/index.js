@@ -135,6 +135,10 @@ export const platform = {
   setStatus: (uuid, status) => http.post(`/platform/tenants/${uuid}/status/`, { status }),
   setPlan: (uuid, plan) => http.post(`/platform/tenants/${uuid}/plan/`, { plan }),
   plans: () => http.get('/platform/plans/'),
+  /* Developer portal — monitoring (platform_admin/monitoring.py). */
+  overview: () => http.get('/platform/overview/'),
+  online: () => http.get('/platform/online/'),
+  people: (uuid) => http.get(`/platform/tenants/${uuid}/people/`),
 }
 
 export const clinicSettings = {

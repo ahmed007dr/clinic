@@ -111,9 +111,14 @@ export const PlatformShell = page(() => import('@/features/platform/PlatformShel
 const PlatformTenantsPage = page(() => import('@/features/platform/PlatformTenantsPage'), 'PlatformTenantsPage')
 const PlatformTenantPage = page(() => import('@/features/platform/PlatformTenantPage'), 'PlatformTenantPage')
 
+const PlatformOverviewPage = page(() => import('@/features/platform/PlatformOverviewPage'), 'PlatformOverviewPage')
+const PlatformOnlinePage = page(() => import('@/features/platform/PlatformOnlinePage'), 'PlatformOnlinePage')
+
 export const platformRoutes = [
-  { index: true, element: PlatformTenantsPage },
+  { index: true, element: PlatformOverviewPage },
+  { path: 'tenants', element: PlatformTenantsPage },
   { path: 'tenants/:uuid', element: PlatformTenantPage },
+  { path: 'online', element: PlatformOnlinePage },
 ]
 
 /* The patient portal — patients only, mobile-first. */

@@ -1,4 +1,4 @@
-import { Link, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 import { Button, Toasts } from '@/components/ui'
 import { ThemeToggle } from '@/components/layout/ThemeToggle'
@@ -14,6 +14,13 @@ import './platform.css'
  * them. It also makes it unmistakable, at a glance, which of the two a person
  * is looking at.
  */
+/** The developer portal's sections; each phase adds its own. */
+export const PLATFORM_NAV = [
+  { to: '/platform', label: 'نظرة عامة', end: true },
+  { to: '/platform/tenants', label: 'المجموعات' },
+  { to: '/platform/online', label: 'أونلاين الآن' },
+]
+
 export function PlatformShell() {
   const { platformUser, logout } = useAuth()
   const navigate = useNavigate()
@@ -40,6 +47,18 @@ export function PlatformShell() {
           تسجيل الخروج
         </Button>
       </header>
+      <nav className="platform__nav" aria-label="أقسام بوابة المنصة">
+        {PLATFORM_NAV.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            className={({ isActive }) => `platform__tab ${isActive ? 'platform__tab--active' : ''}`}
+          >
+            {item.label}
+          </NavLink>
+        ))}
+      </nav>
       <main className="platform__content">
         <Outlet />
       </main>

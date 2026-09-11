@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/useToast'
 import { formatDate, formatMoney, formatNumber } from '@/lib/format'
 
 import { STATUS_TONES } from './PlatformTenantsPage'
+import { TenantPeople } from './TenantPeople'
 
 const STATUSES = [
   { value: 'trial', label: 'تجريبي' },
@@ -138,6 +139,8 @@ export function PlatformTenantPage() {
             </CardBody>
           </Card>
         </div>
+
+        <TenantPeople tenant={uuid} />
 
         <Card>
           <CardHeader title="الاستهلاك مقابل الباقة" />

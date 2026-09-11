@@ -44,6 +44,34 @@
   font-size: var(--text-sm);
 }
 
+/* The portal's sections, as tabs under the dark band. */
+.platform__nav {
+  display: flex;
+  gap: var(--s1);
+  overflow-x: auto;
+  padding: 0 var(--s5);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.platform__tab {
+  padding: var(--s3) var(--s3);
+  white-space: nowrap;
+  color: var(--ink-muted);
+  border-bottom: 2px solid transparent;
+  font-weight: 600;
+}
+
+.platform__tab:hover {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.platform__tab--active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
 .platform__content {
   flex: 1;
   width: 100%;
