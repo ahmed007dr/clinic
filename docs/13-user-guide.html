@@ -207,6 +207,9 @@ dl.faq dt q { quotes: "«" "»"; color: var(--urgent); }
     <li><a href="#statuses">الحالات وألوانها</a></li>
     <li><a href="#faq">رسائل ومشكلات شائعة</a></li>
     <li><a href="#limits">حدود الإصدار الحالي</a></li>
+    <li><a href="#accounts">حسابات الدخول لكل بوابة</a></li>
+    <li><a href="#cpanel">المطلوب داخل cPanel</a></li>
+    <li><a href="#commands">الأوامر</a></li>
   </ol>
 </nav>
 
@@ -699,24 +702,88 @@ dl.faq dt q { quotes: "«" "»"; color: var(--urgent); }
 
 <!-- ============================================================ 10 -->
 <section id="platform">
-  <h2><span class="chapter-no">10</span> بوابة مالك المنصة</h2>
-  <div class="who">لمن هذا القسم: <span class="role">مالك المنصة</span></div>
-  <p>حساب مالك المنصة لا ينتمي لأي مجموعة. يدخل من نفس صفحة الدخول فتفتح له <b>العيادات</b> مباشرة على <code>/app/platform</code>. شاشات العيادات العادية مغلقة أمامه.</p>
+  <h2><span class="chapter-no">10</span> بوابة المطوّر (مالك المنصة)</h2>
+  <div class="who">لمن هذا القسم: <span class="role">مالك المنصة</span> <span class="role">الدعم الفني</span></div>
+  <p>حساب المطوّر لا ينتمي لأي مجموعة، ويدخل من صفحة خاصة: <span class="code">https://&lt;النطاق&gt;/app/platform/login</span>. شاشات العيادات العادية مغلقة أمامه؛ يعمل داخل عيادة فقط عن طريق <a href="#p-support">«دخول كـ»</a>. تفاصيل الحسابات وأول دخول في <a href="#accounts">حسابات الدخول لكل بوابة</a>.</p>
+
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>الدور</th><th>ما يستطيعه</th></tr></thead>
+    <tbody>
+      <tr><td><b>مدير المنصة</b> <small>(super)</small></td><td>كل شيء: الإنشاء والتعديل والإيقاف، المفاتيح، الفواتير، «دخول كـ»، التنزيل والنسخ الاحتياطي والاستيراد.</td></tr>
+      <tr><td><b>الدعم الفني</b> <small>(support)</small></td><td>القراءة فقط في كل الشاشات، واختبار اتصال التكاملات. أي زر تغيير لا يظهر له، والخادم يرفضه.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>أقسام البوابة <span class="new">جديد</span></h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>القسم</th><th>ما فيه</th></tr></thead>
+    <tbody>
+      <tr><td><b>نظرة عامة</b></td><td>كل مجموعة: المالكون، الباقة، عدد الفروع والأطباء والموظفين والمرضى، الأونلاين الآن، آخر نشاط، وتنبيه المجموعات الخاملة ٧ أيام أو القريبة من حدود باقتها.</td></tr>
+      <tr><td><b>المجموعات</b></td><td>القائمة وإنشاء مجموعة جديدة، ومنها صفحة كل مجموعة (أدناه).</td></tr>
+      <tr><td><b>أونلاين الآن</b></td><td>من استخدم النظام في آخر ٥ دقائق في كل المجموعات، ويتحدث كل ٣٠ ثانية.</td></tr>
+      <tr><td><b>التحليلات</b></td><td>الإيراد الشهري المتكرر (MRR) والسنوي، المفوتر والمحصّل والمستحق، الخصومات، الطلبات ونسبة القبول، المجموعات الجديدة والمفقودة، الحسابات النشطة، ومواعيد وإيراد عيادات كل مجموعة هذا الشهر.</td></tr>
+      <tr><td><b>طلبات جديدة</b></td><td>طلبات فتح عيادة من النموذج العام <code>/app/signup</code>: موافقة (تُنشئ المجموعة) أو رفض بسبب.</td></tr>
+      <tr><td><b>الاشتراكات والأرصدة</b></td><td>لكل مجموعة: المفوتر، المدفوع، المتبقي، الفواتير المتأخرة، ومن سُجّل متأخراً.</td></tr>
+      <tr><td><b>الباقات</b></td><td>إضافة باقة وتعديلها: السعر، الدورة، الحدود، الخدمات المتاحة فيها، ومعروضة أو خاصة.</td></tr>
+      <tr><td><b>المفاتيح والتكاملات</b></td><td>البريد، cPanel، Paymob، Fawry، فودافون كاش، Google Drive — للمنصة أو لمجموعة أو لعيادة، ببيئتين: تجريبي وإنتاج.</td></tr>
+      <tr><td><b>الإيميلات</b></td><td>إنشاء إيميل على cPanel لمجموعة أو عيادة، ويصبح بريد الإرسال لها.</td></tr>
+      <tr><td><b>النسخ الاحتياطي</b></td><td>النسخ المشفّرة على السيرفر وعلى Google Drive، ونسخة cPanel الكاملة، واستيراد مجموعة.</td></tr>
+    </tbody>
+  </table>
+  </div>
 
   <h3>إنشاء مجموعة جديدة</h3>
   <ol class="steps">
-    <li><span>اضغط <span class="btn">عيادة جديدة</span>.</span></li>
-    <li><span>اكتب: اسم العيادة، <b>المعرّف</b> بحروف لاتينية (مثل <code>dr-ahmed</code> — مطلوب إذا كان الاسم عربياً، وهو جزء من رابط بوابة المرضى)، بريد المسؤول، اسم الفرع الأول وكوده، والحالة.</span></li>
-    <li><span><span class="btn">إنشاء العيادة</span>. تُنشأ بأدوارها وفرعها وحساب <b>مالك المجموعة</b>، على الباقة الأساسية كفترة تجريبية ٣٠ يوماً.</span></li>
-    <li><span><b>انسخ كلمة المرور فوراً.</b> تظهر مرة واحدة فقط ولا يمكن استرجاعها بعد إغلاق النافذة. سلّمها للعميل بطريقة آمنة.</span></li>
+    <li><span>من <b>المجموعات</b> اضغط <span class="btn">عيادة جديدة</span> — أو وافق على طلب من <b>طلبات جديدة</b>.</span></li>
+    <li><span>اكتب: الاسم، <b>المعرّف</b> بحروف لاتينية (مثل <code>dr-ahmed</code> — مطلوب إذا كان الاسم عربياً، وهو جزء من رابط بوابة المرضى)، بريد المالك، اسم الفرع الأول، والحالة. عند الموافقة على طلب اختر أيضاً الباقة والدورة، وهل تُرسل بيانات الدخول لبريد المالك.</span></li>
+    <li><span>تُنشأ المجموعة بأدوارها وفرعها وحساب <b>مالك المجموعة</b>.</span></li>
+    <li><span><b>انسخ كلمة المرور فوراً.</b> تظهر مرة واحدة فقط. سلّمها للعميل بطريقة آمنة.</span></li>
   </ol>
 
-  <h3>متابعة مجموعة</h3>
-  <p>اضغط أي عيادة لترى: المرضى، المواعيد، الزيارات، الإيراد، الاستهلاك مقابل الباقة، وسجل الاشتراكات. فتح هذه الصفحة يُسجَّل في سجل تدقيق العيادة.</p>
+  <h3>صفحة المجموعة <span class="new">جديد</span></h3>
+  <p>فتحها يُسجَّل في سجل تدقيق المجموعة. فيها من أعلى لأسفل:</p>
   <ul class="plain">
-    <li><b>الحالة:</b> تجريبي، نشط، <span class="badge b-urgent">موقوف</span>، ملغي. الإيقاف يمنع كل موظفي المجموعة فوراً، حتى من هم داخل النظام الآن.</li>
-    <li><b>الباقة:</b> اختر الباقة واضغط <span class="btn btn--ghost">تطبيق</span>. حدودها تُطبق فوراً.</li>
+    <li><b>الحالة والباقة:</b> تجريبي، نشط، <span class="badge b-urgent">موقوف</span>، ملغي — الإيقاف يُخرج كل موظفي المجموعة فوراً.</li>
+    <li><b>العيادات:</b> <span class="btn btn--ghost">إيقاف</span> أو <span class="btn btn--ghost">تشغيل</span> لكل عيادة.</li>
+    <li><b>الحسابات:</b> لكل حساب <span class="btn">دخول كـ</span>، <span class="btn btn--ghost">كلمة مرور جديدة</span> (تظهر مرة واحدة ويخرج الحساب من كل الأجهزة)، <span class="btn btn--ghost">تسجيل خروج</span> من كل الأجهزة، و<span class="btn btn--ghost">إيقاف</span> / تفعيل. وزر <span class="btn btn--ghost">إضافة مالك</span>.</li>
+    <li><b>بيانات المجموعة:</b> الاسم والمعرّف، و<span class="btn btn--ghost">تصدير بيانات المجموعة</span> (ملف zip بكل بياناتها وملفاتها).</li>
+    <li><b>الاشتراك:</b> حالته وتاريخ انتهائه ونهاية التجربة.</li>
+    <li><b>الخدمات:</b> تشغيل أو إيقاف أي خدمة للمجموعة بغض النظر عن الباقة، و<b>كما في الباقة</b> للرجوع.</li>
+    <li><b>الحدود:</b> فارغ = حد الباقة، <code>unlimited</code> = بلا حد، أو رقم.</li>
+    <li><b>الاشتراك والمدفوعات:</b> الدورة، السعر المتفق عليه، الخصومات، الفواتير، المدفوعات، وتسجيل التأخير.</li>
+    <li><b>سجل دخول الدعم.</b></li>
   </ul>
+
+  <h3 id="p-support">«دخول كـ» للدعم الفني <span class="new">جديد</span></h3>
+  <ol class="steps">
+    <li><span>في جدول الحسابات اضغط <span class="btn">دخول كـ</span> بجانب الحساب.</span></li>
+    <li><span>اكتب <b>السبب</b> والمدة (من ٥ إلى ١٢٠ دقيقة)، ثم <span class="btn">دخول</span>.</span></li>
+    <li><span>يفتح تطبيق العيادة بصلاحيات هذا الحساب، وأعلى كل شاشة شريط «وضع الدعم الفني» بالوقت المتبقي. من هنا تصل للسجلات الطبية وتعدّلها إن لزم.</span></li>
+    <li><span>اضغط <span class="btn btn--ghost">إنهاء والعودة للمنصة</span>. عند انتهاء المدة يخرج المتصفح تلقائياً.</span></li>
+  </ol>
+  <p class="muted">يصل لكل مالكي المجموعة إشعار بالدخول وسببه، وكل تعديل يُسجَّل في سجل التدقيق مسبوقاً بـ<code>[support: بريدك]</code>.</p>
+
+  <h3>الفواتير والتحصيل <span class="new">جديد</span></h3>
+  <ol class="steps">
+    <li><span>في صفحة المجموعة حدد <b>الدورة</b> (شهري / سنوي)، و<b>السعر المتفق عليه</b> إن وُجد (فارغ = سعر الباقة)، و<b>تاريخ الفاتورة القادمة</b>.</span></li>
+    <li><span>أضف <b>خصماً</b> لفترة محددة: نسبة، أو مبلغ ثابت، أو الاثنان (النسبة أولاً).</span></li>
+    <li><span>تصدر الفواتير تلقائياً كل يوم في موعدها (أمر cron، راجع <a href="#commands">الأوامر</a>)، أو فوراً بـ<span class="btn btn--ghost">إصدار فاتورة الفترة القادمة الآن</span>.</span></li>
+    <li><span>الدفع: <span class="btn">تسجيل دفعة</span> نقداً أو بتحويل بنكي (رقم التحويل مطلوب) — أو يدفع المالك أونلاين من صفحة «الباقة والاشتراك» إن كانت بوابة دفع المنصة مفعّلة.</span></li>
+    <li><span>التأخير <b>تسجله أنت</b> بملاحظة؛ لا يوقف الاشتراك تلقائياً. الإيقاف قرار منفصل من «الحالة».</span></li>
+  </ol>
+
+  <h3>المفاتيح والتكاملات <span class="new">جديد</span></h3>
+  <ul class="plain">
+    <li>كل المفاتيح وكلمات المرور تُدخل من هذه الشاشة فقط، وتُحفظ مشفّرة. بعد الحفظ يظهر «محفوظ (…آخر ٤)»؛ ترك الحقل فارغاً يُبقي المحفوظ.</li>
+    <li>اختر <b>المستوى</b>: المنصة كلها، أو مجموعة، أو عيادة. عند الاستخدام يُؤخذ إعداد العيادة أولاً، ثم مجموعتها، ثم المنصة.</li>
+    <li>لكل تكامل تبويبا <b>تجريبي</b> و<b>إنتاج</b>، و«البيئة المستخدمة فعلياً» تحدد أيهما يعمل. لا يُفعَّل الإنتاج وبياناته ناقصة.</li>
+    <li>زر <span class="btn btn--ghost">اختبار بيانات … المحفوظة</span> يجرّب الاتصال دون تغيير أي شيء.</li>
+    <li>بوابات الدفع: انسخ <b>رابط الـ Callback</b> الظاهر في البطاقة وضعه في لوحة البوابة نفسها. <b>مفاتيح المنصة لتحصيل الاشتراكات فقط</b>؛ تحصيل العيادة من مرضاها يستخدم مفاتيح العيادة أو مجموعتها، ويحتاج أن تكون خدمة «الدفع الإلكتروني» مفعّلة للمجموعة.</li>
+  </ul>
+  <p class="muted">خطوات الحصول على كل مفتاح من مصدره في <a href="#cpanel">المطلوب داخل cPanel والخدمات الخارجية</a>.</p>
 
   <div class="table-wrap">
   <table>
@@ -728,6 +795,7 @@ dl.faq dt q { quotes: "«" "»"; color: var(--urgent); }
     </tbody>
   </table>
   </div>
+  <p class="muted">الأسعار والحدود الافتراضية؛ تُعدَّل من قسم <b>الباقات</b>.</p>
 </section>
 
 <!-- ============================================================ 11 -->
@@ -813,8 +881,8 @@ dl.faq dt q { quotes: "«" "»"; color: var(--urgent); }
   <ul class="plain">
     <li><b>لا يمنع النظام تعارض المواعيد</b> لنفس الطبيب في نفس الوقت.</li>
     <li><b>لا تصل للمرضى رسائل SMS أو واتساب</b>. أرسل روابط الدعوة وتأكيد المواعيد يدوياً.</li>
-    <li><b>لا توجد فواتير مستقلة ولا طباعة إيصال</b>: كل دفعة مرتبطة بموعد، ورقم الإيصال يُكتب يدوياً.</li>
-    <li><b>لا دفع إلكتروني</b> للمرضى ولا لاشتراك المجموعة.</li>
+    <li><b>لا توجد فواتير مستقلة لدفعات المريض ولا طباعة إيصال</b>: كل دفعة مرتبطة بموعد، ورقم الإيصال يُكتب يدوياً (فواتير اشتراك المجموعة نفسها متاحة من بوابة المطوّر).</li>
+    <li><b>الدفع الإلكتروني للمريض</b> يحتاج تفعيل خدمته للمجموعة ومفاتيح بوابة دفع مضبوطة من بوابة المطوّر؛ بدونهما يظهر للمريض الدفع اليدوي فقط كما كان.</li>
     <li><b>نسبة الطبيب تُحسب على خدمة الحجز</b> الذي سُجّلت عليه الدفعة؛ إجراء إضافي بخدمة مختلفة في نفس الدفعة يُحسب بنفس النسبة.</li>
     <li><b>إيميلات الأطباء</b> تحتاج إعداد البريد (SMTP) على الخادم؛ بدونه لا تُرسل ولا يتعطل شيء.</li>
     <li>الطبيب يرى مرضاه فقط؛ متابعة مريض زميل غائب تكون بنقل الحجز إليه من مدير الفرع.</li>
@@ -825,7 +893,252 @@ dl.faq dt q { quotes: "«" "»"; color: var(--urgent); }
   </ul>
 </section>
 
-<footer class="foot">دليل تشغيل العيادة · سبتمبر ٢٠٢٦ — التحديث الثاني: الورديات، مرضى الطبيب، التعاقدات والنسب، الإيقاف والإلغاء، تصميم المطبوعات وروابط التواصل · للطباعة أو الحفظ PDF: اطبع الصفحة من المتصفح؛ يبدأ كل قسم في صفحة جديدة.</footer>
+<!-- ============================================================ 14 -->
+<section id="accounts">
+  <h2><span class="chapter-no">14</span> حسابات الدخول لكل بوابة</h2>
+  <div class="who">لمن هذا القسم: <span class="role">مالك المنصة</span> <span class="role">الفريق الفني</span></div>
+  <p>النظام له خمسة مداخل، لكل منها حساباته وطريقة دخوله. <b>لا يوجد حساب مشترك بينها</b>: حساب المطوّر لا يفتح شاشات العيادة، وحساب العيادة لا يفتح بوابة المطوّر، والمريض لا يدخل إلا بوابته.</p>
+
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>المدخل</th><th>الرابط</th><th>من يدخل</th><th>من أين يأتي الحساب</th><th>الدخول بـ</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>تطبيق العيادة</b></td>
+        <td><code>/app/login</code></td>
+        <td>مالك المجموعة، مدير الفرع، الطبيب، الاستقبال</td>
+        <td>المالك: ينشئه المطوّر (مجموعة جديدة أو موافقة على طلب) أو الأمر <code>create_tenant</code>. الباقون: يضيفهم المالك أو مدير الفرع من «المستخدمون».</td>
+        <td>البريد + كلمة المرور</td>
+      </tr>
+      <tr>
+        <td><b>بوابة المطوّر</b></td>
+        <td><code>/app/platform/login</code></td>
+        <td>مالك المنصة وفريق الدعم</td>
+        <td>أول حساب بالأمر <code>create_platform_admin</code> على السيرفر.</td>
+        <td>البريد + كلمة المرور + كود من تطبيق المصادقة</td>
+      </tr>
+      <tr>
+        <td><b>بوابة المرضى</b></td>
+        <td><code>/app/portal/&lt;معرّف-المجموعة&gt;/</code></td>
+        <td>المرضى</td>
+        <td>رابط دعوة من الاستقبال من ملف المريض. (التسجيل الذاتي يُنشئ طلباً فقط، ثم يحتاج دعوة.)</td>
+        <td>رقم الهاتف + كلمة المرور</td>
+      </tr>
+      <tr>
+        <td><b>طلب فتح عيادة</b></td>
+        <td><code>/app/signup</code></td>
+        <td>أي عيادة جديدة</td>
+        <td>بدون حساب: نموذج عام، يصل للمطوّر في «طلبات جديدة».</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td><b>لوحة Django</b></td>
+        <td><code>/admin/</code></td>
+        <td>الفني فقط، للطوارئ</td>
+        <td>الأمر <code>createsuperuser</code>. لا يفتح بوابة المطوّر ولا يرى بيانات العيادات.</td>
+        <td>البريد + كلمة المرور</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>أول دخول لحساب المطوّر</h3>
+  <ol class="steps">
+    <li><span>على السيرفر: <code>python manage.py create_platform_admin you@company.com</code> — تُطبع كلمة المرور مرة واحدة.</span></li>
+    <li><span>ثبّت على موبايلك تطبيق مصادقة: <b>Google Authenticator</b> أو <b>Microsoft Authenticator</b>.</span></li>
+    <li><span>افتح <code>/app/platform/login</code>، واكتب البريد وكلمة المرور. تظهر شاشة <b>تفعيل التحقق بخطوتين</b> فيها رمز QR.</span></li>
+    <li><span>امسح الرمز بالتطبيق، واكتب الكود المكوّن من ٦ أرقام.</span></li>
+    <li><span>تظهر <b>٨ رموز استرداد</b> مرة واحدة: احفظها في مكان آمن. كل رمز يُستخدم مرة واحدة بدل الكود إن ضاع الموبايل.</span></li>
+  </ol>
+  <p class="muted">بعد ذلك: كل دخول = كلمة المرور ثم الكود. الجلسة تستمر ٨ ساعات. لحساب دعم فني للقراءة فقط: <code>create_platform_admin support@company.com --role support</code>.</p>
+
+  <h3>البيانات التجريبية وحساباتها</h3>
+  <p>الأمر <code>seed_demo</code> ينشئ مجموعتين كاملتين بمرضى ومواعيد وزيارات وروشتات وتحاليل ودفعات عربية، ولكل مجموعة أربعة حسابات:</p>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>الحساب</th><th>الدور</th><th>المجموعة الأولى</th><th>المجموعة الثانية</th></tr></thead>
+    <tbody>
+      <tr><td><code>admin@…</code></td><td>مالك المجموعة — كل الفروع</td><td><code>admin@dr-ahmed.local</code></td><td><code>admin@nile-clinic.local</code></td></tr>
+      <tr><td><code>clinicadmin@…</code></td><td>مدير الفرع الأول</td><td><code>clinicadmin@dr-ahmed.local</code></td><td><code>clinicadmin@nile-clinic.local</code></td></tr>
+      <tr><td><code>reception@…</code></td><td>الاستقبال</td><td><code>reception@dr-ahmed.local</code></td><td><code>reception@nile-clinic.local</code></td></tr>
+      <tr><td><code>doctor@…</code></td><td>الطبيب</td><td><code>doctor@dr-ahmed.local</code></td><td><code>doctor@nile-clinic.local</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <ul class="plain">
+    <li><b>كلمة المرور</b> تُولَّد عشوائياً في كل تشغيل وتُطبع مرة واحدة في آخر المخرجات. على جهازك المحلي فقط يمكن تثبيتها: <code>seed_demo --password &lt;كلمة&gt;</code>.</li>
+    <li>الدخول بها من <code>/app/login</code>. لتجربة بوابة المرضى: ادخل بحساب الاستقبال، افتح أي مريض تجريبي، واضغط <b>دعوة للبوابة</b>.</li>
+    <li>لا توجد حسابات تجريبية لبوابة المطوّر؛ استخدم <code>create_platform_admin</code>.</li>
+  </ul>
+  <div class="note note--stop">
+    <strong>قبل أن تبدأ العيادة العمل الحقيقي</strong>
+    <span>أوقف الحسابات التجريبية: <code>disable_demo_accounts</code>. من رأى مخرجات الأمر يستطيع الدخول بها. ولا تشغّل <code>seed_demo --reset</code> بعد إدخال بيانات حقيقية: <b>يمسح كل المجموعات عدا <code>dr-ahmed</code></b>.</span>
+  </div>
+
+  <h3>نسيان كلمة المرور أو الموبايل</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>من نسي</th><th>الحل</th></tr></thead>
+    <tbody>
+      <tr><td>موظف أو طبيب</td><td>مدير الفرع أو المالك: «المستخدمون» ← تعديل ← كلمة جديدة.</td></tr>
+      <tr><td>مالك المجموعة</td><td>المطوّر: صفحة المجموعة ← الحسابات ← <b>كلمة مرور جديدة</b>.</td></tr>
+      <tr><td>مريض</td><td>الاستقبال: ملف المريض ← <b>رابط دعوة جديد</b>.</td></tr>
+      <tr><td>حساب المطوّر — كلمة المرور</td><td>على السيرفر: <code>python manage.py changepassword you@company.com</code></td></tr>
+      <tr><td>حساب المطوّر — ضاع الموبايل</td><td>ادخل برمز استرداد، أو على السيرفر: <code>reset_platform_2fa you@company.com</code> ثم فعّل من جديد عند الدخول التالي.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ============================================================ 15 -->
+<section id="cpanel">
+  <h2><span class="chapter-no">15</span> المطلوب داخل cPanel والخدمات الخارجية</h2>
+  <div class="who">لمن هذا القسم: <span class="role">الفريق الفني</span> <span class="role">مالك المنصة</span></div>
+  <p>ما يُجهَّز مرة واحدة على الاستضافة قبل تشغيل النظام، بالترتيب. التفاصيل التقنية الكاملة في <code>docs/10-deployment-runbook.md</code>.</p>
+
+  <h3>داخل cPanel</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>العنصر في cPanel</th><th>ماذا تفعل</th><th>لماذا</th></tr></thead>
+    <tbody>
+      <tr><td><b>Domains</b> + <b>SSL/TLS Status</b> (AutoSSL)</td><td>اربط النطاق وفعّل شهادة HTTPS.</td><td>بدون HTTPS لا يُحفظ شيء من النماذج، ولا تعمل الكوكيز الآمنة.</td></tr>
+      <tr><td><b>PostgreSQL Databases</b></td><td>أنشئ قاعدة بيانات ومستخدماً لها بكلمة مرور قوية، وأعطه كل الصلاحيات على القاعدة.</td><td>قاعدة النظام. المستخدم يجب ألا يكون superuser — عزل العيادات يعتمد على ذلك.</td></tr>
+      <tr><td><b>Setup Python App</b></td><td>Python <b>3.10 أو أحدث</b>؛ Application root = مجلد المشروع (خارج <code>public_html</code>)؛ Application URL = النطاق؛ Startup file = <code>passenger_wsgi.py</code>؛ Entry point = <code>application</code>. ثم <b>Run Pip Install</b> على <code>requirements.txt</code>.</td><td>تشغيل التطبيق. انسخ من نفس الصفحة أمر تفعيل البيئة لتستخدمه في Terminal.</td></tr>
+      <tr><td>متغيرات البيئة (ملف <code>.env</code> في مجلد المشروع)</td><td><code>DJANGO_SECRET_KEY</code>، <code>DJANGO_DEBUG=False</code>، <code>DJANGO_ALLOWED_HOSTS</code>، <code>DJANGO_CSRF_TRUSTED_ORIGINS</code>، <code>DATABASE_URL</code>، <code>PLATFORM_VAULT_KEY</code>، <code>DJANGO_STATIC_ROOT</code>، <code>DJANGO_MEDIA_ROOT</code>، <code>DJANGO_MEDICAL_ATTACHMENTS_ROOT</code>، و<code>PLATFORM_BACKUP_ROOT</code> اختيارياً.</td><td>الإعدادات السرية. طريقة توليد كل مفتاح في <a href="#commands">الأوامر</a>.</td></tr>
+      <tr><td><b>File Manager</b> — المجلدات</td><td><code>~/public_html/static</code> و<code>~/public_html/media</code> (ملفات عامة)، <code>~/private/attachments</code> (المرفقات الطبية)، <code>~/backups</code> و<code>~/logs</code>.</td><td>المرفقات الطبية والنسخ الاحتياطية <b>خارج public_html</b> دائماً.</td></tr>
+      <tr><td><b>Email Accounts</b></td><td>أنشئ بريداً للمنصة مثل <code>no-reply@نطاقك</code>، واحتفظ بإعدادات SMTP الخاصة به (الخادم، المنفذ 465، SSL).</td><td>إرسال إيميلات المنصة (طلبات التسجيل، بيانات الدخول، إشعارات الأطباء). تُدخَل إعداداته في بوابة المطوّر ← المفاتيح ← البريد (مستوى المنصة).</td></tr>
+      <tr><td><b>Manage API Tokens</b></td><td>أنشئ Token باسم مثل <code>clinic-platform</code> وانسخه فوراً (يظهر مرة واحدة).</td><td>لإنشاء إيميلات العيادات من البوابة وطلب نسخة cPanel كاملة. يُدخل في المفاتيح ← cPanel مع اسم مستخدم cPanel ورابط <code>https://server:2083</code> والدومين.</td></tr>
+      <tr><td><b>Cron Jobs</b></td><td>أضف السطرين في الجدول أدناه.</td><td>إصدار الفواتير اليومي والنسخة الاحتياطية اليومية.</td></tr>
+      <tr><td><b>Terminal</b></td><td>فعّل الوصول للطرفية (أو SSH).</td><td>لتشغيل الأوامر في القسم التالي.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>مهام Cron</h3>
+  <p>في cPanel ← Cron Jobs ← Add New Cron Job. استبدل <code>&lt;app&gt;</code> بمجلد المشروع و<code>&lt;venv-python&gt;</code> بمسار Python الذي تعرضه صفحة Setup Python App:</p>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>التوقيت</th><th>الأمر</th><th>الفائدة</th></tr></thead>
+    <tbody>
+      <tr><td><code>15 6 * * *</code><br><small>٦:١٥ صباحاً</small></td><td><code>cd ~/&lt;app&gt; &amp;&amp; &lt;venv-python&gt; manage.py issue_platform_invoices &gt;&gt; ~/logs/invoices.log 2&gt;&amp;1</code></td><td>يصدر فواتير الاشتراك التي حل موعدها.</td></tr>
+      <tr><td><code>30 2 * * *</code><br><small>٢:٣٠ ليلاً</small></td><td><code>cd ~/&lt;app&gt; &amp;&amp; &lt;venv-python&gt; manage.py platform_backup &gt;&gt; ~/logs/backup.log 2&gt;&amp;1</code></td><td>نسخة احتياطية مشفّرة + رفعها على Google Drive.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>خارج cPanel — تُدخل مفاتيحها في بوابة المطوّر فقط</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>الخدمة</th><th>ما تحتاجه منها</th><th>أين يُدخل</th></tr></thead>
+    <tbody>
+      <tr><td><b>Google Drive</b></td><td>في Google Cloud Console: مشروع ← فعّل <b>Google Drive API</b> ← أنشئ <b>Service Account</b> ← Keys ← Add key (JSON) ونزّل الملف. في Google Drive: أنشئ <b>Shared Drive</b> (يحتاج Google Workspace)، وأضف بريد حساب الخدمة عضواً بصلاحية Content manager، وأنشئ مجلداً وانسخ الـ Folder ID من رابطه.</td><td>المفاتيح ← Google Drive (المنصة): الصق محتوى ملف JSON والـ Folder ID، ثم <b>اختبار</b>.</td></tr>
+      <tr><td><b>Paymob</b> (بطاقات)</td><td>من لوحة Paymob: API Key، Integration ID للبطاقات، iFrame ID، HMAC Secret. وضع رابط الـ Callback في إعدادات الـ Integration (Transaction processed / response callback).</td><td>المفاتيح ← Paymob، لكل من تجريبي وإنتاج.</td></tr>
+      <tr><td><b>فودافون كاش</b></td><td>عبر Paymob: Integration ID لمحافظ الموبايل (Mobile Wallets) مع نفس API Key و HMAC Secret، ونفس رابط الـ Callback.</td><td>المفاتيح ← فودافون كاش.</td></tr>
+      <tr><td><b>Fawry</b></td><td>من فوري: Merchant Code و Security Key لكل بيئة (Staging / Production)، ورابط الـ Callback كرابط إشعار.</td><td>المفاتيح ← Fawry.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="note note--warn">
+    <strong>قبل التحويل للإنتاج</strong>
+    <span>بوابات الدفع مكتوبة حسب توثيقها الرسمي. نفّذ عملية دفع واحدة بمفاتيح <b>التجريبي</b> لكل بوابة وتأكد أنها ظهرت «مؤكدة»، ثم حوّل «البيئة المستخدمة فعلياً» إلى الإنتاج.</span>
+  </div>
+</section>
+
+<!-- ============================================================ 16 -->
+<section id="commands">
+  <h2><span class="chapter-no">16</span> الأوامر وفائدة كل أمر</h2>
+  <div class="who">لمن هذا القسم: <span class="role">الفريق الفني</span></div>
+  <p>تُنفّذ من Terminal داخل مجلد المشروع بعد تفعيل البيئة (الأمر الذي تعرضه صفحة Setup Python App). كل أمر يبدأ بـ <code>python manage.py</code> ما لم يُذكر غير ذلك.</p>
+
+  <h3>التثبيت والتحديث</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>الأمر</th><th>متى</th><th>ماذا يفعل</th></tr></thead>
+    <tbody>
+      <tr><td><code>pip install -r requirements.txt</code></td><td>أول مرة، وبعد كل تحديث للكود</td><td>يثبّت مكتبات النظام. <b>لا تثبّت</b> <code>requirements-dev.txt</code> على السيرفر.</td></tr>
+      <tr><td><code>migrate</code></td><td>أول مرة، وبعد كل تحديث</td><td>ينشئ الجداول ويحدّثها، ويثبّت سياسات عزل العيادات، ويضيف الباقات الافتراضية.</td></tr>
+      <tr><td><code>collectstatic --noinput</code></td><td>أول مرة، وبعد كل تحديث</td><td>ينسخ ملفات الواجهة (ومنها تطبيق React المبني) إلى <code>public_html/static</code>.</td></tr>
+      <tr><td><code>check --deploy</code></td><td>بعد الإعداد وبعد تغيير <code>.env</code></td><td>يفحص إعدادات الأمان. التحذير الوحيد المقبول <code>security.W004</code> (HSTS).</td></tr>
+      <tr><td><code>touch tmp/restart.txt</code> <small>(ليس manage.py)</small></td><td>بعد كل تحديث أو تغيير في <code>.env</code></td><td>يعيد تشغيل التطبيق (أو زر <b>Restart</b> في Setup Python App).</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>توليد المفاتيح السرية</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>الأمر</th><th>ماذا يفعل</th></tr></thead>
+    <tbody>
+      <tr><td><code>python -c "from django.core.management.utils import get_random_secret_key as k; print(k())"</code></td><td>يولّد <code>DJANGO_SECRET_KEY</code>.</td></tr>
+      <tr><td><code>python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"</code></td><td>يولّد <code>PLATFORM_VAULT_KEY</code> — ضعه في <code>.env</code> <b>قبل إدخال أي مفتاح في البوابة</b>، واحفظه في مدير كلمات مرور بعيداً عن النسخ الاحتياطية. تغييره لاحقاً يجعل المفاتيح المحفوظة والنسخ المشفّرة غير مقروءة.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>الحسابات والمجموعات</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>الأمر</th><th>ماذا يفعل</th></tr></thead>
+    <tbody>
+      <tr><td><code>create_platform_admin you@company.com</code><br><small><code>--role support</code> للدعم (قراءة فقط) · <code>--password</code> لتحديدها</small></td><td>ينشئ حساب بوابة المطوّر. كلمة المرور تُطبع مرة واحدة.</td></tr>
+      <tr><td><code>reset_platform_2fa you@company.com</code></td><td>يلغي التحقق بخطوتين لحساب مطوّر ضاع موبايله؛ يُفعَّل من جديد عند الدخول التالي. تأكد من هوية صاحب الطلب أولاً.</td></tr>
+      <tr><td><code>changepassword you@company.com</code></td><td>يغيّر كلمة مرور أي حساب من السيرفر (مفيد لحساب المطوّر).</td></tr>
+      <tr><td><code>create_tenant "اسم العيادة" --slug clinic-slug --admin-email owner@clinic.com</code><br><small><code>--branch</code> اسم الفرع · <code>--branch-code</code> · <code>--status active</code></small></td><td>ينشئ مجموعة كاملة (أدوار، فرع أول، حساب المالك، باقة تجريبية) — نفس ما تفعله بوابة المطوّر. <code>--slug</code> مطلوب للأسماء العربية.</td></tr>
+      <tr><td><code>createsuperuser</code></td><td>حساب للوحة Django <code>/admin/</code> للطوارئ التقنية فقط.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>البيانات التجريبية</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>الأمر</th><th>ماذا يفعل</th></tr></thead>
+    <tbody>
+      <tr><td><code>seed_demo</code></td><td>ينشئ مجموعتين تجريبيتين (<code>dr-ahmed</code> و<code>nile-clinic</code>) ببيانات عربية وأربعة حسابات لكل منهما، ويطبع كلمة المرور مرة واحدة.</td></tr>
+      <tr><td><code>seed_demo --reset</code></td><td>يمسح البيانات التجريبية ثم ينشئها من جديد. <b>يمسح كل المجموعات عدا <code>dr-ahmed</code></b> — لا تستخدمه بعد بدء العمل الحقيقي.</td></tr>
+      <tr><td><code>seed_demo --password &lt;كلمة&gt;</code></td><td>يثبّت كلمة مرور الحسابات التجريبية — على جهاز محلي فقط.</td></tr>
+      <tr><td><code>disable_demo_accounts --dry-run</code></td><td>يعرض الحسابات التجريبية النشطة دون تغيير.</td></tr>
+      <tr><td><code>disable_demo_accounts</code></td><td>يوقف كل الحسابات التجريبية (<code>admin@ / clinicadmin@ / reception@ / doctor@ …local</code>) دون حذف بياناتها. <b>نفّذه قبل التسليم.</b></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>الاشتراكات والنسخ الاحتياطي</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>الأمر</th><th>ماذا يفعل</th></tr></thead>
+    <tbody>
+      <tr><td><code>issue_platform_invoices</code></td><td>يصدر فواتير الاشتراك التي حل موعدها (مجدول يومياً في cron). يتخطى المجموعات الموقوفة والملغاة.</td></tr>
+      <tr><td><code>platform_backup</code></td><td>ينشئ نسخة احتياطية مشفّرة للمنصة وكل المجموعات في <code>PLATFORM_BACKUP_ROOT</code>، ويرفعها على Google Drive، ويحذف الأقدم حسب سياسة الاحتفاظ (مجدول يومياً). زر «نسخة احتياطية الآن» في البوابة يشغّله في الخلفية.</td></tr>
+      <tr><td><code>platform_backup_decrypt &lt;ملف.cbk&gt; backup.tar</code></td><td>يفك تشفير نسخة احتياطية إلى ملف tar بمفتاح <code>PLATFORM_VAULT_KEY</code> نفسه. داخله <code>groups/&lt;معرّف&gt;.zip</code> لكل مجموعة — يُستورد من البوابة ← النسخ الاحتياطي ← استيراد مجموعة.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>الفحص</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>الأمر</th><th>ماذا يفعل</th></tr></thead>
+    <tbody>
+      <tr><td><code>audit_data_compatibility</code></td><td>قراءة فقط: يكشف بيانات يقبلها SQLite ويرفضها PostgreSQL (نصوص أطول من الحد، مراجع مكسورة، تواريخ غير صالحة) — قبل نقل بيانات من مصدر آخر.</td></tr>
+      <tr><td><code>test</code></td><td>يشغّل كل اختبارات النظام (للمطوّرين، على جهاز التطوير).</td></tr>
+      <tr><td><code>cd frontend &amp;&amp; npm ci &amp;&amp; npm run build</code> <small>(على جهاز التطوير)</small></td><td>يعيد بناء واجهة React بعد تعديلها؛ يُرفع الناتج <code>frontend/dist</code> مع الكود. <b>لا يلزم Node على السيرفر.</b></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>ترتيب التشغيل لأول مرة</h3>
+  <ol class="steps">
+    <li><span>جهّز cPanel كما في <a href="#cpanel">القسم السابق</a>، واكتب <code>.env</code> (بما فيه <code>PLATFORM_VAULT_KEY</code>).</span></li>
+    <li><span><code>pip install -r requirements.txt</code> ثم <code>migrate</code> ثم <code>collectstatic --noinput</code> ثم <code>check --deploy</code>.</span></li>
+    <li><span><code>create_platform_admin</code>، ثم ادخل <code>/app/platform/login</code> وفعّل التحقق بخطوتين.</span></li>
+    <li><span>في البوابة ← المفاتيح: البريد (المنصة)، cPanel، Google Drive، ثم بوابات الدفع بمفاتيح التجريبي.</span></li>
+    <li><span>للعرض والتدريب: <code>seed_demo</code>. قبل العمل الحقيقي: <code>disable_demo_accounts</code>.</span></li>
+    <li><span>أنشئ مجموعة العميل من البوابة (أو وافق على طلبه)، وأضف مهمتي Cron.</span></li>
+    <li><span>اضغط «نسخة احتياطية الآن» وتأكد أنها ظهرت «تم» ومرفوعة على Drive.</span></li>
+  </ol>
+</section>
+<footer class="foot">دليل تشغيل العيادة · سبتمبر ٢٠٢٦ — التحديث الثالث: بوابة مالك المنصة الكاملة (المفاتيح والتكاملات، الاشتراكات والفواتير، الدفع الإلكتروني، طلبات فتح العيادات، دخول كـ للدعم الفني، التحليلات، النسخ الاحتياطي والاستيراد)، وحسابات الدخول لكل بوابة، ومتطلبات cPanel والأوامر · للطباعة أو الحفظ PDF: اطبع الصفحة من المتصفح؛ يبدأ كل قسم في صفحة جديدة.</footer>
 
 </main>
 </div>
