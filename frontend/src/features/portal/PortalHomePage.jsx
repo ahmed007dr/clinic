@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { Button, Tabs } from '@/components/ui'
 import { useAsync } from '@/hooks/useApi'
 import { useDocumentTitle } from '@/hooks/useDebounce'
+import { useToast } from '@/hooks/useToast'
 
 import '@/features/clinical/allergy.css'
 
@@ -34,8 +35,20 @@ export function PortalHomePage() {
   const [requesting, setRequesting] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const allergies = useAsync(() => api.allergies(), [api])
+  const toast = useToast()
 
   useDocumentTitle(me.clinic)
+
+  // Back from a payment gateway (api/platform_pay.py appends ?payment=).
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    const outcome = url.searchParams.get('payment')
+    if (!outcome) return
+    if (outcome === 'ok') toast.success('تم الدفع بنجاح. شكراً لك.')
+    else toast.error('لم تكتمل عملية الدفع.')
+    url.searchParams.delete('payment')
+    window.history.replaceState(null, '', url)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const Panel = TABS.find((t) => t.id === tab).Panel
 

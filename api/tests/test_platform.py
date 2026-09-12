@@ -17,6 +17,7 @@ from patients.models import Patient
 from subscriptions.models import Plan, Subscription
 from tenants.context import tenant_context
 from tenants.models import Tenant
+from tenants.testing import login_platform
 
 User = get_user_model()
 
@@ -34,11 +35,11 @@ class PlatformApiTests(TestCase):
         )
         User.objects.create_user(
             username="op", email="op@platform.local", password="pass12345",
-            tenant=None, is_platform_staff=True,
+            tenant=None, is_platform_staff=True, platform_role="super",
         )
 
     def as_operator(self):
-        self.client.login(email="op@platform.local", password="pass12345")
+        login_platform(self.client, "op@platform.local")
 
     def audit(self, tenant, needle):
         with tenant_context(tenant):

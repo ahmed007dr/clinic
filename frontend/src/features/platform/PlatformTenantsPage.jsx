@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { api } from '@/api'
+import { useAuth } from '@/hooks/useAuth'
 import { Badge, Button, Card, CardBody, StatTile, Table } from '@/components/ui'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useAsync } from '@/hooks/useApi'
@@ -18,6 +19,8 @@ export const STATUS_TONES = {
 
 /** Every clinic on the platform. */
 export function PlatformTenantsPage() {
+  const { platformUser } = useAuth()
+  const canChange = platformUser?.role === 'super'
   const navigate = useNavigate()
   const [creating, setCreating] = useState(false)
   const { data, loading, error, reload } = useAsync(() => api.platform.tenants(), [])
@@ -31,9 +34,12 @@ export function PlatformTenantsPage() {
         title="العيادات"
         subtitle="كل العيادات المشتركة في النظام"
         actions={
-          <Button variant="primary" onClick={() => setCreating(true)}>
-            عيادة جديدة
-          </Button>
+          // Support accounts are read-only (the server refuses them anyway).
+          canChange && (
+            <Button variant="primary" onClick={() => setCreating(true)}>
+              عيادة جديدة
+            </Button>
+          )
         }
       />
 

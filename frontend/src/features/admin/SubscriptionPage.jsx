@@ -13,15 +13,16 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { useAsync } from '@/hooks/useApi'
 import { formatDate, formatMoney } from '@/lib/format'
 
+import { SubscriptionInvoices } from './SubscriptionInvoices'
 import './subscription.css'
 
 /**
  * The clinic's own plan: what it allows, how much is used, when it ends.
  *
  * Before this page a clinic learned its limits only by being refused, and the
- * refusal told it to upgrade a plan it had no way to look at. Read-only by
- * design — there is no payment gateway, so a button promising an upgrade would
- * be a button that cannot work.
+ * refusal told it to upgrade a plan it had no way to look at. The group's
+ * invoices from the platform sit underneath, payable online when the platform
+ * has a gateway turned on.
  */
 export function SubscriptionPage() {
   const { data, loading, error, reload } = useAsync(() => api.subscription.get(), [])
@@ -72,7 +73,7 @@ export function SubscriptionPage() {
                 </p>
               )}
               <p className="ui-muted" style={{ marginTop: 'var(--s4)', fontSize: 'var(--text-sm)' }}>
-                لترقية الباقة أو تجديدها تواصل معنا — الدفع يتم خارج النظام حالياً.
+                لترقية الباقة أو تغيير دورة الاشتراك تواصل مع إدارة المنصة.
               </p>
             </CardBody>
           </Card>
@@ -97,6 +98,8 @@ export function SubscriptionPage() {
             </CardBody>
           </Card>
         </div>
+
+        <SubscriptionInvoices />
 
         <Card>
           <CardHeader title="الاستهلاك" subtitle="المستخدم مقابل المسموح في باقتك" />

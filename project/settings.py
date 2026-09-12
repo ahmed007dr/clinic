@@ -122,6 +122,8 @@ REST_FRAMEWORK = {
         "portal_login": "10/min",
         # Public self-registration: generous for a family, useless for a bot.
         "portal_register": "10/hour",
+        # Asking to open a clinic group (api/signup.py).
+        "signup": "5/hour",
     },
     "UNAUTHENTICATED_USER": "django.contrib.auth.models.AnonymousUser",
 }
@@ -134,6 +136,12 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     # A multi-clinic doctor's chosen clinic, from the session (accounts.roles).
     'accounts.middleware.ActiveBranchMiddleware',
+    # A platform session is only ever one completed with a one-time code.
+    'accounts.middleware.PlatformTwoFactorMiddleware',
+    # A developer's time-limited "login as" support session.
+    'accounts.middleware.SupportSessionMiddleware',
+    # "Online now" / "last seen" for the platform portal.
+    'accounts.middleware.LastSeenMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
@@ -272,3 +280,9 @@ EMAIL_USE_SSL = env.bool('EMAIL_USE_SSL', default=True)
 EMAIL_HOST_USER = env('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER)
+
+# Encrypts the developer portal's stored keys (platform_admin/vault.py).
+PLATFORM_VAULT_KEY = env('PLATFORM_VAULT_KEY', default='')
+# Where encrypted platform backups are kept on the server (platform_admin/backups.py).
+# Outside public_html on cPanel. Default: <project>/backups.
+PLATFORM_BACKUP_ROOT = env.str('PLATFORM_BACKUP_ROOT', default='')

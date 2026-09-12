@@ -1,1 +1,0 @@
-import{z as o,j as t,l as e}from"./index-HDTyh7ny.js";import{L as s}from"./react-DQKhqSNd.js";function r(){return o("الصفحة غير موجودة"),t.jsx(e,{icon:"🧭",title:"الصفحة غير موجودة",message:"ربما تغيّر الرابط أو لم يعد هذا السجل متاحاً لك.",action:t.jsx(s,{to:"/",children:"العودة للرئيسية"})})}export{r as NotFoundPage};

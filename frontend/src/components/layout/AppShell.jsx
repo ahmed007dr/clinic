@@ -5,6 +5,7 @@ import { Toasts } from '@/components/ui'
 
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
+import { SupportBanner } from './SupportBanner'
 import './layout.css'
 
 /**
@@ -51,6 +52,7 @@ export function AppShell() {
       )}
 
       <div className="shell__main">
+        <SupportBanner />
         <Header onToggleMenu={() => setDrawerOpen((open) => !open)} menuOpen={drawerOpen} />
         <main className="shell__content" id="main">
           <Outlet />

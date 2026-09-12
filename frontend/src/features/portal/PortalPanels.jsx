@@ -5,7 +5,10 @@ import {
   Button,
   EmptyState,
   ErrorState,
+  Input,
   Loading,
+  Modal,
+  Select,
   APPOINTMENT_TONES,
   LAB_TONES,
 } from '@/components/ui'
@@ -34,22 +37,90 @@ function Card({ className = '', children }) {
 }
 
 export function AppointmentsPanel() {
+  const [paying, setPaying] = useState(null)
   return (
-    <PortalList load={(api) => api.appointments()} empty="لا توجد مواعيد">
-      {(a) => (
-        <Card key={a.uuid}>
-          <div className="portal-card__row">
-            <strong>{formatDateTime(a.scheduled_date)}</strong>
-            <Badge tone={APPOINTMENT_TONES[a.status] ?? 'neutral'}>{a.status_label}</Badge>
-          </div>
-          <div className="ui-muted">
-            {a.status === 'requested'
-              ? 'بانتظار تأكيد العيادة'
-              : [a.service_name, a.doctor_name].filter(Boolean).join(' · ') || '—'}
-          </div>
-        </Card>
+    <>
+      <PortalList load={(api) => api.appointments()} empty="لا توجد مواعيد">
+        {(a) => (
+          <Card key={a.uuid}>
+            <div className="portal-card__row">
+              <strong>{formatDateTime(a.scheduled_date)}</strong>
+              <Badge tone={APPOINTMENT_TONES[a.status] ?? 'neutral'}>{a.status_label}</Badge>
+            </div>
+            <div className="ui-muted">
+              {a.status === 'requested'
+                ? 'بانتظار تأكيد العيادة'
+                : [a.service_name, a.doctor_name].filter(Boolean).join(' · ') || '—'}
+            </div>
+            {Number(a.due) > 0 && (
+              <div className="portal-card__row">
+                <span>المستحق: <strong>{formatMoney(a.due)}</strong></span>
+                {a.can_pay_online && (
+                  <Button size="sm" variant="primary" onClick={() => setPaying(a)}>ادفع أونلاين</Button>
+                )}
+              </div>
+            )}
+          </Card>
+        )}
+      </PortalList>
+      {paying && <PayOnline appointment={paying} onClose={() => setPaying(null)} />}
+    </>
+  )
+}
+
+/** Pay a booking with the clinic's own gateway; the gateway's page takes over
+ * and sends the patient back here when done. */
+function PayOnline({ appointment, onClose }) {
+  const { api } = usePortal()
+  const toast = useToast()
+  const options = useAsync(() => api.payOptions(), [api])
+  const [method, setMethod] = useState('')
+  const [phone, setPhone] = useState('')
+  const [busy, setBusy] = useState(false)
+  const methods = options.data?.methods ?? []
+  const chosen = method || methods[0]?.kind || ''
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`دفع ${formatMoney(appointment.due)}`}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>إلغاء</Button>
+          <Button
+            variant="primary"
+            loading={busy}
+            disabled={!chosen || (chosen === 'vodafone_cash' && !phone)}
+            onClick={async () => {
+              setBusy(true)
+              try {
+                const { redirect_url: url } = await api.payAppointment(appointment.uuid, { method: chosen, phone })
+                window.location.assign(url)
+              } catch (caught) {
+                toast.error(caught.message)
+                setBusy(false)
+              }
+            }}
+          >
+            متابعة للدفع
+          </Button>
+        </>
+      }
+    >
+      {options.loading ? <Loading /> : (
+        <div className="ui-stack">
+          <Select id="portal-pay-method" label="طريقة الدفع"
+            options={methods.map((m) => ({ value: m.kind, label: m.label }))}
+            value={chosen} onChange={(e) => setMethod(e.target.value)} />
+          {chosen === 'vodafone_cash' && (
+            <Input id="portal-pay-phone" label="رقم محفظة فودافون كاش" dir="ltr" inputMode="tel" required
+              value={phone} onChange={(e) => setPhone(e.target.value)} />
+          )}
+          <p className="ui-muted" style={{ margin: 0 }}>ستنتقل إلى صفحة الدفع الآمنة ثم تعود إلى هنا.</p>
+        </div>
       )}
-    </PortalList>
+    </Modal>
   )
 }
 

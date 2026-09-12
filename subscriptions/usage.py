@@ -67,7 +67,7 @@ def limits_table(tenant, subscription=None, usage=None):
     usage = usage if usage is not None else usage_for(tenant)
     rows = []
     for field, label in LIMITS.items():
-        allowed = getattr(subscription.plan, field) if subscription else 0
+        allowed = subscription.allowed(field) if subscription else 0
         used = usage.get(field)
         rows.append({
             "key": field,

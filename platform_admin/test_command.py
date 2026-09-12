@@ -34,8 +34,9 @@ class CreatePlatformAdminTests(TestCase):
             {"email": "gen@platform.local", "password": password},
             content_type="application/json",
         )
+        # The password works; the second step (enrolment) is what comes next.
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["platform_user"]["email"], "gen@platform.local")
+        self.assertEqual(response.json()["two_factor"], "enroll")
 
     def test_an_existing_email_is_refused(self):
         self.run_command("dup@platform.local", "--password", "pass12345")

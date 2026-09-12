@@ -16,15 +16,17 @@ Teaching it to honour a session value would put exactly that mechanism into
 every request in the application. Instead the inspection views enter
 `tenant_context` themselves, explicitly, for the duration of one read.
 
-And it does not make cross-tenant writing a general capability. Clinical data
-is readable and nothing more. The only tenant-owned write platform staff can
-make is changing a subscription's plan, which is the commercial relationship
-rather than a patient record, and it is POST-only, narrow and audited.
+Writing into a clinic changed with the group owner's decision of 2026-09-11:
+the platform has full control, medical records included. It still goes
+through no bypass: a full administrator either changes platform-side records
+(group, subscription, accounts) inside that group's `tenant_context`, or signs
+in *as* one of the group's accounts for a limited time
+(platform_admin/impersonation.py) — the ordinary clinic application, under
+the ordinary tenant binding, announced to the group's owners and audited.
+Support staff (`platform_role == "support"`) only ever read.
 """
 
-from functools import wraps
 
-from django.core.exceptions import PermissionDenied
 
 
 def is_platform_staff(user):
@@ -46,18 +48,9 @@ def is_platform_staff(user):
     )
 
 
-def platform_staff_required(view):
-    """403 rather than a redirect to login.
-
-    A redirect would tell an ordinary tenant user that the URL exists and is
-    merely gated, and would bounce an already-authenticated user to a login
-    page they are already past. Refusing outright says less and behaves better.
-    """
-
-    @wraps(view)
-    def wrapper(request, *args, **kwargs):
-        if not is_platform_staff(request.user):
-            raise PermissionDenied
-        return view(request, *args, **kwargs)
-
-    return wrapper
+def is_platform_super(user):
+    """A full platform administrator — the only operator who may change
+    anything. Support staff (`platform_role == "support"`) look, and that is
+    all; an operator created before roles existed was migrated to "super"
+    (accounts.0009)."""
+    return is_platform_staff(user) and getattr(user, "platform_role", "") == "super"

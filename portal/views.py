@@ -235,7 +235,10 @@ class AppointmentsView(PortalView):
             .select_related("doctor", "service")
             .order_by("-scheduled_date")[:LIST_CAP]
         )
-        return Response([appointment_payload(a) for a in rows])
+        from platform_admin.clinic_pay import methods_for
+
+        methods = methods_for(self.tenant, self.patient.branch)
+        return Response([appointment_payload(a, can_pay=bool(methods)) for a in rows])
 
     def post(self, request, slug):
         """Request an appointment. Reception confirms it; nothing enters a
@@ -265,8 +268,13 @@ class AppointmentsView(PortalView):
         return Response(appointment_payload(appointment), status=201)
 
 
-def appointment_payload(a):
+def appointment_payload(a, can_pay=False):
+    from platform_admin.clinic_pay import due
+
+    owed = due(a)
     return {
+        "due": str(owed),
+        "can_pay_online": can_pay and owed > 0,
         "uuid": str(a.uuid),
         "serial_number": a.serial_number,
         "scheduled_date": a.scheduled_date,
@@ -275,6 +283,45 @@ def appointment_payload(a):
         "doctor_name": getattr(a.doctor, "name", None),
         "service_name": getattr(a.service, "name", None),
     }
+
+
+class PayOptionsView(PortalView):
+    """The gateways this clinic takes online payments through — its own keys,
+    set in the developer portal; empty when it has none."""
+
+    def get(self, request, slug):
+        from platform_admin.clinic_pay import methods_for
+
+        return Response({"methods": methods_for(self.tenant, self.patient.branch)})
+
+
+class AppointmentPayView(PortalView):
+    """Start paying a booking online; returns where to send the browser."""
+
+    def post(self, request, slug, uuid):
+        from platform_admin import clinic_pay
+        from platform_admin.gateways import GatewayError
+
+        appointment = Appointment.objects.filter(uuid=uuid, patient=self.patient).select_related("branch").first()
+        if appointment is None:
+            return Response({"detail": "الحجز غير موجود."}, status=404)
+        method = request.data.get("method")
+        payer = {
+            "name": self.patient.name,
+            "email": getattr(self.patient, "email", "") or "",
+            "phone": str(request.data.get("phone") or getattr(self.patient, "phone1", "") or "").strip(),
+            "id": str(self.patient.uuid),
+            "description": f"حجز {appointment.serial_number}",
+        }
+        try:
+            result = clinic_pay.start(
+                self.tenant, appointment, method, payer=payer,
+                return_url=request.build_absolute_uri(f"/api/pay/{method}/callback/"),
+            )
+        except GatewayError as error:
+            return Response({"detail": str(error)}, status=400)
+        self.audit(f"online payment start {result['reference']}", model_name="Appointment", object_id=appointment.pk)
+        return Response(result)
 
 
 class VisitsView(PortalView):

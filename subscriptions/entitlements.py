@@ -154,7 +154,7 @@ def get_limit(tenant, limit):
     subscription = current_subscription(tenant)
     if subscription is None:
         return 0
-    return getattr(subscription.plan, limit)
+    return subscription.allowed(limit)
 
 
 def check_limit(tenant, limit, current_count):

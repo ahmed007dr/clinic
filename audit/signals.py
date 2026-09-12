@@ -35,10 +35,16 @@ def _staff_user(user):
 
 def _attributed(user, description):
     """Name the patient in the entry when the actor came through the portal,
-    since there is no staff user to record."""
+    since there is no staff user to record — and the developer when the
+    account was being used for platform support ("login as")."""
     patient = getattr(user, "patient", None) if _staff_user(user) is None else None
     if patient is not None:
         return f"[portal] patient {patient.serial_number}: {description}".strip()
+    request = get_current_request()
+    session = getattr(request, "session", None) if request is not None else None
+    support = session.get("platform_support") if session is not None else None
+    if support:
+        return f"[support: {support.get('operator_email')}] {description}".strip()
     return description
 
 

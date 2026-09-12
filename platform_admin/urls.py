@@ -1,13 +1,14 @@
-from django.urls import path
+"""The old server-rendered platform pages, retired.
 
-from .views import tenant_change_plan, tenant_detail, tenant_list, tenant_set_status
+The developer portal is the React application at `/app/platform` (docs/06
+PLAT-000..). These addresses only redirect there, so bookmarks keep working.
+"""
+
+from django.urls import re_path
+from django.views.generic import RedirectView
 
 app_name = "platform_admin"
 
 urlpatterns = [
-    path("", tenant_list, name="tenant_list"),
-    path("tenant/<uuid:uuid>/", tenant_detail, name="tenant_detail"),
-    # Both state changes are POST-only; see views.py.
-    path("tenant/<uuid:uuid>/status/", tenant_set_status, name="tenant_set_status"),
-    path("tenant/<uuid:uuid>/plan/", tenant_change_plan, name="tenant_change_plan"),
+    re_path(r"^.*$", RedirectView.as_view(url="/app/platform", permanent=True), name="retired"),
 ]

@@ -111,9 +111,28 @@ export const PlatformShell = page(() => import('@/features/platform/PlatformShel
 const PlatformTenantsPage = page(() => import('@/features/platform/PlatformTenantsPage'), 'PlatformTenantsPage')
 const PlatformTenantPage = page(() => import('@/features/platform/PlatformTenantPage'), 'PlatformTenantPage')
 
+const PlatformOverviewPage = page(() => import('@/features/platform/PlatformOverviewPage'), 'PlatformOverviewPage')
+const PlatformOnlinePage = page(() => import('@/features/platform/PlatformOnlinePage'), 'PlatformOnlinePage')
+const PlatformIntegrationsPage = page(() => import('@/features/platform/PlatformIntegrationsPage'), 'PlatformIntegrationsPage')
+const PlatformMailboxesPage = page(() => import('@/features/platform/PlatformMailboxesPage'), 'PlatformMailboxesPage')
+const PlatformBillingPage = page(() => import('@/features/platform/PlatformBillingPage'), 'PlatformBillingPage')
+const PlatformPlansPage = page(() => import('@/features/platform/PlatformPlansPage'), 'PlatformPlansPage')
+const PlatformAnalyticsPage = page(() => import('@/features/platform/PlatformAnalyticsPage'), 'PlatformAnalyticsPage')
+const PlatformBackupsPage = page(() => import('@/features/platform/PlatformBackupsPage'), 'PlatformBackupsPage')
+const PlatformSignupsPage = page(() => import('@/features/platform/PlatformSignupsPage'), 'PlatformSignupsPage')
+
 export const platformRoutes = [
-  { index: true, element: PlatformTenantsPage },
+  { index: true, element: PlatformOverviewPage },
+  { path: 'tenants', element: PlatformTenantsPage },
   { path: 'tenants/:uuid', element: PlatformTenantPage },
+  { path: 'online', element: PlatformOnlinePage },
+  { path: 'signups', element: PlatformSignupsPage },
+  { path: 'analytics', element: PlatformAnalyticsPage },
+  { path: 'billing', element: PlatformBillingPage },
+  { path: 'plans', element: PlatformPlansPage },
+  { path: 'integrations', element: PlatformIntegrationsPage },
+  { path: 'mailboxes', element: PlatformMailboxesPage },
+  { path: 'backups', element: PlatformBackupsPage },
 ]
 
 /* The patient portal — patients only, mobile-first. */

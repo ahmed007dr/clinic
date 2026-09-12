@@ -21,6 +21,9 @@ export function portalApi(slug) {
     attachments: () => get('attachments/'),
     downloadAttachment: (uuid, name) => http.download(`${base}/attachments/${uuid}/download/`, name),
     payments: () => get('payments/'),
+    /** Online payment with the clinic's own gateway keys (empty when none). */
+    payOptions: () => get('pay/options/'),
+    payAppointment: (uuid, body) => http.post(`${base}/appointments/${uuid}/pay/`, body),
     plans: () => get('treatment-plans/'),
     allergies: () => get('allergies/'),
     /** New-patient self-registration, when the group has turned it on. */

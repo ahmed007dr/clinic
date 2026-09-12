@@ -8,9 +8,10 @@ unchanged rather than a looser copy of them (see platform_admin/permissions.py):
 * **One tenant at a time.** Cross-tenant reach is entering one clinic's
   `tenant_context` on the ordinary connection for the duration of one read. No
   privileged connection, no BYPASSRLS, and `TenantMiddleware` is untouched.
-* **Clinical data is never written.** The only tenant-owned write is moving a
-  subscription between plans. Suspending a clinic writes to `Tenant`, a platform
-  model with no isolation policy.
+* **Writes are narrow and explicit.** This module moves a subscription between
+  plans and changes a group's status; wider control (accounts, clinics,
+  services, "login as" for support) lives in api/platform_control.py, under the
+  same rules — see platform_admin/permissions.py.
 * **Audited.** Opening a clinic's record is written to *that clinic's* audit
   trail, as are status and plan changes and onboarding — the audit is the
   control, so failures propagate.
@@ -20,12 +21,9 @@ same provisioning, one transaction, and a generated password shown once.
 """
 
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError as DjangoValidationError
-from django.core.validators import validate_email, validate_slug
 from django.db import transaction
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404
-from django.utils.text import slugify
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -34,26 +32,32 @@ from appointments.models import Appointment
 from billing.models import Payment
 from medical.models import Visit
 from platform_admin.audit import record
-from platform_admin.permissions import is_platform_staff
+from platform_admin.permissions import is_platform_staff, is_platform_super
 from subscriptions.entitlements import current_subscription, resolve_features
 from subscriptions.models import Plan, Subscription
 from subscriptions.usage import limits_table, usage_for
 from tenants.context import tenant_context
 from tenants.models import Tenant
-from tenants.provisioning import (
-    create_first_branch,
-    create_tenant_admin,
-    provision_tenant_defaults,
-)
 
 User = get_user_model()
 
 
 class IsPlatformStaff(permissions.BasePermission):
+    """Any operator may read; only a full administrator may change anything
+    (platform_admin.permissions.is_platform_super) — support staff are
+    read-only by role, not by courtesy of the screens."""
+
     message = "هذه الصفحة مقصورة على مشغّلي المنصة."
 
     def has_permission(self, request, view):
-        return is_platform_staff(request.user)
+        if not is_platform_staff(request.user):
+            return False
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        if not is_platform_super(request.user):
+            self.message = "حساب الدعم الفني للقراءة فقط."
+            return False
+        return True
 
 
 def plan_data(plan):
@@ -120,48 +124,15 @@ class TenantListView(APIView):
         })
 
     def post(self, request):
-        """Onboard a clinic — `manage.py create_tenant`, from the screen."""
-        data = request.data
-        errors = {}
+        """Onboard a clinic — `manage.py create_tenant`, from the screen
+        (platform_admin/onboarding.py)."""
+        from platform_admin.onboarding import clean, onboard
 
-        name = (data.get("name") or "").strip()
-        slug = (data.get("slug") or slugify(name)).strip().lower()
-        email = (data.get("admin_email") or "").strip().lower()
-        branch_name = (data.get("branch_name") or "الفرع الرئيسي").strip()
-        branch_code = (data.get("branch_code") or "MAIN").strip().upper()[:20]
-        tenant_status = data.get("status") or Tenant.Status.TRIAL
-
-        if not name:
-            errors["name"] = ["اسم العيادة مطلوب."]
-        if not slug:
-            # slugify() returns "" for Arabic, and a blank slug is unusable.
-            errors["slug"] = ["أدخل معرّفاً لاتينياً للعيادة (مثال: dr-ahmed)."]
-        else:
-            try:
-                validate_slug(slug)
-            except DjangoValidationError:
-                errors["slug"] = ["المعرّف يقبل حروفاً لاتينية وأرقاماً و - فقط."]
-            if Tenant.objects.filter(slug=slug).exists():
-                errors["slug"] = ["يوجد عيادة بهذا المعرّف بالفعل."]
-        try:
-            validate_email(email)
-        except DjangoValidationError:
-            errors["admin_email"] = ["بريد إلكتروني غير صالح."]
-        else:
-            if User.objects.filter(email__iexact=email).exists():
-                errors["admin_email"] = ["هذا البريد مستخدم بالفعل."]
-        if tenant_status not in dict(Tenant.Status.choices):
-            errors["status"] = ["حالة غير صالحة."]
+        values, errors = clean(request.data)
         if errors:
             return Response(errors, status=status.HTTP_400_BAD_REQUEST)
-
         with transaction.atomic():
-            tenant = Tenant.objects.create(name=name, slug=slug, status=tenant_status)
-            provision_tenant_defaults(tenant)
-            branch = create_first_branch(tenant, branch_name, branch_code)
-            admin, password = create_tenant_admin(
-                tenant, email=email, username="admin", branch=branch
-            )
+            tenant, admin, password = onboard(values)
             record(
                 request, tenant, "onboard",
                 f"created {tenant.slug} with administrator {admin.email}",
@@ -270,3 +241,63 @@ class TenantPlanView(APIView):
                 model_name="Subscription", object_id=subscription.pk,
             )
         return Response(tenant_summary(tenant))
+
+
+# ------------------------------------------------------------- monitoring
+# Developer portal, phase 1 (platform_admin/monitoring.py holds the queries).
+
+
+class OverviewView(APIView):
+    """Every group with its people, activity and limits, and the totals."""
+
+    permission_classes = [IsPlatformStaff]
+
+    def get(self, request):
+        from platform_admin.monitoring import overview
+
+        return Response(overview())
+
+
+class TenantPeopleView(APIView):
+    """One group's clinics (doctors, employees, accounts, online) and every
+    account with its last activity."""
+
+    permission_classes = [IsPlatformStaff]
+
+    def get(self, request, uuid):
+        from platform_admin.monitoring import people_of
+
+        tenant = get_object_or_404(Tenant, uuid=uuid)
+        data = people_of(tenant)
+        record(
+            request, tenant, "inspect",
+            f"viewed the accounts and clinics of {tenant.slug}",
+            model_name="Tenant", object_id=tenant.pk,
+        )
+        return Response(data)
+
+
+class OnlineView(APIView):
+    """Who is active right now, across every group."""
+
+    permission_classes = [IsPlatformStaff]
+
+    def get(self, request):
+        from platform_admin.monitoring import online_now
+
+        return Response(online_now())
+
+
+class AnalyticsView(APIView):
+    """The platform's figures (platform_admin/analytics.py): `?months=12`."""
+
+    permission_classes = [IsPlatformStaff]
+
+    def get(self, request):
+        from platform_admin.analytics import report
+
+        try:
+            months = int(request.query_params.get("months") or 12)
+        except ValueError:
+            months = 12
+        return Response(report(months))

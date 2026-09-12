@@ -39,7 +39,43 @@ from api.serializers.accounts import (
 
 
 def platform_payload(user):
-    return {"username": user.username, "email": user.email}
+    return {
+        "username": user.username,
+        "email": user.email,
+        "role": user.platform_role or "super",
+        "role_label": user.get_platform_role_display() if user.platform_role else "مدير المنصة",
+    }
+
+
+# ------------------------------------------------------------ two-step sign-in
+
+PENDING_KEY = "platform_2fa_pending"
+#: Seconds a correct password stays good for while the code is typed.
+PENDING_FOR = 300
+#: A platform session lasts a working day, not the default two weeks.
+PLATFORM_SESSION_SECONDS = 8 * 60 * 60
+
+
+def start_two_factor(request, user):
+    """Password accepted: remember who, briefly, and ask for the code — or,
+    on the very first sign-in, hand over the secret to enrol with."""
+    import time
+
+    from accounts import totp
+
+    request.session[PENDING_KEY] = {"user": user.pk, "at": int(time.time())}
+    if user.totp_confirmed_at is None:
+        if not user.totp_secret:
+            user.totp_secret = totp.new_secret()
+            user.save(update_fields=["totp_secret"])
+        uri = totp.provisioning_uri(user.totp_secret, user.email)
+        return Response({
+            "two_factor": "enroll",
+            "secret": user.totp_secret,
+            "otpauth_uri": uri,
+            "qr_svg": totp.qr_svg(uri),
+        })
+    return Response({"two_factor": "verify"})
 
 
 class LoginRateThrottle(AnonRateThrottle):
@@ -76,9 +112,19 @@ class SessionView(APIView):
                     "platform_user": platform_payload(user),
                 })
             return Response({"authenticated": True, "user": None})
-        return Response(
-            {"authenticated": True, "user": CurrentUserSerializer(user).data}
-        )
+        from platform_admin.impersonation import current
+
+        support = current(request)
+        return Response({
+            "authenticated": True,
+            "user": CurrentUserSerializer(user).data,
+            # A developer signed in as this account for support: the app
+            # shows who, until when, and a way back.
+            "support": {
+                "operator_email": support["operator_email"],
+                "until": support["until"],
+            } if support else None,
+        })
 
 
 @method_decorator(sensitive_post_parameters("password"), name="dispatch")
@@ -105,8 +151,9 @@ class LoginView(APIView):
             )
         if getattr(user, "tenant_id", None) is None:
             if is_platform_staff(user):
-                login(request, user)
-                return Response({"user": None, "platform_user": platform_payload(user)})
+                # Not signed in yet: the one-time code comes first
+                # (TwoFactorView, accounts.middleware.PlatformTwoFactorMiddleware).
+                return start_two_factor(request, user)
             return Response(
                 {"detail": "هذا الحساب غير مرتبط بعيادة."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -181,3 +228,56 @@ class ActiveBranchView(APIView):
         request.session[SESSION_KEY] = branch.pk
         request.user.active_branch_id = branch.pk
         return Response({"user": CurrentUserSerializer(request.user).data})
+
+
+
+class TwoFactorView(APIView):
+    """`POST {code}` — the second step of a platform sign-in: a code from the
+    authenticator app, or one of the recovery codes. The first successful
+    code also completes enrolment and returns the recovery codes, once."""
+
+    permission_classes = [AllowAny]
+    throttle_classes = [LoginRateThrottle]
+
+    def post(self, request):
+        import time
+
+        from django.contrib.auth import get_user_model
+        from django.utils import timezone
+
+        from accounts import totp
+        from accounts.middleware import TWO_FACTOR_KEY
+
+        pending = request.session.get(PENDING_KEY) or {}
+        if not pending or time.time() - pending.get("at", 0) > PENDING_FOR:
+            request.session.pop(PENDING_KEY, None)
+            return Response(
+                {"detail": "انتهت مهلة التحقق. سجّل الدخول من جديد."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        user = get_user_model().objects.filter(pk=pending.get("user")).first()
+        if user is None or not is_platform_staff(user):
+            request.session.pop(PENDING_KEY, None)
+            return Response({"detail": "تعذّر التحقق."}, status=status.HTTP_400_BAD_REQUEST)
+
+        code = str(request.data.get("code") or "").strip()
+        enrolling = user.totp_confirmed_at is None
+        recovery = []
+        if totp.verify(user.totp_secret, code):
+            if enrolling:
+                user.totp_confirmed_at = timezone.now()
+                recovery, hashes = totp.new_recovery_codes()
+                user.totp_recovery_codes = hashes
+                user.save(update_fields=["totp_confirmed_at", "totp_recovery_codes"])
+        elif enrolling or not totp.use_recovery_code(user, code):
+            return Response({"code": ["الكود غير صحيح."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        request.session.pop(PENDING_KEY, None)
+        login(request, user)
+        request.session[TWO_FACTOR_KEY] = True
+        request.session.set_expiry(PLATFORM_SESSION_SECONDS)
+        return Response({
+            "user": None,
+            "platform_user": platform_payload(user),
+            # Shown once, at enrolment; only their hashes are kept.
+            "recovery_codes": recovery,
+        })

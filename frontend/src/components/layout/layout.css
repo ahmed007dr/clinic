@@ -337,3 +337,16 @@
     padding: var(--s3);
   }
 }
+
+/* A developer signed in as this account for support (SupportBanner.jsx). */
+.support-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2) var(--s3);
+  padding: var(--s2) var(--s4);
+  background: var(--warn-soft);
+  border-bottom: 1px solid var(--warn);
+  font-size: var(--text-sm);
+}

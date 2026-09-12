@@ -103,6 +103,10 @@ export const auth = {
   session: () => http.get('/auth/session/'),
   login: (email, password) => http.post('/auth/login/', { email, password }),
   logout: () => http.post('/auth/logout/'),
+  /** The second step of a platform sign-in: authenticator or recovery code. */
+  twoFactor: (code) => http.post('/auth/two-factor/', { code }),
+  /** Leave a developer's "login as" support session. */
+  endSupport: () => http.post('/auth/support/end/'),
   changePassword: (currentPassword, newPassword) =>
     http.post('/auth/password/', {
       current_password: currentPassword,
@@ -122,8 +126,17 @@ export const shifts = {
   reopen: (uuid) => http.post(`/shifts/${uuid}/reopen/`),
 }
 
+/** Asking to open a clinic group (public). */
+export const signup = {
+  options: () => http.get('/signup/options/'),
+  submit: (body) => http.post('/signup/', body),
+}
+
 export const subscription = {
   get: () => http.get('/subscription/'),
+  /* The group's invoices from the platform, and paying one online. */
+  invoices: () => http.get('/subscription/invoices/'),
+  pay: (id, body) => http.post(`/subscription/invoices/${id}/pay/`, body),
 }
 
 export const platform = {
@@ -133,6 +146,57 @@ export const platform = {
   setStatus: (uuid, status) => http.post(`/platform/tenants/${uuid}/status/`, { status }),
   setPlan: (uuid, plan) => http.post(`/platform/tenants/${uuid}/plan/`, { plan }),
   plans: () => http.get('/platform/plans/'),
+  /* Developer portal — monitoring (platform_admin/monitoring.py). */
+  overview: () => http.get('/platform/overview/'),
+  online: () => http.get('/platform/online/'),
+  analytics: (params) => http.get('/platform/analytics/', params),
+  /* Backups, exports and imports (api/platform_backups.py). */
+  backups: () => http.get('/platform/backups/'),
+  startBackup: () => http.post('/platform/backups/'),
+  setBackupPolicy: (body) => http.patch('/platform/backups/policy/', body),
+  cpanelBackup: () => http.post('/platform/backups/cpanel/'),
+  downloadBackup: (id, name) => http.download(`/platform/backups/${id}/download/`, name),
+  exportGroup: (uuid, name, files = true) =>
+    http.download(`/platform/tenants/${uuid}/export/${files ? '' : '?files=0'}`, name),
+  importGroup: (formData) => http.post('/platform/imports/', formData),
+  people: (uuid) => http.get(`/platform/tenants/${uuid}/people/`),
+  branches: (uuid) => http.get(`/platform/tenants/${uuid}/branches/`),
+  /* Full control over a group (api/platform_control.py). */
+  editTenant: (uuid, body) => http.patch(`/platform/tenants/${uuid}/edit/`, body),
+  addOwner: (uuid, body) => http.post(`/platform/tenants/${uuid}/owners/`, body),
+  setBranchActive: (uuid, id, active) => http.post(`/platform/tenants/${uuid}/branches/${id}/active/`, { active }),
+  accountAction: (uuid, action) => http.post(`/platform/accounts/${uuid}/${action}/`),
+  entitlements: (uuid) => http.get(`/platform/tenants/${uuid}/entitlements/`),
+  setEntitlements: (uuid, body) => http.patch(`/platform/tenants/${uuid}/entitlements/`, body),
+  supportSessions: (uuid) => http.get(`/platform/tenants/${uuid}/support/`),
+  startSupport: (uuid, body) => http.post(`/platform/tenants/${uuid}/support/`, body),
+  /* Keys and passwords — entered here only, returned masked (platform_admin/vault.py). */
+  integrations: (params) => http.get('/platform/integrations/', params),
+  saveIntegration: (body) => http.post('/platform/integrations/', body),
+  updateIntegration: (id, body) => http.patch(`/platform/integrations/${id}/`, body),
+  removeIntegration: (id) => http.delete(`/platform/integrations/${id}/`),
+  testIntegration: (id, mode) => http.post(`/platform/integrations/${id}/test/`, { mode }),
+  mailboxes: (params) => http.get('/platform/mailboxes/', params),
+  createMailbox: (body) => http.post('/platform/mailboxes/', body),
+  /* Subscriptions billing (platform_admin/billing.py). */
+  balances: () => http.get('/platform/billing/'),
+  billing: (uuid) => http.get(`/platform/tenants/${uuid}/billing/`),
+  setTerms: (uuid, body) => http.patch(`/platform/tenants/${uuid}/billing/`, body),
+  addDiscount: (uuid, body) => http.post(`/platform/tenants/${uuid}/billing/discounts/`, body),
+  removeDiscount: (uuid, id) => http.delete(`/platform/tenants/${uuid}/billing/discounts/`, { params: { id } }),
+  issueInvoice: (uuid, body) => http.post(`/platform/tenants/${uuid}/billing/invoices/`, body),
+  voidInvoice: (id, reason) => http.post(`/platform/billing/invoices/${id}/void/`, { reason }),
+  recordPayment: (uuid, body) => http.post(`/platform/tenants/${uuid}/billing/payments/`, body),
+  markLate: (uuid, note) => http.post(`/platform/tenants/${uuid}/billing/late/`, { note }),
+  clearLate: (uuid) => http.delete(`/platform/tenants/${uuid}/billing/late/`),
+  /* Requests to open a clinic group (api/signup.py). */
+  signups: (params) => http.get('/platform/signups/', params),
+  approveSignup: (id, body) => http.post(`/platform/signups/${id}/approve/`, body),
+  rejectSignup: (id, body) => http.post(`/platform/signups/${id}/reject/`, body),
+  /* The plan catalogue. */
+  managePlans: () => http.get('/platform/plans/manage/'),
+  createPlan: (body) => http.post('/platform/plans/manage/', body),
+  updatePlan: (id, body) => http.patch(`/platform/plans/${id}/`, body),
 }
 
 export const clinicSettings = {
@@ -236,6 +300,7 @@ export const api = {
   dashboard,
   subscription,
   platform,
+  signup,
   clinicSettings,
   meta,
   intake,

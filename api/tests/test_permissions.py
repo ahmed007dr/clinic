@@ -19,6 +19,7 @@ from medical.models import Visit
 from patients.models import Patient
 from tenants.context import tenant_context
 from tenants.models import Tenant
+from tenants.testing import login_platform
 
 User = get_user_model()
 
@@ -259,11 +260,11 @@ class PlatformStaffTests(TestCase):
     def setUp(self):
         self.operator = User.objects.create_user(
             username="operator", email="ops@platform.local", password="pass12345",
-            tenant=None, is_platform_staff=True,
+            tenant=None, is_platform_staff=True, platform_role="super",
         )
 
     def test_a_platform_operator_cannot_use_the_clinic_api(self):
-        self.client.login(email="ops@platform.local", password="pass12345")
+        login_platform(self.client, "ops@platform.local")
         response = self.client.get(reverse("api:patient-list"))
         self.assertEqual(response.status_code, 403)
 
@@ -273,10 +274,12 @@ class PlatformStaffTests(TestCase):
             {"email": "ops@platform.local", "password": "pass12345"},
             content_type="application/json",
         )
+        # The password alone opens nothing: the one-time code comes next
+        # (api/tests/test_platform_security.py covers that step).
         self.assertEqual(response.status_code, 200)
-        self.assertIsNone(response.json()["user"])
-        self.assertEqual(response.json()["platform_user"]["email"], "ops@platform.local")
-        # Signed in, and still refused by the clinic API.
+        self.assertEqual(response.json()["two_factor"], "enroll")
+        # Fully signed in, an operator is still refused by the clinic API.
+        login_platform(self.client, "ops@platform.local")
         self.assertEqual(self.client.get(reverse("api:patient-list")).status_code, 403)
 
 

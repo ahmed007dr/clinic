@@ -17,10 +17,14 @@ import {
 } from '@/components/ui'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useAsync, useMutation } from '@/hooks/useApi'
+import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
 import { formatDate, formatMoney, formatNumber } from '@/lib/format'
 
 import { STATUS_TONES } from './PlatformTenantsPage'
+import { TenantBilling } from './TenantBilling'
+import { TenantControl } from './TenantControl'
+import { TenantPeople } from './TenantPeople'
 
 const STATUSES = [
   { value: 'trial', label: 'تجريبي' },
@@ -38,6 +42,9 @@ const STATUSES = [
  * is the act worth recording.
  */
 export function PlatformTenantPage() {
+  const { platformUser } = useAuth()
+  // Support accounts are read-only (the server refuses them anyway).
+  const canChange = platformUser?.role === 'super'
   const { uuid } = useParams()
   const toast = useToast()
   const { data, loading, error, reload } = useAsync(() => api.platform.tenant(uuid), [uuid])
@@ -84,7 +91,7 @@ export function PlatformTenantPage() {
       />
 
       <p className="ui-muted" style={{ fontSize: 'var(--text-sm)', marginTop: 'calc(-1 * var(--s3))' }}>
-        فتح هذه الصفحة يُسجَّل في سجل تدقيق العيادة. البيانات الطبية للعرض فقط.
+        فتح هذه الصفحة يُسجَّل في سجل تدقيق المجموعة. للعمل داخل العيادة نفسها (ومنها السجلات الطبية) استخدم «دخول كـ» من جدول الحسابات.
       </p>
 
       <div className="ui-stack">
@@ -104,7 +111,7 @@ export function PlatformTenantPage() {
                   <Select label="الحالة" options={STATUSES} value={status}
                     onChange={(event) => setStatus(event.target.value)} />
                 </div>
-                <Button onClick={() => setConfirm('status')} disabled={status === data.status}>
+                <Button onClick={() => setConfirm('status')} disabled={!canChange || status === data.status}>
                   تطبيق
                 </Button>
               </div>
@@ -127,13 +134,19 @@ export function PlatformTenantPage() {
                     onChange={(event) => setPlan(event.target.value)}
                   />
                 </div>
-                <Button onClick={() => setConfirm('plan')} disabled={!plan || plan === data.plan?.code}>
+                <Button onClick={() => setConfirm('plan')} disabled={!canChange || !plan || plan === data.plan?.code}>
                   تطبيق
                 </Button>
               </div>
             </CardBody>
           </Card>
         </div>
+
+        <TenantPeople tenant={uuid} />
+
+        <TenantControl tenant={uuid} summary={data} onChanged={reload} />
+
+        <TenantBilling tenant={uuid} />
 
         <Card>
           <CardHeader title="الاستهلاك مقابل الباقة" />

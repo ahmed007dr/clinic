@@ -57,5 +57,5 @@ export function RequirePlatform({ children }) {
   if (loading) return <Loading message="جارٍ التحقق من الجلسة…" />
   if (isPlatform) return children
   if (isAuthenticated) return <Navigate to="/" replace />
-  return <Navigate to="/login" replace state={{ from: location }} />
+  return <Navigate to="/platform/login" replace state={{ from: location }} />
 }

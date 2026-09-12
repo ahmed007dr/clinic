@@ -46,6 +46,29 @@ class User(AbstractUser):
         help_text="SaaS operator rather than a member of any one clinic.",
     )
 
+    # Platform operators come in two kinds (platform_admin.permissions): a
+    # full administrator, and support who may look but not change anything.
+    # Meaningless for clinic users.
+    class PlatformRole(models.TextChoices):
+        SUPER = "super", "مدير المنصة"
+        SUPPORT = "support", "دعم فني (قراءة فقط)"
+
+    platform_role = models.CharField(
+        max_length=10, choices=PlatformRole.choices, blank=True, default="",
+    )
+
+    # Two-step sign-in (accounts/totp.py) — mandatory for platform operators,
+    # whose reach is every clinic. The secret is set at enrolment and only
+    # counts once `totp_confirmed_at` proves the authenticator app has it.
+    totp_secret = models.CharField(max_length=64, blank=True, default="")
+    totp_confirmed_at = models.DateTimeField(null=True, blank=True)
+    #: Hashes of the one-time recovery codes still unused.
+    totp_recovery_codes = models.JSONField(default=list, blank=True)
+
+    # The last request this account made (accounts.middleware, at most once a
+    # minute) — "who is online" and "last seen" on the platform portal.
+    last_seen_at = models.DateTimeField(null=True, blank=True)
+
     clinic_code = models.CharField(max_length=20)
     role = models.ForeignKey(ClinicRole, on_delete=models.SET_NULL, null=True, blank=True)
     branch = models.ForeignKey(Branch, on_delete=models.SET_NULL, null=True, blank=True)
