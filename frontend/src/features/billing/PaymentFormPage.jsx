@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { api } from '@/api'
@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { useAsync, useMutation, useRecord } from '@/hooks/useApi'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
+import { serverUrl } from '@/lib/config'
 
 const FIELDS = [
   {
@@ -46,6 +47,9 @@ export function PaymentFormPage() {
   const toast = useToast()
   const { branch, permissions } = useAuth()
   const editing = Boolean(uuid)
+  // Set once a new payment is saved, so whoever recorded it can print its
+  // receipt before moving on (the group owner's rule, 2026-09-12).
+  const [justPaid, setJustPaid] = useState(null)
   // A new payment goes into the recorder's open cash shift; say so before
   // the form is filled in rather than after it is refused.
   const shift = useAsync(() => api.shifts.current(), [], {
@@ -101,12 +105,48 @@ export function PaymentFormPage() {
   const submit = async (event) => {
     event.preventDefault()
     try {
-      await save.run(form.payload(nullableNames(FIELDS)))
+      const result = await save.run(form.payload(nullableNames(FIELDS)))
       toast.success('تم تسجيل الدفعة')
+      if (!editing) {
+        setJustPaid(result)
+        return
+      }
       navigate('/payments')
     } catch {
       /* per field */
     }
+  }
+
+  if (justPaid) {
+    return (
+      <>
+        <PageHeader title="تم تسجيل الدفعة" back={{ to: '/payments', label: 'رجوع للدفعات' }} />
+        <Card>
+          <CardBody>
+            <p>
+              تم تسجيل الإيصال رقم <strong className="ui-num">{justPaid.receipt_number}</strong> بمبلغ{' '}
+              <strong>{justPaid.amount}</strong> بنجاح.
+            </p>
+            <div className="form-actions">
+              <a
+                className="ui-btn ui-btn--primary"
+                href={serverUrl(`/billing/${justPaid.uuid}/print/`)}
+                target="_blank"
+                rel="noopener"
+              >
+                طباعة الإيصال
+              </a>
+              <Button variant="ghost" onClick={() => navigate('/payments')}>
+                الذهاب لقائمة الدفعات
+              </Button>
+              <Button variant="ghost" onClick={() => { setJustPaid(null); form.reset(initial) }}>
+                دفعة أخرى
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
+      </>
+    )
   }
 
   return (

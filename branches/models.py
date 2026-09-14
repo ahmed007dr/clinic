@@ -1,6 +1,12 @@
 # branches/models.py
+from django.core.validators import RegexValidator
 from django.db import models
 from tenants.models import TenantOwnedModel
+
+#: Colon- or hyphen-separated hex pairs — 00:1A:2B:3C:4D:5E or 00-1A-2B-3C-4D-5E.
+MAC_ADDRESS = RegexValidator(
+    r"^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$", "عنوان MAC غير صالح (مثال: 00:1A:2B:3C:4D:5E)."
+)
 
 class Branch(TenantOwnedModel):
     name = models.CharField(max_length=100)
@@ -39,6 +45,24 @@ class Branch(TenantOwnedModel):
     #: the patient portal (branches/printing.py LINK_KINDS).
     print_links = models.JSONField(default=dict, blank=True)
 
+    # The queue ticket handed to a patient who is now waiting (branches/
+    # printing.py TICKET_FIELDS) and the money receipts (payment/expense).
+    # Both are set by the clinic's Admin or the Owner, same as the rest of
+    # this printed look.
+    class PaperWidth(models.TextChoices):
+        MM58 = "58mm", "58 مم (تيرمال صغير)"
+        MM80 = "80mm", "80 مم (تيرمال قياسي)"
+        A5 = "a5", "A5"
+
+    #: Which of TICKET_FIELDS are shown. Empty list (a new clinic) means
+    #: everything — the same "nothing chosen yet = full form" rule as the
+    #: intake form, so a fresh clinic's first ticket is not blank.
+    ticket_fields = models.JSONField(default=list, blank=True)
+    ticket_paper_width = models.CharField(max_length=4, choices=PaperWidth.choices, default=PaperWidth.MM80)
+    ticket_note = models.CharField(max_length=200, blank=True, default="")
+    receipt_paper_width = models.CharField(max_length=4, choices=PaperWidth.choices, default=PaperWidth.MM80)
+    receipt_note = models.CharField(max_length=200, blank=True, default="")
+
     class Meta(TenantOwnedModel.Meta):
         constraints = [
             models.UniqueConstraint(fields=["tenant", "name"], name="uniq_branch_name_per_tenant"),
@@ -47,3 +71,53 @@ class Branch(TenantOwnedModel):
 
     def __str__(self):
         return self.name
+
+
+class Printer(TenantOwnedModel):
+    """A physical printer registered against a branch, for a clinic that has
+    more than one and needs to remember which is which.
+
+    This is an inventory record, not a routing mechanism: the browser sends
+    every print job to whatever printer Windows has installed for that IP
+    (docs/10-deployment-runbook.md — "Add Printer → TCP/IP Port"). The network
+    fields here are reference data for whoever next touches the physical
+    printer or the router, not something the application connects to itself —
+    the server has no route to a clinic's local network to begin with.
+    """
+
+    class Purpose(models.TextChoices):
+        TICKET = "ticket", "تذاكر الانتظار"
+        PAYMENT = "payment", "إيصالات الدفع"
+        EXPENSE = "expense", "إيصالات المصروفات"
+
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name="printers")
+    name = models.CharField(max_length=100)
+    purpose = models.CharField(max_length=10, choices=Purpose.choices)
+    is_default = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+
+    ip_address = models.GenericIPAddressField(blank=True, null=True, protocol="IPv4")
+    mac_address = models.CharField(max_length=17, blank=True, default="", validators=[MAC_ADDRESS])
+    subnet_mask = models.GenericIPAddressField(blank=True, null=True, protocol="IPv4")
+    gateway = models.GenericIPAddressField(blank=True, null=True, protocol="IPv4")
+    dhcp = models.BooleanField(default=True)
+    port = models.PositiveIntegerField(default=9100)
+    notes = models.CharField(max_length=200, blank=True, default="")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta(TenantOwnedModel.Meta):
+        constraints = [
+            models.UniqueConstraint(fields=["tenant", "branch", "name"], name="uniq_printer_name_per_branch"),
+            # At most one default per purpose per branch — otherwise which one
+            # the reception screen offers first would be arbitrary.
+            models.UniqueConstraint(
+                fields=["tenant", "branch", "purpose"], condition=models.Q(is_default=True),
+                name="uniq_default_printer_per_branch_purpose",
+            ),
+        ]
+        ordering = ["branch__name", "purpose", "name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.branch.name})"

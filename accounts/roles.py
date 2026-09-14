@@ -39,6 +39,14 @@ def role_name(user):
     return getattr(role, "name", None)
 
 
+def display_name(user):
+    """A person's name for print (the queue ticket's "reception name", a
+    receipt's "recorded by") — their full name, or their username when that
+    is blank, which is the common case: staff accounts are rarely given one."""
+    full = f"{getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')}".strip()
+    return full or getattr(user, "username", "")
+
+
 def is_owner(user):
     """Fails closed: a user with no role is nobody."""
     return role_name(user) == OWNER

@@ -17,6 +17,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { useAsync, useMutation } from '@/hooks/useApi'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
+import { serverUrl } from '@/lib/config'
 import { formatTime } from '@/lib/format'
 
 import { VisitDeskActions } from './VisitDeskActions'
@@ -38,6 +39,10 @@ const NEXT_STEP = {
   quick: { status: 'entered', label: 'دخول' },
   entered: { status: 'completed', label: 'إنهاء الزيارة' },
 }
+
+//: Still waiting to go in — the only point a queue ticket makes sense
+//: (appointments/views.py TICKET_STATUSES).
+const TICKETABLE = new Set(['waiting', 'called'])
 
 export function QueuePage() {
   const navigate = useNavigate()
@@ -149,6 +154,16 @@ export function QueuePage() {
                       >
                         الملف
                       </Button>
+                      {TICKETABLE.has(row.status) && (
+                        <a
+                          className="ui-btn ui-btn--ghost ui-btn--sm"
+                          href={serverUrl(`/appointments/${row.uuid}/ticket/`)}
+                          target="_blank"
+                          rel="noopener"
+                        >
+                          تذكرة الانتظار
+                        </a>
+                      )}
                       {permissions.front_desk && (
                         <VisitDeskActions appointment={row} onChanged={reload} />
                       )}

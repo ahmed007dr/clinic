@@ -1,0 +1,91 @@
+{% load static %}<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>تذكرة انتظار {{ appointment.serial_number }} - {{ appointment.patient.name }}</title>
+  {# Served locally: must print correctly with no internet, like every other sheet. #}
+  <link rel="stylesheet" href="{% static 'css/cairo.css' %}">
+  {% include "print/_styles.html" %}
+  <style>
+    /* A ticket is narrow paper, not a letter — override the shared sheet
+       width/padding for this one document, same as prescription_print.html
+       overrides its own bits on top of the shared partials. */
+    @page { size: {{ layout.paper_css.width }} auto; margin: 3mm; }
+    body { padding: 6px; font-size: {{ layout.paper_css.font }}; }
+    .sheet { max-width: {{ layout.paper_css.width }}; width: {{ layout.paper_css.width }}; }
+    .lh-head { flex-wrap: wrap; padding-bottom: 8px; margin-bottom: 10px; gap: 6px; }
+    .lh-logo { max-height: 44px; max-width: 100px; }
+    .lh-title { font-size: 16px; }
+    .lh-subtitle { font-size: 10px; }
+    .lh-contact { font-size: 10px; text-align: center; flex-basis: 100%; }
+    .ticket__branch { text-align: center; font-weight: 700; font-size: 12px; margin: 0 0 10px; }
+    .ticket__serial { text-align: center; font-family: monospace; font-size: 12px; color: #555; margin: 0 0 12px; }
+    .ticket__row { display: flex; justify-content: space-between; gap: 10px;
+                   padding: 6px 0; border-bottom: 1px dashed #ccc; }
+    .ticket__row span:first-child { color: #555; }
+    .ticket__row span:last-child { font-weight: 700; text-align: left; }
+    .ticket__ahead { text-align: center; margin: 14px 0; padding: 10px; border-radius: 6px;
+                     background: #f4f6f7; }
+    .ticket__ahead b { display: block; font-size: 30px; line-height: 1.1; color: var(--accent); }
+    .ticket__ahead span { font-size: 11px; color: #555; }
+    .ticket__note { margin-top: 12px; padding-top: 10px; border-top: 1px dashed #ccc;
+                    font-size: 11px; text-align: center; color: #444; }
+    @media print { .print-btn { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <button class="print-btn" onclick="window.print()">طباعة</button>
+
+    <header class="lh-head">
+      <div class="lh-brand">
+        {% if letterhead.logo_url %}<img class="lh-logo" src="{{ letterhead.logo_url }}" alt="">{% endif %}
+        <div>
+          <h1 class="lh-title">{{ letterhead.title }}</h1>
+          {% if letterhead.subtitle %}<div class="lh-subtitle">{{ letterhead.subtitle }}</div>{% endif %}
+        </div>
+      </div>
+      {% if "branch_contact" in layout.fields %}
+        <div class="lh-contact">
+          {% if letterhead.address %}<div>{{ letterhead.address }}</div>{% endif %}
+          {% if letterhead.phone %}<div dir="ltr">{{ letterhead.phone }}</div>{% endif %}
+        </div>
+      {% endif %}
+    </header>
+
+    <p class="ticket__branch">{{ appointment.branch.name }}</p>
+    {% if "serial_number" in layout.fields %}
+      <p class="ticket__serial">رقم التذكرة: {{ appointment.serial_number }}</p>
+    {% endif %}
+
+    <div class="ticket__row"><span>المريض</span><span>{{ appointment.patient.name }}</span></div>
+    {% if "doctor" in layout.fields and appointment.doctor %}
+      <div class="ticket__row"><span>الطبيب</span><span>{{ appointment.doctor.name }}</span></div>
+    {% endif %}
+    {% if "checkin_time" in layout.fields %}
+      <div class="ticket__row"><span>وقت الدخول</span><span>{{ checked_in_at|date:"H:i" }}</span></div>
+    {% endif %}
+    {% if "scheduled_time" in layout.fields %}
+      <div class="ticket__row"><span>ميعاد الحجز</span><span>{{ appointment.scheduled_date|date:"H:i" }}</span></div>
+    {% endif %}
+    {% if "reception_name" in layout.fields %}
+      <div class="ticket__row"><span>استقبال</span><span>{{ reception_name }}</span></div>
+    {% endif %}
+
+    {% if "queue_position" in layout.fields and ahead_count is not None %}
+      <div class="ticket__ahead">
+        {% if ahead_count == 0 %}
+          <b>دورك الآن</b>
+          <span>أنت التالي عند الطبيب</span>
+        {% else %}
+          <b>{{ ahead_count }}</b>
+          <span>قبلك في انتظار نفس الطبيب</span>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    {% if layout.note %}<p class="ticket__note">{{ layout.note }}</p>{% endif %}
+  </div>
+  <script>window.onload = function () { window.print(); };</script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+{% load static %}<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>إيصال دفع {{ payment.receipt_number }} - {{ payment.patient.name }}</title>
+  <link rel="stylesheet" href="{% static 'css/cairo.css' %}">
+  {% include "print/_styles.html" %}
+  <style>
+    @page { size: {{ layout.paper_css.width }} auto; margin: 3mm; }
+    body { padding: 6px; font-size: {{ layout.paper_css.font }}; }
+    .sheet { max-width: {{ layout.paper_css.width }}; width: {{ layout.paper_css.width }}; }
+    .lh-head { flex-wrap: wrap; padding-bottom: 8px; margin-bottom: 10px; gap: 6px; }
+    .lh-logo { max-height: 44px; max-width: 100px; }
+    .lh-title { font-size: 16px; }
+    .lh-subtitle { font-size: 10px; }
+    .lh-contact { font-size: 10px; text-align: center; flex-basis: 100%; }
+    .receipt__kind { text-align: center; font-weight: 700; font-size: 13px;
+                     margin: 0 0 4px; color: var(--accent); }
+    .receipt__branch { text-align: center; font-size: 11px; color: #555; margin: 0 0 10px; }
+    .receipt__number { text-align: center; font-family: monospace; font-size: 12px; color: #555; margin: 0 0 12px; }
+    .receipt__row { display: flex; justify-content: space-between; gap: 10px;
+                    padding: 6px 0; border-bottom: 1px dashed #ccc; }
+    .receipt__row span:first-child { color: #555; }
+    .receipt__row span:last-child { font-weight: 700; text-align: left; }
+    .receipt__amount { text-align: center; margin: 14px 0; padding: 10px; border-radius: 6px;
+                        background: #f4f6f7; }
+    .receipt__amount b { display: block; font-size: 26px; line-height: 1.2; color: var(--accent); }
+    .receipt__amount span { font-size: 11px; color: #555; }
+    .receipt__note { margin-top: 12px; padding-top: 10px; border-top: 1px dashed #ccc;
+                      font-size: 11px; text-align: center; color: #444; }
+    @media print { .print-btn { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <button class="print-btn" onclick="window.print()">طباعة</button>
+
+    <header class="lh-head">
+      <div class="lh-brand">
+        {% if letterhead.logo_url %}<img class="lh-logo" src="{{ letterhead.logo_url }}" alt="">{% endif %}
+        <div>
+          <h1 class="lh-title">{{ letterhead.title }}</h1>
+          {% if letterhead.subtitle %}<div class="lh-subtitle">{{ letterhead.subtitle }}</div>{% endif %}
+        </div>
+      </div>
+      <div class="lh-contact">
+        {% if letterhead.address %}<div>{{ letterhead.address }}</div>{% endif %}
+        {% if letterhead.phone %}<div dir="ltr">{{ letterhead.phone }}</div>{% endif %}
+      </div>
+    </header>
+
+    <p class="receipt__kind">إيصال دفع</p>
+    <p class="receipt__branch">{{ payment.branch.name }}</p>
+    <p class="receipt__number">رقم الإيصال: {{ payment.receipt_number }}</p>
+
+    <div class="receipt__row"><span>التاريخ</span><span>{{ payment.date|date:"Y-m-d H:i" }}</span></div>
+    <div class="receipt__row"><span>المريض</span><span>{{ payment.patient.name }}</span></div>
+    {% if payment.appointment.service %}
+      <div class="receipt__row"><span>الخدمة</span><span>{{ payment.appointment.service.name }}</span></div>
+    {% endif %}
+    {% if payment.appointment.doctor %}
+      <div class="receipt__row"><span>الطبيب</span><span>{{ payment.appointment.doctor.name }}</span></div>
+    {% endif %}
+    <div class="receipt__row"><span>طريقة الدفع</span><span>{{ payment.method.name|default:"—" }}</span></div>
+    <div class="receipt__row"><span>استلمها</span><span>{{ recorded_by }}</span></div>
+
+    <div class="receipt__amount">
+      <b>{{ payment.amount|floatformat:2 }} ج.م</b>
+      <span>المبلغ المدفوع</span>
+    </div>
+
+    {% if payment.notes %}<p class="receipt__note">{{ payment.notes }}</p>{% endif %}
+    {% if layout.note %}<p class="receipt__note">{{ layout.note }}</p>{% endif %}
+  </div>
+  <script>window.onload = function () { window.print(); };</script>
+</body>
+</html>

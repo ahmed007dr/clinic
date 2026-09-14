@@ -10,6 +10,7 @@ import {
   ErrorState,
   Input,
   Loading,
+  Select,
   Textarea,
 } from '@/components/ui'
 import { RelationSelect } from '@/components/data/RelationSelect'
@@ -33,6 +34,10 @@ const TEXT_FIELDS = [
   'intake_form_title',
   'intake_form_intro',
   'intake_consent_text',
+  'ticket_paper_width',
+  'ticket_note',
+  'receipt_paper_width',
+  'receipt_note',
 ]
 
 /**
@@ -59,6 +64,7 @@ export function PrintSettingsPage() {
       intake_sections: data.effective_sections ?? [],
       extra_lines: (data.intake_extra_fields ?? []).join('\n'),
       print_links: { ...(data.print_links ?? {}) },
+      ticket_fields: data.effective_ticket_fields ?? [],
     })
   }, [settings.data])
 
@@ -69,6 +75,7 @@ export function PrintSettingsPage() {
       intake_sections: values.intake_sections,
       intake_extra_fields: values.extra_lines.split('\n').map((line) => line.trim()).filter(Boolean),
       print_links: values.print_links,
+      ticket_fields: values.ticket_fields,
     }),
   )
   const upload = useMutation((file) => api.printSettings.uploadLogo(branch, file))
@@ -83,6 +90,14 @@ export function PrintSettingsPage() {
       intake_sections: current.intake_sections.includes(key)
         ? current.intake_sections.filter((item) => item !== key)
         : [...current.intake_sections, key],
+    }))
+
+  const toggleTicketField = (key) =>
+    setValues((current) => ({
+      ...current,
+      ticket_fields: current.ticket_fields.includes(key)
+        ? current.ticket_fields.filter((item) => item !== key)
+        : [...current.ticket_fields, key],
     }))
 
   const submit = async (event) => {
@@ -288,6 +303,74 @@ export function PrintSettingsPage() {
                   rows={4}
                   value={values.intake_consent_text}
                   onChange={set('intake_consent_text')}
+                />
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="تذكرة الانتظار"
+              subtitle="يطبعها الاستقبال للمريض الحاضر الآن ليعرف دوره في انتظار طبيبه"
+            />
+            <CardBody>
+              <div className="form-grid">
+                <Select
+                  label="مقاس الورق"
+                  value={values.ticket_paper_width}
+                  onChange={set('ticket_paper_width')}
+                  options={settings.data.paper_widths}
+                  error={errors.ticket_paper_width}
+                />
+                <Input
+                  label="نص إضافي أسفل التذكرة"
+                  hint="اختياري، مثل: برجاء الانتظار حتى يُنادى اسمك"
+                  value={values.ticket_note}
+                  onChange={set('ticket_note')}
+                  error={errors.ticket_note}
+                />
+              </div>
+
+              <h3 className="ui-card__title" style={{ marginTop: 'var(--s4)' }}>
+                البيانات الظاهرة على التذكرة
+              </h3>
+              <p className="ui-muted" style={{ marginTop: 0 }}>
+                اسم المريض والشعار يظهران دائماً؛ اختر الباقي.
+              </p>
+              <div className="ui-row" style={{ flexWrap: 'wrap', gap: 'var(--s3)' }}>
+                {settings.data.available_ticket_fields.map((field) => (
+                  <Checkbox
+                    key={field.key}
+                    label={field.label}
+                    checked={values.ticket_fields.includes(field.key)}
+                    onChange={() => toggleTicketField(field.key)}
+                  />
+                ))}
+              </div>
+              {errors.ticket_fields && <div className="form-error">{errors.ticket_fields}</div>}
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="إيصالات الدفع والمصروفات"
+              subtitle="تُطبع فور تسجيل دفعة أو مصروف، وتحمل بيانات ثابتة لا تُخفى (المبلغ ورقم الإيصال وغيرها)"
+            />
+            <CardBody>
+              <div className="form-grid">
+                <Select
+                  label="مقاس الورق"
+                  value={values.receipt_paper_width}
+                  onChange={set('receipt_paper_width')}
+                  options={settings.data.paper_widths}
+                  error={errors.receipt_paper_width}
+                />
+                <Input
+                  label="نص إضافي أسفل الإيصال"
+                  hint="اختياري، مثل: شكراً لزيارتكم"
+                  value={values.receipt_note}
+                  onChange={set('receipt_note')}
+                  error={errors.receipt_note}
                 />
               </div>
             </CardBody>

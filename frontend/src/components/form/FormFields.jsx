@@ -126,6 +126,7 @@ function FormControl({ field, form, error, disabled }) {
           {...common}
           type="number"
           min={field.min ?? 0}
+          max={field.max}
           step={field.step ?? 1}
           inputMode="numeric"
           {...form.field(name)}
@@ -159,7 +160,10 @@ function FormControl({ field, form, error, disabled }) {
       )
 
     default:
-      return <Input {...common} placeholder={placeholder} {...form.field(name)} />
+      // `dir` is opt-in per field (IP addresses, MAC addresses, codes) —
+      // undefined everywhere else, so this changes nothing for fields that
+      // do not set it.
+      return <Input {...common} placeholder={placeholder} dir={field.dir} {...form.field(name)} />
   }
 }
 
