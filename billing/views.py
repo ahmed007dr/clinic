@@ -399,3 +399,48 @@ def financial_report(request):
         'branches_search': branches_search,
     }
     return render(request, 'billing/financial_report.html', context)
+
+@login_required
+def payment_print(request, uuid):
+    """The receipt handed over when a payment is recorded (the group owner's
+    rule, 2026-09-12) — reprintable any time, for whoever may still see this
+    payment at all (billing.access: management always, reception only while
+    their shift holding it is still open).
+    """
+    from accounts.roles import display_name
+    from branches.printing import letterhead, receipt_layout
+    from .access import visible_payments
+
+    payment = get_object_or_404(
+        visible_payments(request.user, Payment.objects.select_related(
+            "patient", "method", "branch", "appointment", "appointment__doctor", "created_by",
+        )),
+        uuid=uuid,
+    )
+    return render(request, "billing/payment_print.html", {
+        "letterhead": letterhead(payment.branch, request),
+        "layout": receipt_layout(payment.branch),
+        "payment": payment,
+        "recorded_by": display_name(payment.created_by) if payment.created_by else "—",
+    })
+
+
+@login_required
+def expense_print(request, uuid):
+    """The receipt for a recorded expense — same rule as `payment_print`."""
+    from accounts.roles import display_name
+    from branches.printing import letterhead, receipt_layout
+    from .access import visible_expenses
+
+    expense = get_object_or_404(
+        visible_expenses(request.user, Expense.objects.select_related(
+            "branch", "category", "employee", "method", "created_by",
+        )),
+        uuid=uuid,
+    )
+    return render(request, "billing/expense_print.html", {
+        "letterhead": letterhead(expense.branch, request),
+        "layout": receipt_layout(expense.branch),
+        "expense": expense,
+        "recorded_by": display_name(expense.created_by) if expense.created_by else "—",
+    })

@@ -23,10 +23,12 @@ from branches.printing import (
     HEX,
     INTAKE_SECTIONS,
     LINK_KINDS,
+    TICKET_FIELDS,
     LinkError,
     clean_links,
     intake_layout,
     letterhead,
+    ticket_layout,
 )
 
 MAX_LOGO_BYTES = 1024 * 1024
@@ -44,7 +46,8 @@ class PrintSettingsSerializer(serializers.ModelSerializer):
             "print_header_title", "print_header_subtitle", "print_accent_color",
             "print_logo_in_footer", "intake_form_title", "intake_form_intro",
             "intake_consent_text", "intake_sections", "intake_extra_fields",
-            "print_links",
+            "print_links", "ticket_fields", "ticket_paper_width", "ticket_note",
+            "receipt_paper_width", "receipt_note",
         ]
 
     def validate_logo(self, logo):
@@ -80,6 +83,11 @@ class PrintSettingsSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("حتى ٢٠ سطراً إضافياً.")
         return [str(label).strip()[:80] for label in value if str(label).strip()]
 
+    def validate_ticket_fields(self, value):
+        if not isinstance(value, list) or any(key not in TICKET_FIELDS for key in value):
+            raise serializers.ValidationError("بنود غير معروفة.")
+        return value
+
     def update(self, instance, validated_data):
         if validated_data.pop("remove_logo", False):
             instance.logo = None
@@ -111,6 +119,9 @@ class PrintSettingsView(APIView):
             "available_sections": [{"key": k, "label": v} for k, v in INTAKE_SECTIONS.items()],
             "effective_sections": intake_layout(branch)["sections"],
             "link_kinds": [{"key": k, "label": v} for k, v in LINK_KINDS.items()],
+            "available_ticket_fields": [{"key": k, "label": v} for k, v in TICKET_FIELDS.items()],
+            "effective_ticket_fields": ticket_layout(branch)["fields"],
+            "paper_widths": [{"value": v, "label": l} for v, l in Branch.PaperWidth.choices],
         })
         return data
 

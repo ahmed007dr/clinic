@@ -54,6 +54,7 @@ export const payments = createResource('payments')
 export const paymentMethods = createResource('payment-methods')
 export const expenses = createResource('expenses')
 export const expenseCategories = createResource('expense-categories')
+export const printers = createResource('printers')
 export const financialReport = {
   get: (params) => http.get('/financial-report/', params),
 }
@@ -284,6 +285,7 @@ export const api = {
   paymentMethods,
   expenses,
   expenseCategories,
+  printers,
   financialReport,
   visits,
   prescriptions,

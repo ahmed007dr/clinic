@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { api } from '@/api'
@@ -8,7 +9,12 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { useMutation, useRecord } from '@/hooks/useApi'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
+import { serverUrl } from '@/lib/config'
 import { toDateTimeInput } from '@/lib/format'
+
+//: A booking in one of these is still waiting to go in — the only point a
+//: queue ticket makes sense (appointments/views.py TICKET_STATUSES).
+const TICKETABLE = new Set(['waiting', 'called'])
 
 const FIELDS = [
   {
@@ -72,6 +78,11 @@ export function AppointmentFormPage() {
   )
   const [search] = useSearchParams()
   const editing = Boolean(uuid)
+  // Set once a new booking is saved for a patient who is waiting now, so
+  // reception can print their queue ticket before moving on (the group
+  // owner's rule, 2026-09-12) — replaces the form rather than sitting beside
+  // it, so there is no risk of submitting the same booking twice.
+  const [justBooked, setJustBooked] = useState(null)
 
   const { record, loading, error, reload } = useRecord(api.appointments, uuid)
 
@@ -101,18 +112,60 @@ export function AppointmentFormPage() {
   if (editing && loading) return <Loading />
   if (editing && error) return <ErrorState error={error} onRetry={reload} />
 
+  // Whether this booking was outside the waiting queue before this save —
+  // so editing an already-waiting booking (its price, say) does not pop the
+  // ticket screen on every change, only the moment it *enters* the queue: a
+  // fresh booking, or a portal request just confirmed into one.
+  const enteringQueueNow = !TICKETABLE.has(record?.status)
+
   const submit = async (event) => {
     event.preventDefault()
     try {
       const body = form.payload(nullableNames(fields))
       // The price is the server's to set for anyone but management.
       fields.filter((field) => field.disabled).forEach((field) => delete body[field.name])
-      await save.run(body)
+      const result = await save.run(body)
       toast.success(editing ? 'تم حفظ الموعد' : 'تم حجز الموعد')
+      if (enteringQueueNow && TICKETABLE.has(result?.status)) {
+        setJustBooked(result)
+        return
+      }
       navigate('/appointments')
     } catch {
       /* shown per field */
     }
+  }
+
+  if (justBooked) {
+    return (
+      <>
+        <PageHeader title="تم حجز الموعد" back={{ to: '/appointments', label: 'رجوع للمواعيد' }} />
+        <Card>
+          <CardBody>
+            <p>
+              تم حجز الموعد رقم <strong className="ui-num">{justBooked.serial_number}</strong> للمريض
+              بنجاح، وهو الآن في قائمة الانتظار.
+            </p>
+            <div className="form-actions">
+              <a
+                className="ui-btn ui-btn--primary"
+                href={serverUrl(`/appointments/${justBooked.uuid}/ticket/`)}
+                target="_blank"
+                rel="noopener"
+              >
+                طباعة تذكرة الانتظار
+              </a>
+              <Button variant="ghost" onClick={() => navigate('/appointments')}>
+                الذهاب لقائمة المواعيد
+              </Button>
+              <Button variant="ghost" onClick={() => navigate('/queue')}>
+                قائمة الانتظار
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
+      </>
+    )
   }
 
   return (

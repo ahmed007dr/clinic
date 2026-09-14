@@ -16,6 +16,37 @@ import { PortalSettings } from './PortalSettings'
  * again — and would push the things people use daily further down the menu.
  */
 
+const PURPOSE_OPTIONS = [
+  { value: 'ticket', label: 'تذاكر الانتظار' },
+  { value: 'payment', label: 'إيصالات الدفع' },
+  { value: 'expense', label: 'إيصالات المصروفات' },
+]
+
+const PRINTER_FIELDS = [
+  { name: 'branch', label: 'الفرع', type: 'relation', resource: api.branches, required: true },
+  { name: 'name', label: 'اسم الطابعة', required: true, hint: 'مثل: طابعة الاستقبال' },
+  { name: 'purpose', label: 'الغرض', type: 'select', options: PURPOSE_OPTIONS, required: true },
+  { name: 'is_default', label: 'الطابعة الافتراضية لهذا الغرض في هذا الفرع', type: 'checkbox' },
+  { name: 'is_active', label: 'نشطة', type: 'checkbox', default: true },
+  { name: 'ip_address', label: 'عنوان IP', dir: 'ltr' },
+  { name: 'mac_address', label: 'عنوان MAC', dir: 'ltr', placeholder: '00:1A:2B:3C:4D:5E' },
+  { name: 'subnet_mask', label: 'Subnet Mask', dir: 'ltr' },
+  { name: 'gateway', label: 'Gateway', dir: 'ltr' },
+  { name: 'dhcp', label: 'DHCP مفعّل', type: 'checkbox', default: true },
+  { name: 'port', label: 'المنفذ (Port)', type: 'number', min: 1, max: 65535, hint: 'الافتراضي 9100' },
+  { name: 'notes', label: 'ملاحظات', type: 'textarea', span: 2 },
+]
+
+const PRINTER_COLUMNS = [
+  { key: 'name', header: 'الاسم' },
+  { key: 'branch_name', header: 'الفرع' },
+  { key: 'purpose_display', header: 'الغرض' },
+  { key: 'ip_address', header: 'IP', render: (row) => row.ip_address || '—' },
+  { key: 'mac_address', header: 'MAC', render: (row) => row.mac_address || '—' },
+  { key: 'is_default', header: 'افتراضية', render: (row) => (row.is_default ? '✓' : '—') },
+  { key: 'is_active', header: 'نشطة', render: (row) => (row.is_active ? '✓' : 'موقوفة') },
+]
+
 const SECTIONS = {
   'expense-categories': {
     label: 'بنود المصروفات',
@@ -45,6 +76,15 @@ const SECTIONS = {
     createLabel: 'إضافة نوع',
     fields: [{ name: 'name', label: 'الاسم', required: true }],
     columns: [{ key: 'name', header: 'الاسم' }],
+  },
+  printers: {
+    label: 'الطابعات',
+    resource: api.printers,
+    createLabel: 'إضافة طابعة',
+    note:
+      'سجلّ مرجعي فقط — يطبع المتصفح على الطابعة المضافة في نظام التشغيل بنفس عنوان IP، وليس على هذا السجل مباشرة.',
+    fields: PRINTER_FIELDS,
+    columns: PRINTER_COLUMNS,
   },
 }
 

@@ -4,6 +4,7 @@ import { api } from '@/api'
 import { Checkbox } from '@/components/ui'
 import { CrudPage } from '@/components/data/CrudPage'
 import { useAuth } from '@/hooks/useAuth'
+import { serverUrl } from '@/lib/config'
 import { formatDate, formatMoney, today } from '@/lib/format'
 
 import { VoidButton } from './VoidButton'
@@ -53,6 +54,21 @@ export function ExpenseListPage() {
           header: 'المبلغ',
           numeric: true,
           render: (row) => <strong>{formatMoney(row.amount)}</strong>,
+        },
+        {
+          key: '__print',
+          header: '',
+          render: (row) =>
+            !row.voided_at && (
+              <a
+                className="ui-btn ui-btn--ghost ui-btn--sm"
+                href={serverUrl(`/billing/expense/${row.uuid}/print/`)}
+                target="_blank"
+                rel="noopener"
+              >
+                طباعة
+              </a>
+            ),
         },
         ...(permissions.is_admin
           ? [

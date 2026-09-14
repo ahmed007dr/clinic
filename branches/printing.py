@@ -27,6 +27,27 @@ INTAKE_SECTIONS = {
     "consent": "الإقرار والتوقيع",
 }
 
+#: The queue ticket's optional lines, in print order: key → label. The logo
+#: and clinic/branch name are the letterhead itself and always show; these
+#: are the rest, each one the clinic's Admin or Owner may switch off
+#: (api/views/print_settings.py).
+TICKET_FIELDS = {
+    "branch_contact": "عنوان وهاتف الفرع",
+    "doctor": "اسم الطبيب",
+    "checkin_time": "وقت الدخول",
+    "scheduled_time": "ميعاد الحجز",
+    "queue_position": "ترتيبك في الانتظار",
+    "reception_name": "اسم الموظف",
+    "serial_number": "رقم التذكرة",
+}
+
+#: Paper width → the CSS page size a receipt/ticket template renders at.
+PAPER_CSS = {
+    "58mm": {"width": "58mm", "font": "11px"},
+    "80mm": {"width": "80mm", "font": "12px"},
+    "a5": {"width": "148mm", "font": "13px"},
+}
+
 
 def letterhead(branch, request=None):
     """The header/footer of a printed sheet for `branch` (may be None)."""
@@ -64,6 +85,30 @@ def intake_layout(branch):
         # Nothing chosen yet means everything: a new clinic prints a full form.
         "sections": chosen or list(INTAKE_SECTIONS),
         "extra_fields": [str(label)[:80] for label in (getattr(branch, "intake_extra_fields", None) or [])][:20],
+    }
+
+
+def ticket_layout(branch):
+    """Which lines the queue ticket carries, and its paper size/note."""
+    chosen = [key for key in (getattr(branch, "ticket_fields", None) or []) if key in TICKET_FIELDS]
+    width = getattr(branch, "ticket_paper_width", "") or "80mm"
+    return {
+        # Nothing chosen yet means everything — the same rule as the intake
+        # form, so a new clinic's first ticket is not blank.
+        "fields": chosen or list(TICKET_FIELDS),
+        "paper_width": width,
+        "paper_css": PAPER_CSS.get(width, PAPER_CSS["80mm"]),
+        "note": getattr(branch, "ticket_note", "") or "",
+    }
+
+
+def receipt_layout(branch):
+    """The money receipt's paper size and footer note."""
+    width = getattr(branch, "receipt_paper_width", "") or "80mm"
+    return {
+        "paper_width": width,
+        "paper_css": PAPER_CSS.get(width, PAPER_CSS["80mm"]),
+        "note": getattr(branch, "receipt_note", "") or "",
     }
 
 

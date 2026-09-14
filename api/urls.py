@@ -8,7 +8,7 @@ React application replaceable rather than a cliff.
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .views import accounts, appointments, auth, billing, clinical, core
+from .views import accounts, appointments, auth, billing, clinical, core, printers
 from .views import dashboard as dashboard_views
 from .views import notifications, patients
 from .views.subscription import SubscriptionView
@@ -22,6 +22,7 @@ router = DefaultRouter()
 
 # Reference data
 router.register("branches", core.BranchViewSet, basename="branch")
+router.register("printers", printers.PrinterViewSet, basename="printer")
 router.register("services", core.ServiceViewSet, basename="service")
 router.register("employee-types", core.EmployeeTypeViewSet, basename="employeetype")
 router.register("specializations", core.SpecializationViewSet, basename="specialization")
