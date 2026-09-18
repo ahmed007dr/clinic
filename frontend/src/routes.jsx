@@ -31,6 +31,7 @@ const ExpenseListPage = page(() => import('@/features/billing/ExpenseListPage'),
 const FinancialReportPage = page(() => import('@/features/billing/FinancialReportPage'), 'FinancialReportPage')
 const DoctorRatesPage = page(() => import('@/features/billing/DoctorRatesPage'), 'DoctorRatesPage')
 const CommissionsPage = page(() => import('@/features/billing/CommissionsPage'), 'CommissionsPage')
+const CouponListPage = page(() => import('@/features/billing/CouponListPage'), 'CouponListPage')
 const MyShiftPage = page(() => import('@/features/shifts/MyShiftPage'), 'MyShiftPage')
 const ShiftListPage = page(() => import('@/features/shifts/ShiftListPage'), 'ShiftListPage')
 const ShiftDetailPage = page(() => import('@/features/shifts/ShiftDetailPage'), 'ShiftDetailPage')
@@ -73,6 +74,8 @@ export const routes = [
   // Changing a recorded payment changes the clinic's revenue: admins only.
   { path: 'payments/:uuid/edit', element: PaymentFormPage, permission: 'is_admin' },
   { path: 'expenses', element: ExpenseListPage, permission: 'manage_billing' },
+  // Discounts are management's alone (the group owner's rule, 2026-09-18).
+  { path: 'coupons', element: CouponListPage, permission: 'is_admin' },
   { path: 'reports/financial', element: FinancialReportPage, permission: 'view_finance' },
   { path: 'shift', element: MyShiftPage, permission: 'works_in_shifts' },
   // A doctor's own contract and shares; management's for the clinic.

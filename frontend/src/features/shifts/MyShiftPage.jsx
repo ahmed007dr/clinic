@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { api } from '@/api'
@@ -9,34 +9,60 @@ import {
   CardHeader,
   ConfirmDialog,
   ErrorState,
-  Input,
   Loading,
-  Table,
   Textarea,
 } from '@/components/ui'
+import { RelationSelect } from '@/components/data/RelationSelect'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useAsync, useMutation } from '@/hooks/useApi'
+import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
-import { formatDateTime, formatMoney } from '@/lib/format'
+import { serverUrl } from '@/lib/config'
+import { formatDateTime } from '@/lib/format'
 
+import { ShiftLedger } from './ShiftLedger'
 import { ShiftSummary } from './ShiftSummary'
 
+//: How often an open shift re-reads itself, so a booking or payment made on
+//: another screen (or another desk) shows up without a manual refresh.
+const REFRESH_MS = 20000
+
 /**
- * The cashier's own drawer: open it with the cash already inside, record
- * money through the usual screens while it is open, close it at the end of
- * the day. Once closed it is gone from here — the summary shown at closing is
- * the last this person sees of it; reviewing is management's (/shifts).
+ * The cashier's own drawer. It starts from zero: open it, record money through
+ * the usual screens while it is open — a booking's payment is taken with the
+ * booking — and count the drawer against this page at any moment. Close it at
+ * the end of the day. Once closed it is gone from here — the summary shown at
+ * closing is the last this person sees of it; reviewing is management's
+ * (/shifts).
  */
 export function MyShiftPage() {
   const toast = useToast()
+  const { permissions } = useAuth()
   const current = useAsync(() => api.shifts.current(), [])
-  const [balance, setBalance] = useState('')
   const [notes, setNotes] = useState('')
   const [confirming, setConfirming] = useState(false)
   const [handedOver, setHandedOver] = useState(null)
+  const [handedOverUuid, setHandedOverUuid] = useState(null)
+  // The Owner sees every clinic, so says which one this shift is at; blank is
+  // their own. Everyone else's shift is at their own clinic.
+  const [branch, setBranch] = useState('')
 
-  const open = useMutation(() => api.shifts.open({ opening_balance: balance || '0', notes }))
+  const open = useMutation(() => api.shifts.open({ notes, ...(branch ? { branch } : {}) }))
   const close = useMutation((uuid) => api.shifts.close(uuid))
+
+  const isOpen = Boolean(current.data?.shift)
+  const { reload } = current
+  useEffect(() => {
+    if (!isOpen) return undefined
+    const timer = setInterval(reload, REFRESH_MS)
+    // A desk left open in another tab catches up the moment it is looked at.
+    const onFocus = () => reload()
+    window.addEventListener('focus', onFocus)
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [isOpen, reload])
 
   if (current.loading && !current.data) return <Loading />
   if (current.error) return <ErrorState error={current.error} onRetry={current.reload} />
@@ -48,8 +74,9 @@ export function MyShiftPage() {
     try {
       await open.run()
       toast.success('تم فتح الوردية')
-      setBalance('')
       setNotes('')
+      setBranch('')
+      setHandedOver(null)
       current.reload()
     } catch {
       // formError below
@@ -61,6 +88,7 @@ export function MyShiftPage() {
       const result = await close.run(shift.uuid)
       setConfirming(false)
       setHandedOver(result.closing_summary ?? result.summary)
+      setHandedOverUuid(shift.uuid)
       toast.success('تم إغلاق الوردية')
       current.reload()
     } catch (error) {
@@ -75,14 +103,27 @@ export function MyShiftPage() {
         title="ورديتي"
         subtitle={
           shift
-            ? `مفتوحة منذ ${formatDateTime(shift.opened_at)} · ${shift.branch_name}`
+            ? `مفتوحة منذ ${formatDateTime(shift.opened_at)} · ${shift.branch_name} · تبدأ من صفر وتُحدَّث تلقائياً`
             : 'لا توجد وردية مفتوحة'
         }
         actions={
           shift && (
-            <Button variant="danger" onClick={() => setConfirming(true)}>
-              إغلاق الوردية
-            </Button>
+            <>
+              <Button variant="ghost" onClick={current.reload} loading={current.loading}>
+                تحديث
+              </Button>
+              <a
+                className="ui-btn ui-btn--secondary"
+                href={serverUrl(`/billing/shift/${shift.uuid}/print/`)}
+                target="_blank"
+                rel="noopener"
+              >
+                طباعة تقرير الوردية
+              </a>
+              <Button variant="danger" onClick={() => setConfirming(true)}>
+                إغلاق الوردية
+              </Button>
+            </>
           )
         }
       />
@@ -92,6 +133,18 @@ export function MyShiftPage() {
           <CardHeader
             title="ملخص الوردية المُغلقة"
             subtitle="هذه آخر مرة يظهر فيها هذا الملخص لك — راجعه الآن وسلّم الخزينة."
+            actions={
+              handedOverUuid && (
+                <a
+                  className="ui-btn ui-btn--secondary"
+                  href={serverUrl(`/billing/shift/${handedOverUuid}/print/`)}
+                  target="_blank"
+                  rel="noopener"
+                >
+                  طباعة تقرير التسليم
+                </a>
+              )
+            }
           />
           <CardBody>
             <ShiftSummary summary={handedOver} />
@@ -103,20 +156,20 @@ export function MyShiftPage() {
         <Card>
           <CardHeader
             title="فتح وردية جديدة"
-            subtitle="لا يمكن تسجيل دفعات أو مصروفات إلا داخل وردية مفتوحة."
+            subtitle="تبدأ الوردية من صفر. لا يمكن تسجيل حجز مدفوع أو دفعة أو مصروف إلا داخل وردية مفتوحة."
           />
           <CardBody>
             <form className="form-grid" onSubmit={onOpen}>
-              <Input
-                label="الرصيد الافتتاحي في الخزينة"
-                type="number"
-                min="0"
-                step="0.01"
-                value={balance}
-                onChange={(event) => setBalance(event.target.value)}
-                hint="المبلغ الموجود فعلاً في الخزينة الآن."
-                dir="ltr"
-              />
+              {permissions.all_branches && (
+                <RelationSelect
+                  label="الفرع"
+                  resource={api.branches}
+                  placeholder="فرعي الحالي"
+                  value={branch}
+                  onChange={setBranch}
+                  hint="أنت ترى كل الفروع: اختر الفرع الذي ستسجّل عليه المبالغ في هذه الوردية."
+                />
+              )}
               <Textarea
                 label="ملاحظات"
                 value={notes}
@@ -137,10 +190,12 @@ export function MyShiftPage() {
         <div className="ui-stack">
           <Card>
             <CardHeader
-              title="الملخص حتى الآن"
+              title="الجرد الآن"
+              subtitle="ما سجّله النظام في ورديتك حتى هذه اللحظة، لكل طريقة دفع — قارنه بما في يدك."
               actions={
                 <>
-                  <Link to="/payments/new">تسجيل دفعة</Link>
+                  <Link to="/appointments/new">حجز موعد</Link>
+                  <Link to="/payments/new">تحصيل متبقي</Link>
                   <Link to="/expenses">تسجيل مصروف</Link>
                 </>
               }
@@ -150,48 +205,7 @@ export function MyShiftPage() {
             </CardBody>
           </Card>
 
-          <Card>
-            <CardHeader title="الدفعات" subtitle={`${shift.payments.length} دفعة`} />
-            <CardBody flush>
-              <Table
-                columns={[
-                  { key: 'receipt_number', header: 'الإيصال', numeric: true },
-                  { key: 'date', header: 'الوقت', render: (row) => formatDateTime(row.date) },
-                  { key: 'patient_name', header: 'المريض' },
-                  { key: 'method_name', header: 'الطريقة', render: (row) => row.method_name || '—' },
-                  {
-                    key: 'amount',
-                    header: 'المبلغ',
-                    numeric: true,
-                    render: (row) => <strong>{formatMoney(row.amount)}</strong>,
-                  },
-                ]}
-                rows={shift.payments}
-                empty={{ title: 'لا دفعات بعد' }}
-              />
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardHeader title="المصروفات" subtitle={`${shift.expenses.length} مصروف`} />
-            <CardBody flush>
-              <Table
-                columns={[
-                  { key: 'category_name', header: 'البند', render: (row) => row.category_name || '—' },
-                  { key: 'method_name', header: 'الطريقة', render: (row) => row.method_name || '—' },
-                  { key: 'notes', header: 'ملاحظات', render: (row) => row.notes || '—' },
-                  {
-                    key: 'amount',
-                    header: 'المبلغ',
-                    numeric: true,
-                    render: (row) => <strong>{formatMoney(row.amount)}</strong>,
-                  },
-                ]}
-                rows={shift.expenses}
-                empty={{ title: 'لا مصروفات بعد' }}
-              />
-            </CardBody>
-          </Card>
+          <ShiftLedger shift={shift} live />
         </div>
       )}
 
@@ -201,7 +215,7 @@ export function MyShiftPage() {
         onConfirm={onClose}
         loading={close.submitting}
         title="إغلاق الوردية"
-        message="بعد الإغلاق لن تظهر لك هذه الوردية ولا أي مبلغ فيها، ولا يعيد فتحها إلا الإدارة. تأكد من مطابقة الخزينة للرصيد المتوقع."
+        message="بعد الإغلاق لن تظهر لك هذه الوردية ولا أي مبلغ فيها، ولا يعيد فتحها إلا الإدارة. تأكد من مطابقة الخزينة للصافي لكل طريقة دفع."
         confirmLabel="إغلاق الوردية"
       />
     </>

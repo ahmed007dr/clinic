@@ -13,10 +13,25 @@ nothing is sent at all.
 """
 
 import logging
+from contextlib import contextmanager
 
 from django.core.mail import EmailMessage
 
 logger = logging.getLogger(__name__)
+
+_muted = False
+
+
+@contextmanager
+def muted():
+    """Send nothing inside this block. For generating demo data: its doctors
+    have made-up addresses, and the mail settings are the real ones."""
+    global _muted
+    previous, _muted = _muted, True
+    try:
+        yield
+    finally:
+        _muted = previous
 
 
 def _recipient(doctor):
@@ -32,7 +47,7 @@ def _send(doctor, subject, lines):
     from platform_admin.mailer import sender_for
 
     to = _recipient(doctor)
-    if not to:
+    if not to or _muted:
         return False
     try:
         # The doctor's clinic's own mail settings from the developer portal,

@@ -40,6 +40,12 @@ class PatientViewSet(ClinicViewSet):
             queryset = queryset.filter(needs_review=False)
         if params.get("branch"):
             queryset = queryset.filter(branch__uuid=params["branch"])
+        if params.get("gender") in ("male", "female"):
+            queryset = queryset.filter(gender=params["gender"])
+        if params.get("created_from"):
+            queryset = queryset.filter(created_at__date__gte=params["created_from"])
+        if params.get("created_to"):
+            queryset = queryset.filter(created_at__date__lte=params["created_to"])
         if params.get("referral_source"):
             queryset = queryset.filter(referral_source=params["referral_source"])
         return queryset

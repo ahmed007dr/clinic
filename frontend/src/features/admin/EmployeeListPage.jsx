@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { api } from '@/api'
 import { Button, Checkbox, Modal } from '@/components/ui'
 import { CrudPage } from '@/components/data/CrudPage'
+import { SearchPanel, hasCriteria } from '@/components/data/SearchPanel'
 import { useAsync, useMutation } from '@/hooks/useApi'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
@@ -15,12 +16,39 @@ import { formatDate, formatMoney, today } from '@/lib/format'
  */
 export function EmployeeListPage() {
   const { permissions } = useAuth()
+  // The staff list loads only when "بحث" is pressed: pay is on every row.
+  const [applied, setApplied] = useState(null)
   return (
     <CrudPage
       title="الموظفون"
       resource={api.employees}
       createLabel="إضافة موظف"
-      searchPlaceholder="ابحث بالاسم أو الرقم القومي…"
+      searchable={false}
+      enabled={applied !== null}
+      idle={{
+        title: 'ابحث عن موظف',
+        message: 'اكتب الاسم أو الهاتف، أو اختر الوظيفة أو الفرع، ثم اضغط «بحث».',
+      }}
+      params={{
+        search: applied?.q,
+        employee_type: applied?.employee_type,
+        branch: applied?.branch,
+      }}
+      beforeTable={
+        <SearchPanel
+          queryLabel="الاسم أو رقم الهاتف"
+          queryPlaceholder="اكتب اسم الموظف أو رقم هاتفه"
+          fields={[
+            { name: 'employee_type', label: 'الوظيفة', type: 'relation', resource: api.employeeTypes },
+            { name: 'branch', label: 'الفرع', type: 'relation', resource: api.branches },
+          ]}
+          validate={(values) =>
+            hasCriteria(values) ? null : 'اكتب اسماً أو هاتفاً، أو اختر الوظيفة أو الفرع، ثم اضغط بحث.'
+          }
+          onSearch={setApplied}
+          onReset={() => setApplied(null)}
+        />
+      }
       columns={[
         { key: 'serial_number', header: 'الرقم', numeric: true },
         { key: 'name', header: 'الاسم' },

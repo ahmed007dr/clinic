@@ -48,6 +48,7 @@ const SECTIONS = [
       { to: '/shift', label: 'nav.my_shift', icon: '🗃', permission: 'works_in_shifts' },
       { to: '/payments', label: 'nav.payments', icon: '💵', permission: 'manage_billing' },
       { to: '/expenses', label: 'nav.expenses', icon: '🧾', permission: 'manage_billing' },
+      { to: '/coupons', label: 'nav.coupons', icon: '🏷', permission: 'is_admin' },
       { to: '/reports/financial', label: 'nav.financial_report', icon: '📊', permission: 'view_finance' },
       { to: '/shifts', label: 'nav.shifts', icon: '📒', permission: 'manage_shifts' },
       { to: '/commissions', label: 'nav.commissions', icon: '٪', permission: 'view_contracts' },

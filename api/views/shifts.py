@@ -1,14 +1,12 @@
 """Cash shifts (billing.shifts holds every rule; this only speaks HTTP).
 
     GET  /api/shifts/current/          your open shift and its running summary
-    POST /api/shifts/open/             {opening_balance, notes}
+    POST /api/shifts/open/             {notes, branch?} — a shift starts from zero
     POST /api/shifts/<uuid>/close/     your own, or anyone's if you manage shifts
     GET  /api/shifts/                  management: the clinic's shifts
     GET  /api/shifts/<uuid>/           management: one shift, its money, summary
     POST /api/shifts/<uuid>/reopen/    management only
 """
-
-from decimal import Decimal, InvalidOperation
 
 from rest_framework import serializers
 from rest_framework.decorators import action
@@ -16,9 +14,11 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
 from api.permissions import IsClinicMember
+from api.serializers.appointments import AppointmentSerializer
 from api.serializers.billing import ExpenseSerializer, PaymentSerializer
 from api.viewsets import ReadOnlyClinicViewSet
 from billing.models import CashShift
+from branches.models import Branch
 from billing.shifts import (
     ShiftError,
     can_close,
@@ -27,6 +27,7 @@ from billing.shifts import (
     manages_shifts,
     open_shift,
     reopen_shift,
+    shift_bookings,
     summarize,
     visible_shifts,
     works_in_shifts,
@@ -44,7 +45,7 @@ class CashShiftSerializer(serializers.ModelSerializer):
         model = CashShift
         fields = [
             "uuid", "user_name", "branch_name", "status", "status_label",
-            "opening_balance", "opened_at", "closed_at", "closed_by_name",
+            "opened_at", "closed_at", "closed_by_name",
             "reopened_at", "reopened_by_name", "closing_summary", "notes",
         ]
         read_only_fields = fields
@@ -94,6 +95,9 @@ class CashShiftViewSet(ReadOnlyClinicViewSet):
                 shift.expenses.select_related("branch", "category", "employee", "method")
                 .order_by("id"), many=True, context=context,
             ).data
+            data["bookings"] = AppointmentSerializer(
+                shift_bookings(shift), many=True, context=context
+            ).data
         return data
 
     def retrieve(self, request, *args, **kwargs):
@@ -112,12 +116,15 @@ class CashShiftViewSet(ReadOnlyClinicViewSet):
 
     @action(detail=False, methods=["post"], url_path="open")
     def open(self, request):
+        branch = None
+        if request.data.get("branch"):
+            # Only the Owner may name a clinic (billing.shifts.open_shift
+            # ignores it for anyone else); it must be one of their group's.
+            branch = Branch.objects.filter(uuid=request.data["branch"]).first()
+            if branch is None:
+                raise ValidationError({"branch": "فرع غير موجود."})
         try:
-            balance = Decimal(str(request.data.get("opening_balance") or "0"))
-        except InvalidOperation:
-            raise ValidationError({"opening_balance": "أدخل مبلغاً صحيحاً."})
-        try:
-            shift = open_shift(request.user, balance, request.data.get("notes", ""))
+            shift = open_shift(request.user, request.data.get("notes", ""), branch=branch)
         except ShiftError as error:
             _refuse(error)
         return Response(self.payload(shift, full=True), status=201)

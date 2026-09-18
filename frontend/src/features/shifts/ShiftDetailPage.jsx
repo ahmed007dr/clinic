@@ -12,13 +12,14 @@ import {
   DescriptionList,
   ErrorState,
   Loading,
-  Table,
 } from '@/components/ui'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useAsync, useMutation } from '@/hooks/useApi'
 import { useToast } from '@/hooks/useToast'
-import { formatDateTime, formatMoney } from '@/lib/format'
+import { serverUrl } from '@/lib/config'
+import { formatDateTime } from '@/lib/format'
 
+import { ShiftLedger } from './ShiftLedger'
 import { ShiftSummary } from './ShiftSummary'
 
 /**
@@ -58,13 +59,23 @@ export function ShiftDetailPage() {
         title={`وردية ${shift.user_name}`}
         subtitle={`${shift.branch_name} · ${formatDateTime(shift.opened_at)}`}
         actions={
-          shift.status === 'open' ? (
-            <Button variant="danger" onClick={() => setConfirm('close')}>
-              إغلاق الوردية
-            </Button>
-          ) : (
-            <Button onClick={() => setConfirm('reopen')}>إعادة فتح الوردية</Button>
-          )
+          <>
+            <a
+              className="ui-btn ui-btn--secondary"
+              href={serverUrl(`/billing/shift/${shift.uuid}/print/`)}
+              target="_blank"
+              rel="noopener"
+            >
+              طباعة التقرير
+            </a>
+            {shift.status === 'open' ? (
+              <Button variant="danger" onClick={() => setConfirm('close')}>
+                إغلاق الوردية
+              </Button>
+            ) : (
+              <Button onClick={() => setConfirm('reopen')}>إعادة فتح الوردية</Button>
+            )}
+          </>
         }
       />
 
@@ -123,48 +134,7 @@ export function ShiftDetailPage() {
           </Card>
         )}
 
-        <Card>
-          <CardHeader title="الدفعات" subtitle={`${shift.payments.length} دفعة`} />
-          <CardBody flush>
-            <Table
-              columns={[
-                { key: 'receipt_number', header: 'الإيصال', numeric: true },
-                { key: 'date', header: 'الوقت', render: (row) => formatDateTime(row.date) },
-                { key: 'patient_name', header: 'المريض' },
-                { key: 'method_name', header: 'الطريقة', render: (row) => row.method_name || '—' },
-                {
-                  key: 'amount',
-                  header: 'المبلغ',
-                  numeric: true,
-                  render: (row) => <strong>{formatMoney(row.amount)}</strong>,
-                },
-              ]}
-              rows={shift.payments}
-              empty={{ title: 'لا دفعات' }}
-            />
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardHeader title="المصروفات" subtitle={`${shift.expenses.length} مصروف`} />
-          <CardBody flush>
-            <Table
-              columns={[
-                { key: 'category_name', header: 'البند', render: (row) => row.category_name || '—' },
-                { key: 'method_name', header: 'الطريقة', render: (row) => row.method_name || '—' },
-                { key: 'notes', header: 'ملاحظات', render: (row) => row.notes || '—' },
-                {
-                  key: 'amount',
-                  header: 'المبلغ',
-                  numeric: true,
-                  render: (row) => <strong>{formatMoney(row.amount)}</strong>,
-                },
-              ]}
-              rows={shift.expenses}
-              empty={{ title: 'لا مصروفات' }}
-            />
-          </CardBody>
-        </Card>
+        <ShiftLedger shift={shift} />
       </div>
 
       <ConfirmDialog

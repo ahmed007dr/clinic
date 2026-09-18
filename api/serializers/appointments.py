@@ -5,11 +5,25 @@ a `medical.Visit`, and the two are separate on purpose: walk-ins have no
 appointment, and a booking nobody attended produces no visit.
 """
 
+from decimal import Decimal
+
+from django.db import transaction
 from rest_framework import serializers
 
 from api.relations import TenantScopedRelatedField
 from appointments.models import Appointment
+from billing.collect import (
+    PaymentRefused,
+    PaymentRequired,
+    amount_paid,
+    coupon_problem,
+    record_payment,
+    require_paid,
+    spend_coupon,
+)
+from billing.models import DiscountCoupon, PaymentMethod
 from billing.pricing import enforce_attrs
+from billing.shifts import ShiftError
 from branches.models import Branch
 from employees.models import Employee, Specialization
 from patients.models import Patient
@@ -32,6 +46,16 @@ class AppointmentSerializer(ActiveChoicesMixin, ClinicSerializer):
         model=Service, required=False, allow_null=True
     )
     branch = TenantScopedRelatedField(model=Branch, required=False, allow_null=True)
+    # A discount coupon the patient holds; only applied when booking. The
+    # discount it gives is the server's to work out (`discount` is read-only).
+    coupon = TenantScopedRelatedField(model=DiscountCoupon, required=False, allow_null=True)
+    # Payment taken with the booking, in the same step: how much, and how.
+    paid_amount = serializers.DecimalField(
+        max_digits=10, decimal_places=2, required=False, write_only=True, min_value=Decimal("0")
+    )
+    payment_method = TenantScopedRelatedField(
+        model=PaymentMethod, required=False, allow_null=True, write_only=True
+    )
 
     patient_name = serializers.CharField(source="patient.name", read_only=True)
     patient_phone = serializers.CharField(
@@ -55,6 +79,11 @@ class AppointmentSerializer(ActiveChoicesMixin, ClinicSerializer):
     # in advance. Null for a doctor, who sees no money but their own share.
     paid_total = serializers.SerializerMethodField()
     payment_status = serializers.SerializerMethodField()
+    amount_due = serializers.SerializerMethodField()
+    net_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    # The receipt of the payment taken with this booking, on the response that
+    # creates it — so it can be printed straight away.
+    receipt_uuid = serializers.SerializerMethodField()
 
     class Meta:
         model = Appointment
@@ -66,10 +95,12 @@ class AppointmentSerializer(ActiveChoicesMixin, ClinicSerializer):
             "service", "service_name",
             "branch", "branch_name",
             "status", "status_label",
-            "scheduled_date", "price", "notes", "created_at",
+            "scheduled_date", "price", "discount", "net_price", "notes", "created_at",
+            "coupon", "paid_amount", "payment_method",
             "follow_up_date", "has_visit",
-            "paid_total", "payment_status",
+            "paid_total", "payment_status", "amount_due", "receipt_uuid",
         ]
+        read_only_fields = ["discount"]
 
     def _paid(self, appointment):
         from accounts.roles import is_front_desk
@@ -89,7 +120,17 @@ class AppointmentSerializer(ActiveChoicesMixin, ClinicSerializer):
             return None
         if paid <= 0:
             return "unpaid"
-        return "paid" if paid >= (appointment.price or 0) else "partial"
+        return "paid" if paid >= appointment.net_price else "partial"
+
+    def get_amount_due(self, appointment):
+        paid = self._paid(appointment)
+        if paid is None:
+            return None
+        return f"{max(appointment.net_price - paid, 0):.2f}"
+
+    def get_receipt_uuid(self, appointment):
+        receipt = getattr(appointment, "_new_receipt", None)
+        return str(receipt.uuid) if receipt is not None else None
 
     def _visit(self, appointment):
         # `visits` is prefetched by the viewset; a list, not a query per row.
@@ -122,7 +163,82 @@ class AppointmentSerializer(ActiveChoicesMixin, ClinicSerializer):
                 attrs["branch"] = Branch.objects.filter(pk=branch_id).first()
         # The price is the doctor's contract price; only management sets
         # another one (billing.pricing).
-        return enforce_attrs(attrs, self.request_user, self.instance, price_field="price")
+        attrs = enforce_attrs(attrs, self.request_user, self.instance, price_field="price")
+        self._validate_money(attrs, status)
+        return attrs
+
+    def _validate_money(self, attrs, status):
+        """Coupon, payment taken now, and the "paid in full to go in" rule."""
+        from accounts.roles import is_front_desk
+
+        creating = self.instance is None
+        price = attrs.get("price", getattr(self.instance, "price", None)) or Decimal("0")
+        paid_now = attrs.get("paid_amount")
+
+        # A coupon is applied when booking, never swapped afterwards.
+        coupon = attrs.get("coupon")
+        if not creating:
+            attrs.pop("coupon", None)
+            coupon = None
+        discount = getattr(self.instance, "discount", None) or Decimal("0")
+        if coupon is not None:
+            service = attrs.get("service")
+            problem = coupon_problem(
+                coupon,
+                attrs.get("patient"),
+                service,
+                attrs.get("specialization") or getattr(service, "specialization", None),
+            )
+            if problem:
+                raise serializers.ValidationError({"coupon": problem})
+            discount = min(coupon.amount, price)
+            attrs["discount"] = discount
+
+        net = max(price - discount, Decimal("0"))
+
+        if paid_now:
+            if not is_front_desk(self.request_user):
+                raise serializers.ValidationError({"paid_amount": "تسجيل الدفعات للاستقبال والإدارة فقط."})
+            if not creating:
+                raise serializers.ValidationError({"paid_amount": "الدفعات على حجز قائم تُسجَّل من شاشة الدفعات."})
+            if paid_now > net:
+                raise serializers.ValidationError(
+                    {"paid_amount": f"المبلغ أكبر من سعر الحجز بعد الخصم ({net:.2f})."}
+                )
+            if attrs.get("payment_method") is None:
+                raise serializers.ValidationError({"payment_method": "اختر طريقة الدفع."})
+
+        # Going in to the doctor needs the booking paid in full.
+        if status == "entered" and (creating or self.instance.status != "entered"):
+            already = Decimal("0") if creating else amount_paid(self.instance)
+            try:
+                require_paid(net - already - (paid_now or Decimal("0")))
+            except PaymentRequired as required:
+                raise serializers.ValidationError({"status": str(required)})
+
+    @transaction.atomic
+    def create(self, validated_data):
+        paid_now = validated_data.pop("paid_amount", None)
+        method = validated_data.pop("payment_method", None)
+        coupon = validated_data.get("coupon")
+        try:
+            if coupon is not None:
+                spend_coupon(coupon)
+            appointment = super().create(validated_data)
+            if paid_now:
+                appointment._new_receipt = record_payment(
+                    self.request_user, appointment, paid_now, method
+                )
+        except (PaymentRefused, ShiftError) as refused:
+            # Nothing of the booking is kept: transaction.atomic rolls it all
+            # back, the coupon included.
+            raise serializers.ValidationError({"detail": str(refused)})
+        return appointment
+
+    def update(self, instance, validated_data):
+        validated_data.pop("paid_amount", None)
+        validated_data.pop("payment_method", None)
+        return super().update(instance, validated_data)
 
     def validate_doctor(self, doctor):
         """Only staff typed as Doctor may hold an appointment.

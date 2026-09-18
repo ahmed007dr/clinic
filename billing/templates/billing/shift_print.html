@@ -1,0 +1,136 @@
+{% load static %}<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>تقرير وردية {{ cashier }} - {{ shift.opened_at|date:"Y-m-d H:i" }}</title>
+  <link rel="stylesheet" href="{% static 'css/cairo.css' %}">
+  {% include "print/_styles.html" %}
+  <style>
+    @page { size: A4; margin: 12mm; }
+    body { padding: 12px; font-size: 13px; }
+    .sheet { max-width: 190mm; }
+    .rep__kind { text-align: center; font-weight: 700; font-size: 18px; margin: 0 0 4px; color: var(--accent); }
+    .rep__branch { text-align: center; font-size: 12px; color: #555; margin: 0 0 14px; }
+    .rep__meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 24px; margin-bottom: 14px; }
+    .rep__meta div { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0;
+                     border-bottom: 1px dashed #ccc; }
+    .rep__meta span:first-child { color: #555; }
+    .rep__meta span:last-child { font-weight: 700; }
+    h2 { font-size: 14px; margin: 18px 0 6px; color: var(--accent); }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { padding: 5px 6px; border-bottom: 1px solid #ddd; text-align: start; vertical-align: top; }
+    thead th { background: #f4f6f7; font-size: 11px; color: #444; }
+    td.n, th.n { text-align: left; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    tfoot td { font-weight: 700; border-top: 2px solid #999; border-bottom: 0; }
+    .rep__totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
+    .rep__totals div { background: #f4f6f7; border-radius: 6px; padding: 8px; text-align: center; }
+    .rep__totals b { display: block; font-size: 16px; color: var(--accent); }
+    .rep__totals span { font-size: 11px; color: #555; }
+    .rep__warn { margin-top: 10px; padding: 6px 10px; border: 1px solid #b5401c; border-radius: 6px;
+                 font-size: 12px; color: #b5401c; }
+    .rep__sign { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 36px; font-size: 12px; }
+    .rep__sign div { border-top: 1px solid #333; padding-top: 4px; text-align: center; }
+    .rep__printed { margin-top: 14px; font-size: 10px; color: #777; text-align: center; }
+    @media print { .print-btn { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <button class="print-btn" onclick="window.print()">طباعة</button>
+
+    <header class="lh-head">
+      <div class="lh-brand">
+        {% if letterhead.logo_url %}<img class="lh-logo" src="{{ letterhead.logo_url }}" alt="">{% endif %}
+        <div>
+          <h1 class="lh-title">{{ letterhead.title }}</h1>
+          {% if letterhead.subtitle %}<div class="lh-subtitle">{{ letterhead.subtitle }}</div>{% endif %}
+        </div>
+      </div>
+      <div class="lh-contact">
+        {% if letterhead.address %}<div>{{ letterhead.address }}</div>{% endif %}
+        {% if letterhead.phone %}<div dir="ltr">{{ letterhead.phone }}</div>{% endif %}
+      </div>
+    </header>
+
+    <p class="rep__kind">تقرير وردية</p>
+    <p class="rep__branch">{{ shift.branch.name }}</p>
+
+    <div class="rep__meta">
+      <div><span>الموظف</span><span>{{ cashier }}</span></div>
+      <div><span>الحالة</span><span>{% if shift.is_open %}مفتوحة{% else %}مغلقة{% endif %}</span></div>
+      <div><span>فُتحت</span><span>{{ shift.opened_at|date:"Y-m-d H:i" }}</span></div>
+      <div><span>أُغلقت</span><span>{% if shift.closed_at %}{{ shift.closed_at|date:"Y-m-d H:i" }}{% if closed_by %} · {{ closed_by }}{% endif %}{% else %}—{% endif %}</span></div>
+    </div>
+
+    <div class="rep__totals">
+      <div><b>{{ summary.revenue }}</b><span>الإيرادات</span></div>
+      <div><b>{{ summary.expenses }}</b><span>المصروفات</span></div>
+      <div><b>{{ summary.net }}</b><span>الصافي</span></div>
+    </div>
+
+    {% if changed_since_closing %}
+      <p class="rep__warn">⚠ تغيّرت المبالغ بعد إغلاق الوردية — هذا التقرير يعرض الأرقام الحالية.</p>
+    {% endif %}
+
+    <h2>الملخص بحسب طريقة الدفع</h2>
+    <table>
+      <thead><tr><th>الطريقة</th><th class="n">الإيراد</th><th class="n">المصروف</th><th class="n">الصافي</th></tr></thead>
+      <tbody>
+        {% for row in summary.by_method %}
+          <tr><td>{{ row.method }}</td><td class="n">{{ row.revenue }}</td><td class="n">{{ row.expenses }}</td><td class="n">{{ row.net }}</td></tr>
+        {% empty %}
+          <tr><td colspan="4">لا حركة مالية في هذه الوردية.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <h2>الإيرادات ({{ payments|length }})</h2>
+    <table>
+      <thead><tr><th>الإيصال</th><th>الوقت</th><th>المريض</th><th>الخدمة</th><th>الطبيب</th><th>الطريقة</th><th class="n">المبلغ</th></tr></thead>
+      <tbody>
+        {% for p in payments %}
+          <tr>
+            <td>{{ p.receipt_number }}</td>
+            <td>{{ p.date|date:"H:i" }}</td>
+            <td>{{ p.patient.name }}</td>
+            <td>{{ p.appointment.service.name|default:"—" }}</td>
+            <td>{{ p.appointment.doctor.name|default:"—" }}</td>
+            <td>{{ p.method.name|default:"—" }}</td>
+            <td class="n">{{ p.amount|floatformat:2 }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="7">لا إيرادات.</td></tr>
+        {% endfor %}
+      </tbody>
+      <tfoot><tr><td colspan="6">إجمالي الإيرادات</td><td class="n">{{ summary.revenue }}</td></tr></tfoot>
+    </table>
+
+    <h2>المصروفات ({{ expenses|length }})</h2>
+    <table>
+      <thead><tr><th>البند</th><th>الموظف</th><th>الطريقة</th><th>ملاحظات</th><th class="n">المبلغ</th></tr></thead>
+      <tbody>
+        {% for e in expenses %}
+          <tr>
+            <td>{{ e.category.name|default:"—" }}</td>
+            <td>{{ e.employee.name|default:"—" }}</td>
+            <td>{{ e.method.name|default:"—" }}</td>
+            <td>{{ e.notes|default:"—" }}</td>
+            <td class="n">{{ e.amount|floatformat:2 }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5">لا مصروفات.</td></tr>
+        {% endfor %}
+      </tbody>
+      <tfoot><tr><td colspan="4">إجمالي المصروفات</td><td class="n">{{ summary.expenses }}</td></tr></tfoot>
+    </table>
+
+    <div class="rep__sign">
+      <div>توقيع الموظف — {{ cashier }}</div>
+      <div>توقيع المستلم</div>
+    </div>
+    <p class="rep__printed">طُبع بواسطة {{ printed_by }} · {% now "Y-m-d H:i" %}</p>
+    {% if layout.note %}<p class="rep__printed">{{ layout.note }}</p>{% endif %}
+  </div>
+  <script>window.onload = function () { window.print(); };</script>
+</body>
+</html>

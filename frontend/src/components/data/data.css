@@ -106,3 +106,41 @@
   font-size: var(--text-sm);
   width: auto;
 }
+
+/* ------------------------------------------------------------ search panel */
+
+/* A list that stays empty until "بحث" is pressed: its criteria, side by side. */
+.search-panel {
+  margin-block-end: var(--s4);
+}
+
+.search-panel__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--s3);
+  align-items: end;
+}
+
+.search-panel__wide {
+  grid-column: span 2;
+}
+
+.search-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-wrap: wrap;
+  margin-block-start: var(--s3);
+}
+
+.search-panel__error {
+  color: var(--urgent);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .search-panel__wide {
+    grid-column: auto;
+  }
+}

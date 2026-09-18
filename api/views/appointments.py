@@ -9,6 +9,7 @@ from accounts.roles import is_front_desk
 from api.permissions import DeleteRequiresAdmin, IsClinicMember
 from api.serializers.appointments import AppointmentSerializer
 from api.viewsets import ClinicViewSet
+from billing.collect import PaymentRequired, amount_paid, check_can_enter
 from appointments.models import Appointment
 
 
@@ -118,6 +119,12 @@ class AppointmentViewSet(ClinicViewSet):
             return Response(
                 {"status": ["حدد الطبيب في الحجز قبل تسجيل دخول المريض."]}, status=400
             )
+        if value == "entered" and appointment.status != "entered":
+            # Paid in full (net of any coupon) before going in to the doctor.
+            try:
+                check_can_enter(appointment)
+            except PaymentRequired as required:
+                return Response({"status": [str(required)]}, status=400)
         appointment.status = value
         appointment.save(update_fields=["status"])
         return Response(self.get_serializer(appointment).data)

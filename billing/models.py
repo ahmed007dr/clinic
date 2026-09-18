@@ -1,4 +1,6 @@
 # billing/models.py
+from decimal import Decimal
+
 from django.db import models
 from django.core.validators import MaxValueValidator, MinValueValidator
 from patients.models import Patient
@@ -44,9 +46,9 @@ class CashShift(TenantOwnedModel):
 
     Money is taken at a desk by a named person, and the question every clinic
     asks at the end of a day is "what did *you* take, and does the drawer
-    agree?". So a shift belongs to one user — a receptionist or a clinic Admin
-    — and every payment or expense they record is filed under it
-    (billing.shifts). The Owner records outside shifts.
+    agree?". So a shift belongs to one user — a receptionist, a clinic Admin
+    or the Owner — and every payment or expense they record is filed under it
+    (billing.shifts). Nobody records money outside one.
 
     * Opened by the person themselves, with the cash already in the drawer.
     * Closed by them at the end of their day, or by management. Once closed,
@@ -281,3 +283,68 @@ class DoctorCommission(TenantOwnedModel):
 
     def __str__(self):
         return f"{self.doctor} {self.amount} ({self.status})"
+
+
+class DiscountCoupon(TenantOwnedModel):
+    """A discount for one patient, issued by management (Admin or Owner).
+
+    The group owner's rule (2026-09-18): a patient goes in to the doctor only
+    once the booking is paid in full — unless management has given them a
+    discount. The discount is a fixed amount in the patient's name, for a
+    named service (the ordinary consultation, say, and what it is worth) or for
+    a whole specialty. It is used once, on a booking, and then it is spent;
+    the booking keeps the original price, the discount and the net.
+
+    Nothing else discounts a booking: the front desk cannot type a price or a
+    discount (billing.pricing), they can only apply a coupon that exists.
+    """
+
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="coupons")
+    amount = models.DecimalField(
+        max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
+    )
+    service = models.ForeignKey(
+        "services.Service", on_delete=models.CASCADE, null=True, blank=True, related_name="+"
+    )
+    specialization = models.ForeignKey(
+        "employees.Specialization", on_delete=models.CASCADE, null=True, blank=True, related_name="+"
+    )
+    expires_on = models.DateField(null=True, blank=True)
+    notes = models.CharField(max_length=200, blank=True, default="")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    # Cancelled by management, or spent on a booking: either way, not usable.
+    voided_at = models.DateTimeField(null=True, blank=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta(TenantOwnedModel.Meta):
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(service__isnull=False) | models.Q(specialization__isnull=False),
+                name="coupon_has_a_service_or_specialization",
+            )
+        ]
+        indexes = [models.Index(fields=["tenant", "patient"], name="coupon_patient_idx")]
+
+    def __str__(self):
+        return f"Coupon {self.amount} for {self.patient_id}"
+
+    @property
+    def status(self):
+        from django.utils import timezone
+
+        if self.voided_at:
+            return "voided"
+        if self.used_at:
+            return "used"
+        if self.expires_on and self.expires_on < timezone.now().date():
+            return "expired"
+        return "available"
+
+    def applies_to(self, service, specialization):
+        """Whether a booking for this service / specialty may use it."""
+        if self.service_id is not None:
+            return service is not None and service.pk == self.service_id
+        return specialization is not None and specialization.pk == self.specialization_id

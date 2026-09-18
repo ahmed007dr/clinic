@@ -245,13 +245,15 @@ class ContractTests(TestCase):
         self.login("desk")
         self.open_shift()
         booking = self.book()
-        with self.captureOnCommitCallbacks(execute=True):
-            self.post("api:appointment-set-status", {"status": "entered"}, args=[booking["uuid"]])
+        # A patient goes in only once the booking is paid in full
+        # (billing.collect), so the payment comes first now.
         with self.captureOnCommitCallbacks(execute=True):
             self.pay(booking["uuid"], "800.00")
+        with self.captureOnCommitCallbacks(execute=True):
+            self.post("api:appointment-set-status", {"status": "entered"}, args=[booking["uuid"]])
 
         self.assertEqual(len(mail.outbox), 2)
-        checkin, payment = mail.outbox
+        payment, checkin = mail.outbox
         self.assertEqual(checkin.to, ["CT-1@doctors.local"])
         for text in ("Mona", "Laser CT", "800.00", "40"):
             self.assertIn(text, checkin.body)

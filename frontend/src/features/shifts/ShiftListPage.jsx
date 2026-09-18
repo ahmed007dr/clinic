@@ -5,6 +5,7 @@ import { api } from '@/api'
 import { Badge, Input, Select } from '@/components/ui'
 import { ResourceTable } from '@/components/data/ResourceTable'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { serverUrl } from '@/lib/config'
 import { formatDateTime, formatMoney } from '@/lib/format'
 
 /**
@@ -46,6 +47,20 @@ export function ShiftListPage() {
             header: 'الحالة',
             render: (row) => (
               <Badge tone={row.status === 'open' ? 'primary' : 'neutral'}>{row.status_label}</Badge>
+            ),
+          },
+          {
+            key: '__print',
+            actions: true,
+            render: (row) => (
+              <a
+                className="ui-btn ui-btn--ghost ui-btn--sm"
+                href={serverUrl(`/billing/shift/${row.uuid}/print/`)}
+                target="_blank"
+                rel="noopener"
+              >
+                طباعة
+              </a>
             ),
           },
         ]}

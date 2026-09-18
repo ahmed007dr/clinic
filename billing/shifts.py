@@ -2,12 +2,15 @@
 
 The rules (the group owner's, 2026-09-11):
 
-* A receptionist or clinic Admin opens their own shift, with the cash already
-  in the drawer. Every payment or expense they record goes into it; with no
-  open shift they cannot record money at all. The Owner records outside
-  shifts.
+* A receptionist, clinic Admin or the group Owner opens their own shift. It
+  starts from zero (the group owner's rule, 2026-09-18: no opening balance, no
+  "expected" balance) — the drawer is whatever the shift itself took in and
+  paid out. Every payment or expense they record goes
+  into it; with no open shift they cannot record money at all — nobody is
+  exempt (the group owner's rule, 2026-09-18: money recorded outside a shift
+  is a drawer that cannot be reconciled, and the Owner was the gap).
 * The closing report is per payment method: what came in, what went out, the
-  net — plus the opening balance, so the drawer can be checked against it.
+  net — which is what the drawer is checked against, at any moment.
 * Closing: by the person themselves at the end of their day, or by an
   Admin/Owner. After that the person cannot see it (billing.access).
 * Reopening: Admin or Owner only.
@@ -15,13 +18,14 @@ The rules (the group owner's, 2026-09-11):
 Views call these functions; none of the rules above live in a view.
 """
 
+from datetime import timedelta
 from decimal import Decimal
 
 from django.db import IntegrityError, transaction
 from django.db.models import Sum
 from django.utils import timezone
 
-from accounts.roles import ADMIN, RECEPTION, is_clinic_admin, role_name, sees_all_branches
+from accounts.roles import ADMIN, OWNER, RECEPTION, is_clinic_admin, role_name, sees_all_branches
 
 from .models import CashShift, Expense, Payment
 
@@ -40,8 +44,9 @@ class ShiftError(Exception):
 
 
 def works_in_shifts(user):
-    """Who records money inside a shift: the front desk and clinic Admins."""
-    return role_name(user) in {RECEPTION, ADMIN}
+    """Who records money inside a shift: the front desk, clinic Admins and the
+    Owner. Doctors record no clinic money at all."""
+    return role_name(user) in {RECEPTION, ADMIN, OWNER}
 
 
 def manages_shifts(user):
@@ -57,9 +62,10 @@ def current_shift(user):
 def shift_for_recording(user):
     """The shift a new payment or expense by `user` goes into.
 
-    None for the Owner (records outside shifts). For everyone who works in
-    shifts, an open shift is required — money recorded with nowhere to go is
-    exactly the drawer that cannot be reconciled.
+    None only for a role that records no money through the clinic screens.
+    For everyone who works in shifts an open shift is required — money
+    recorded with nowhere to go is exactly the drawer that cannot be
+    reconciled.
     """
     if not works_in_shifts(user):
         return None
@@ -69,18 +75,24 @@ def shift_for_recording(user):
     return shift
 
 
-def open_shift(user, opening_balance=ZERO, notes=""):
+def open_shift(user, notes="", branch=None):
+    """Open `user`'s shift on their own clinic. It starts at zero. The Owner sees every clinic, so
+    they may name the one they are working at (`branch`, a Branch); nobody
+    else can open a shift anywhere but their own clinic."""
     if not works_in_shifts(user):
         raise ShiftError("الورديات للاستقبال وإدارة العيادة فقط.")
-    if not user.branch_id:
-        raise ShiftError("حسابك غير مرتبط بفرع.")
-    if opening_balance is None or Decimal(opening_balance) < 0:
-        raise ShiftError("الرصيد الافتتاحي لا يمكن أن يكون سالباً.")
+    branch_id = user.branch_id
+    if branch is not None and sees_all_branches(user):
+        branch_id = branch.pk
+    if not branch_id:
+        raise ShiftError(
+            "اختر الفرع الذي ستعمل عليه." if sees_all_branches(user) else "حسابك غير مرتبط بفرع."
+        )
     try:
         with transaction.atomic():
             return CashShift.objects.create(
-                tenant=user.tenant, user=user, branch_id=user.branch_id,
-                opening_balance=opening_balance, notes=notes or "",
+                tenant=user.tenant, user=user, branch_id=branch_id,
+                opening_balance=ZERO, notes=notes or "",
             )
     except IntegrityError:
         # The partial unique constraint: a second open shift for this user.
@@ -134,10 +146,38 @@ def visible_shifts(user, queryset=None):
     return queryset.filter(branch_id=user.branch_id) if user.branch_id else queryset.none()
 
 
+#: How long after closing the person who ran a shift may still print it — the
+#: handover receipt. Longer than that it is management's to review and print
+#: (billing.access: a closed shift is no longer the cashier's to see).
+HANDOVER_PRINT_WINDOW = timedelta(minutes=30)
+
+
+def printable_shift(user, uuid):
+    """The shift `uuid` if `user` may print its report, else None.
+
+    Management: any shift they can review. Anyone else who works in shifts:
+    their own — while it is open, or in the handover window after they closed
+    it (so they can print what they hand over).
+    """
+    shift = (
+        CashShift.objects.select_related("user", "branch", "closed_by", "reopened_by")
+        .filter(uuid=uuid).first()
+    )
+    if shift is None:
+        return None
+    if visible_shifts(user, CashShift.objects.filter(pk=shift.pk)).exists():
+        return shift
+    if shift.user_id != user.pk or not works_in_shifts(user):
+        return None
+    if shift.is_open:
+        return shift
+    recently = shift.closed_at and timezone.now() - shift.closed_at <= HANDOVER_PRINT_WINDOW
+    return shift if recently and shift.closed_by_id == user.pk else None
+
+
 def summarize(shift):
-    """Per payment method: revenue in, expenses out, net. Plus the totals and
-    the balance expected at the end (opening balance + net). Amounts are
-    strings, so the frozen copy in `closing_summary` is exact JSON."""
+    """Per payment method: revenue in, expenses out, net. Plus the totals.
+    Amounts are strings, so the frozen copy in `closing_summary` is exact JSON."""
     # Cancelled money is not in the drawer (billing.voiding).
     payments = Payment.all_objects.filter(shift=shift, voided_at__isnull=True)
     expenses = Expense.all_objects.filter(shift=shift, voided_at__isnull=True)
@@ -173,13 +213,27 @@ def summarize(shift):
     revenue = sum((Decimal(r["revenue"]) for r in by_method), ZERO)
     spent = sum((Decimal(r["expenses"]) for r in by_method), ZERO)
     return {
-        "opening_balance": _money(shift.opening_balance),
         "revenue": _money(revenue),
         "expenses": _money(spent),
         "net": _money(revenue - spent),
-        "expected_balance": _money(Decimal(shift.opening_balance) + revenue - spent),
         "by_method": by_method,
     }
+
+
+def shift_bookings(shift):
+    """The bookings made in this shift: by its person, from when it opened
+    (until it closed) — each with what has been paid and what is still owed,
+    so the drawer can be counted against them at any moment."""
+    from appointments.models import Appointment
+
+    queryset = Appointment.objects.filter(created_by_id=shift.user_id, created_at__gte=shift.opened_at)
+    if shift.closed_at:
+        queryset = queryset.filter(created_at__lte=shift.closed_at)
+    return (
+        queryset.select_related("patient", "doctor", "service", "branch", "specialization")
+        .prefetch_related("visits", "payments")
+        .order_by("created_at")
+    )
 
 
 def _counts(queryset):

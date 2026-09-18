@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { api } from '@/api'
 import { Badge, Button } from '@/components/ui'
 import { ResourceTable } from '@/components/data/ResourceTable'
 import { ExportButtons } from '@/components/data/ExportButtons'
+import { SearchPanel, hasCriteria } from '@/components/data/SearchPanel'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useAuth } from '@/hooks/useAuth'
 import { useT } from '@/i18n'
@@ -17,6 +19,10 @@ export function PatientListPage() {
   const { permissions } = useAuth()
   const { t } = useT()
   const [search] = useSearchParams()
+  // The list loads only when "بحث" is pressed. The owner dashboard links here
+  // with a clinic already chosen, which counts as having asked.
+  const linkedBranch = search.get('branch') || undefined
+  const [applied, setApplied] = useState(linkedBranch ? { branch: linkedBranch } : null)
 
   const columns = [
     { key: 'serial_number', header: 'الرقم', numeric: true },
@@ -70,7 +76,7 @@ export function PatientListPage() {
               {t('patients.print_intake')}
             </a>
           )}
-          
+
           {permissions.front_desk && (
             <Button onClick={() => navigate('/patients/review')}>{t('nav.review')}</Button>
           )}
@@ -80,16 +86,54 @@ export function PatientListPage() {
           </>
         }
       />
+      <SearchPanel
+        queryLabel="الاسم أو رقم الهاتف"
+        queryPlaceholder="اكتب اسم المريض أو رقم هاتفه"
+        initial={{ branch: linkedBranch ?? '' }}
+        fields={[
+          { name: 'created_from', label: 'تاريخ التسجيل — من', type: 'date' },
+          { name: 'created_to', label: 'تاريخ التسجيل — إلى', type: 'date' },
+          {
+            name: 'gender',
+            label: 'النوع',
+            type: 'select',
+            options: [
+              { value: 'male', label: GENDER.male },
+              { value: 'female', label: GENDER.female },
+            ],
+          },
+          ...(permissions.all_branches
+            ? [{ name: 'branch', label: 'الفرع', type: 'relation', resource: api.branches }]
+            : []),
+        ]}
+        validate={(values) =>
+          hasCriteria(values)
+            ? null
+            : 'اكتب اسماً أو رقم هاتف، أو اختر تاريخ تسجيل أو النوع أو الفرع، ثم اضغط بحث.'
+        }
+        onSearch={setApplied}
+        onReset={() => setApplied(null)}
+      />
       <ResourceTable
         resource={api.patients}
         columns={columns}
-        // The owner dashboard links here with a clinic selected.
-        params={{ branch: search.get('branch') || undefined }}
-        searchPlaceholder="ابحث بالاسم أو الرقم أو الهاتف…"
+        searchable={false}
+        enabled={applied !== null}
+        params={{
+          search: applied?.q,
+          created_from: applied?.created_from,
+          created_to: applied?.created_to,
+          gender: applied?.gender,
+          branch: applied?.branch,
+        }}
         onRowClick={(row) => navigate(`/patients/${row.uuid}`)}
+        idle={{
+          title: 'ابحث عن مريض',
+          message: 'اكتب الاسم أو الهاتف، أو حدد تاريخ التسجيل أو الفرع أو النوع، ثم اضغط «بحث».',
+        }}
         empty={{
-          title: 'لا يوجد مرضى بعد',
-          message: 'ابدأ بتسجيل أول مريض من الزر أعلى الصفحة.',
+          title: 'لا توجد نتائج',
+          message: 'لم يُعثر على مريض يطابق هذا البحث. جرّب تغيير الشروط.',
         }}
       />
     </>

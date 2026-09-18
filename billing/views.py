@@ -444,3 +444,44 @@ def expense_print(request, uuid):
         "expense": expense,
         "recorded_by": display_name(expense.created_by) if expense.created_by else "—",
     })
+
+
+@login_required
+def shift_print(request, uuid):
+    """The shift report: whose drawer, opened and closed when, the takings and
+    payouts per payment method, and every payment and expense with its
+    details. For reception (their own shift, at handover), the clinic Admin
+    and the Owner — `billing.shifts.printable_shift` decides who."""
+    from accounts.roles import display_name
+    from branches.printing import letterhead, receipt_layout
+    from .shifts import printable_shift, summarize
+
+    shift = printable_shift(request.user, uuid)
+    if shift is None:
+        raise Http404
+
+    # Cancelled money is not in the drawer; the report lists only what counts.
+    payments = (
+        Payment.all_objects.filter(shift=shift, voided_at__isnull=True)
+        .select_related("patient", "method", "appointment", "appointment__service", "appointment__doctor")
+        .order_by("date")
+    )
+    expenses = (
+        Expense.all_objects.filter(shift=shift, voided_at__isnull=True)
+        .select_related("category", "employee", "method")
+        .order_by("id")
+    )
+    summary = summarize(shift)
+    closing = shift.closing_summary or None
+    return render(request, "billing/shift_print.html", {
+        "letterhead": letterhead(shift.branch, request),
+        "layout": receipt_layout(shift.branch),
+        "shift": shift,
+        "cashier": display_name(shift.user),
+        "closed_by": display_name(shift.closed_by) if shift.closed_by else None,
+        "printed_by": display_name(request.user),
+        "summary": summary,
+        "changed_since_closing": bool(closing) and closing.get("net") != summary["net"],
+        "payments": payments,
+        "expenses": expenses,
+    })

@@ -52,6 +52,11 @@ export const appointments = {
 /* Money */
 export const payments = createResource('payments')
 export const paymentMethods = createResource('payment-methods')
+/* Discount coupons: management issues and cancels, the desk applies one at booking. */
+export const coupons = {
+  ...createResource('coupons'),
+  void: (uuid) => http.post(`/coupons/${uuid}/void/`),
+}
 export const expenses = createResource('expenses')
 export const expenseCategories = createResource('expense-categories')
 export const printers = createResource('printers')
@@ -283,6 +288,7 @@ export const api = {
   appointments,
   payments,
   paymentMethods,
+  coupons,
   expenses,
   expenseCategories,
   printers,

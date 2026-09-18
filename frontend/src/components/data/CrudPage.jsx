@@ -40,6 +40,10 @@ export function CrudPage({
   deleteWarning = 'لا يمكن التراجع عن هذا الإجراء.',
   extraFilters,
   params,
+  beforeTable,
+  searchable,
+  enabled,
+  idle,
 }) {
   const toast = useToast()
   const [editing, setEditing] = useState(null) // row | 'new' | null
@@ -130,9 +134,14 @@ export function CrudPage({
         }
       />
 
+      {beforeTable}
+
       <ResourceTable
         resource={resource}
         columns={allColumns}
+        searchable={searchable}
+        enabled={enabled}
+        idle={idle}
         params={params}
         filters={extraFilters}
         refreshKey={refreshKey}

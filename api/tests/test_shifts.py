@@ -98,12 +98,84 @@ class ShiftTests(TestCase):
         self.assertEqual(self.open().status_code, 201)
         self.assertEqual(self.open().status_code, 400)
 
-    def test_the_owner_records_outside_shifts_and_doctors_have_none(self):
+    def test_the_owner_needs_a_shift_too_and_doctors_have_none(self):
+        # The group owner's rule (2026-09-18): nobody records money outside a
+        # shift — the Owner used to, and that was the unreconcilable drawer.
         self.login("owner")
+        refused = self.pay("20.00", self.cash)
+        self.assertEqual(refused.status_code, 400)
+        self.assertIn("وردية", refused.json()["detail"])
+        self.assertEqual(self.spend("5.00", self.cash).status_code, 400)
+        self.assertEqual(self.open().status_code, 201)
         self.assertEqual(self.pay("20.00", self.cash).status_code, 201)
+        self.assertEqual(self.spend("5.00", self.cash).status_code, 201)
         self.login("doc")
         self.assertEqual(self.open().status_code, 400)
         self.assertFalse(self.client.get(reverse("api:shift-current")).json()["works_in_shifts"])
+
+    def test_the_owner_chooses_the_clinic_a_shift_is_at_others_cannot(self):
+        self.login("owner")
+        opened = self.post("api:shift-open", {"opening_balance": "0", "branch": str(self.other.uuid)})
+        self.assertEqual(opened.status_code, 201, opened.content)
+        self.assertEqual(opened.json()["branch_name"], "Other")
+        # The payment lands in that clinic's drawer.
+        self.pay("40.00", self.cash)
+        with tenant_context(self.tenant):
+            self.assertEqual(Payment.all_objects.get(receipt_number=f"SH-{self.receipt}").branch, self.other)
+        # A receptionist naming another clinic is ignored: theirs is theirs.
+        self.login("desk")
+        own = self.post("api:shift-open", {"opening_balance": "0", "branch": str(self.other.uuid)})
+        self.assertEqual(own.json()["branch_name"], "Desk")
+
+    def test_every_payment_and_expense_says_whose_shift_it_is_in(self):
+        self.login("desk")
+        self.open()
+        self.pay("50.00", self.cash)
+        self.spend("10.00", self.cash)
+        payment = self.client.get(reverse("api:payment-list")).json()["results"][0]
+        expense = self.client.get(reverse("api:expense-list")).json()["results"][0]
+        for row in (payment, expense):
+            self.assertEqual(row["shift_user_name"], "desk")
+            self.assertEqual(row["shift_status"], "open")
+            self.assertTrue(row["shift_opened_at"])
+            self.assertIsNone(row["shift_closed_at"])
+
+    # ------------------------------------------------------- printing
+
+    def test_the_shift_report_prints_for_its_cashier_admin_and_owner_only(self):
+        self.login("desk")
+        uuid = self.open().json()["uuid"]
+        self.pay("50.00", self.cash)
+        self.spend("10.00", self.cash)
+        url = reverse("billing:shift_print", args=[uuid])
+        page = self.client.get(url)
+        self.assertEqual(page.status_code, 200)
+        for text in ("تقرير وردية", "SH-", "50.00", "10.00"):
+            self.assertContains(page, text)
+        # A colleague cannot print someone else's shift.
+        self.login("desk2")
+        self.assertEqual(self.client.get(url).status_code, 404)
+        # Management can, and so can the Owner.
+        for key in ("admin", "owner"):
+            self.login(key)
+            self.assertEqual(self.client.get(url).status_code, 200, key)
+        # An Admin of another clinic cannot.
+        self.login("far")
+        self.assertEqual(self.client.get(url).status_code, 404)
+
+    def test_a_cashier_can_print_only_in_the_handover_window_after_closing(self):
+        from datetime import timedelta
+
+        self.login("desk")
+        uuid = self.open().json()["uuid"]
+        self.post("api:shift-close", args=[uuid])
+        url = reverse("billing:shift_print", args=[uuid])
+        self.assertEqual(self.client.get(url).status_code, 200)
+        with tenant_context(self.tenant):
+            CashShift.all_objects.filter(uuid=uuid).update(closed_at=timezone.now() - timedelta(hours=2))
+        self.assertEqual(self.client.get(url).status_code, 404)
+        self.login("admin")
+        self.assertEqual(self.client.get(url).status_code, 200)
 
     # ------------------------------------------------------------- summary
 
@@ -122,7 +194,9 @@ class ShiftTests(TestCase):
         self.assertEqual(rows["Cash-S"]["net"], "170.00")
         self.assertEqual(rows["Card-S"]["net"], "80.00")
         self.assertEqual(summary["net"], "250.00")
-        self.assertEqual(summary["expected_balance"], "350.00")
+        # A shift starts from zero: no opening balance, no "expected" balance.
+        self.assertNotIn("expected_balance", summary)
+        self.assertNotIn("opening_balance", summary)
 
     # ------------------------------------------------------- after closing
 

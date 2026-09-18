@@ -13,7 +13,7 @@ from .views import dashboard as dashboard_views
 from .views import notifications, patients
 from .views.subscription import SubscriptionView
 from .views.settings import ClinicSettingsView
-from .views import attendance, contracts, intake, meta, owner, shifts
+from .views import attendance, contracts, coupons, intake, meta, owner, shifts
 from .views.print_settings import PrintSettingsView
 from .views import doctor_profile
 from . import platform, platform_backups, platform_business, platform_control, platform_pay, signup
@@ -59,6 +59,7 @@ router.register("allergies", clinical.AllergyViewSet, basename="allergy")
 router.register("intakes", intake.PatientIntakeViewSet, basename="intake")
 router.register("attendance", attendance.AttendanceViewSet, basename="attendance")
 router.register("shifts", shifts.CashShiftViewSet, basename="shift")
+router.register("coupons", coupons.CouponViewSet, basename="coupon")
 router.register("doctor-rates", contracts.DoctorServiceRateViewSet, basename="doctorrate")
 router.register("commissions", contracts.DoctorCommissionViewSet, basename="commission")
 

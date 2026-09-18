@@ -1,16 +1,19 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { api } from '@/api'
 import { Button, Card, CardBody, ErrorState, Loading } from '@/components/ui'
+import { Link } from 'react-router-dom'
 import { FormFields, nullableNames } from '@/components/form/FormFields'
 import { useForm, useUnsavedWarning } from '@/components/form/useForm'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { useMutation, useRecord } from '@/hooks/useApi'
+import { useAsync, useMutation, useRecord } from '@/hooks/useApi'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
 import { serverUrl } from '@/lib/config'
-import { toDateTimeInput } from '@/lib/format'
+import { formatMoney, toDateTimeInput } from '@/lib/format'
+
+import './booking.css'
 
 //: A booking in one of these is still waiting to go in — the only point a
 //: queue ticket makes sense (appointments/views.py TICKET_STATUSES).
@@ -35,13 +38,10 @@ const FIELDS = [
     type: 'relation',
     resource: api.doctors,
   },
-  { name: 'service', label: 'الخدمة', type: 'relation', resource: api.services },
-  {
-    name: 'specialization',
-    label: 'التخصص',
-    type: 'relation',
-    resource: api.specializations,
-  },
+  // Chosen from what the doctor offers (below): their contracted services and
+  // their own specialties, each service with its price beside its name.
+  { name: 'specialization', label: 'التخصص', type: 'select' },
+  { name: 'service', label: 'الخدمة', type: 'select' },
   { name: 'branch', label: 'الفرع', type: 'relation', resource: api.branches },
   { name: 'price', label: 'السعر', type: 'money' },
   {
@@ -62,6 +62,18 @@ const FIELDS = [
     ],
   },
   { name: 'notes', label: 'ملاحظات', type: 'textarea', span: 2 },
+  // Payment, taken with the booking in the same step (the group owner's rule,
+  // 2026-09-18): how much now, and how. A coupon is a discount management gave
+  // this patient. All three are for a new booking at the desk only.
+  { name: 'coupon', label: 'كوبون خصم', type: 'select' },
+  {
+    name: 'paid_amount',
+    label: 'المبلغ المدفوع الآن',
+    type: 'money',
+    required: true,
+    hint: 'يجب سداد المبلغ كاملاً (بعد الخصم) قبل دخول المريض للطبيب.',
+  },
+  { name: 'payment_method', label: 'طريقة الدفع', type: 'relation', resource: api.paymentMethods },
 ]
 
 export function AppointmentFormPage() {
@@ -69,13 +81,6 @@ export function AppointmentFormPage() {
   const navigate = useNavigate()
   const toast = useToast()
   const { branch, permissions } = useAuth()
-  // The price is the doctor's contract price (billing/pricing.py); only
-  // management may change it. Shown to everyone, editable by them alone.
-  const fields = FIELDS.map((field) =>
-    field.name === 'price' && !permissions.is_admin
-      ? { ...field, disabled: true, hint: 'من تعاقد الطبيب — تعديله للإدارة فقط' }
-      : field,
-  )
   const [search] = useSearchParams()
   const editing = Boolean(uuid)
   // Set once a new booking is saved for a patient who is waiting now, so
@@ -109,6 +114,135 @@ export function AppointmentFormPage() {
   const form = useForm(initial, { serverErrors: save.fieldErrors })
   useUnsavedWarning(form.dirty && !save.submitting)
 
+  // What the chosen doctor offers: only the services they are under contract
+  // for, and only their own specialties, with each price — so the receptionist
+  // can tell the patient what they will pay. With no doctor yet, the whole
+  // catalogue at catalogue prices. (api/views/core.py DoctorViewSet.offerings)
+  const doctorId = form.values.doctor
+  const offers = useAsync(
+    () => api.doctors.collectionAction('offerings', doctorId ? { doctor: doctorId } : undefined),
+    [doctorId],
+  )
+  const offer = offers.data
+  const specialization = form.values.specialization
+
+  const serviceOptions = (offer?.services ?? [])
+    .filter((service) => !specialization || service.specialization === specialization)
+    .map((service) => ({ value: service.uuid, label: `${service.name} — ${formatMoney(service.price)}` }))
+  const specializationOptions = (offer?.specializations ?? []).map((item) => ({
+    value: item.uuid,
+    label: item.name,
+  }))
+  // A booking made before a contract changed keeps showing what it was booked
+  // with, even if that is no longer on offer.
+  if (record?.service && form.values.service === record.service && !serviceOptions.some((o) => o.value === record.service)) {
+    serviceOptions.push({ value: record.service, label: record.service_name ?? '—' })
+  }
+
+  // The doctor changed: drop a service or specialty this doctor does not offer.
+  useEffect(() => {
+    if (!offer || !form.touched.doctor) return
+    const { service, specialization: chosen } = form.values
+    if (service && !offer.services.some((s) => s.uuid === service)) form.setValue('service', '')
+    if (chosen && !offer.specializations.some((s) => s.uuid === chosen)) form.setValue('specialization', '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offer])
+
+  // A service picked (or the doctor changed under it): its price appears at
+  // once, and its specialty is filled in when the doctor has that specialty.
+  useEffect(() => {
+    if (!offer || !(form.touched.service || form.touched.doctor)) return
+    const chosen = offer.services.find((s) => s.uuid === form.values.service)
+    if (!chosen) {
+      if (!form.values.service) form.setValue('price', '')
+      return
+    }
+    form.setValue('price', chosen.price)
+    if (
+      chosen.specialization &&
+      chosen.specialization !== form.values.specialization &&
+      offer.specializations.some((s) => s.uuid === chosen.specialization)
+    ) {
+      form.setValue('specialization', chosen.specialization)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.values.service, offer])
+
+  const noContract = Boolean(doctorId) && offer?.contracted && offer.services.length === 0
+  const fields = FIELDS.map((field) => {
+    if (field.name === 'service') {
+      return {
+        ...field,
+        options: serviceOptions,
+        hint: noContract
+          ? 'لا توجد خدمات متعاقد عليها مع هذا الطبيب — تُضاف من الحسابات ← التعاقدات.'
+          : doctorId
+            ? 'الخدمات المتعاقد عليها مع هذا الطبيب فقط.'
+            : 'اختر الطبيب لتظهر خدماته المتعاقد عليها.',
+      }
+    }
+    if (field.name === 'specialization') {
+      return { ...field, options: specializationOptions, hint: doctorId ? 'تخصصات هذا الطبيب فقط.' : undefined }
+    }
+    // The price is the doctor's contract price (billing/pricing.py); only
+    // management may change it. Shown to everyone, editable by them alone.
+    if (field.name === 'price' && !permissions.is_admin) {
+      return { ...field, disabled: true, hint: 'من تعاقد الطبيب — تعديله للإدارة فقط' }
+    }
+    if (field.name === 'coupon') {
+      return {
+        ...field,
+        options: couponOptions,
+        hide: !canCollect || couponOptions.length === 0,
+        hint: 'خصم أعطته الإدارة لهذا المريض على الخدمة المختارة.',
+      }
+    }
+    if (field.name === 'paid_amount' || field.name === 'payment_method') return { ...field, hide: !canCollect }
+    return field
+  })
+  const price = form.values.price
+
+  // The desk takes the payment here, into their open shift; and may apply a
+  // discount coupon the patient holds (issued by management).
+  const canCollect = !editing && permissions.front_desk
+  const patientId = form.values.patient
+  const coupons = useAsync(
+    () => api.coupons.list({ patient: patientId, available: 1, page_size: 50 }),
+    [patientId],
+    { skip: !canCollect || !patientId },
+  )
+  const specializationId = specialization || offer?.services.find((s) => s.uuid === form.values.service)?.specialization
+  const usable = (coupons.data?.results ?? []).filter((c) =>
+    c.service ? c.service === form.values.service : Boolean(c.specialization) && c.specialization === specializationId,
+  )
+  const couponOptions = usable.map((c) => ({
+    value: c.uuid,
+    label: `خصم ${formatMoney(c.amount)} — ${c.service_name || c.specialization_name}`,
+  }))
+  const coupon = usable.find((c) => c.uuid === form.values.coupon)
+  const discount = coupon ? Math.min(Number(coupon.amount), Number(price) || 0) : 0
+  const net = Math.max((Number(price) || 0) - discount, 0)
+  const paidNow = Number(form.values.paid_amount) || 0
+
+  // A coupon that no longer fits the service chosen is dropped.
+  useEffect(() => {
+    if (form.values.coupon && !coupon) form.setValue('coupon', '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coupon, form.values.coupon])
+
+  // Until the cashier types an amount, "paid now" follows the net price: the
+  // usual case is paying it all. (Raw setValues, so it is not counted as typed.)
+  useEffect(() => {
+    if (!canCollect || form.touched.paid_amount) return
+    form.setValues((current) => ({ ...current, paid_amount: net ? String(net) : '' }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [net, canCollect])
+
+  const shiftInfo = useAsync(() => api.shifts.current(), [], {
+    skip: !canCollect || !permissions.works_in_shifts,
+  })
+  const noShift = canCollect && permissions.works_in_shifts && shiftInfo.data && !shiftInfo.data.shift
+
   if (editing && loading) return <Loading />
   if (editing && error) return <ErrorState error={error} onRetry={reload} />
 
@@ -122,11 +256,15 @@ export function AppointmentFormPage() {
     event.preventDefault()
     try {
       const body = form.payload(nullableNames(fields))
-      // The price is the server's to set for anyone but management.
-      fields.filter((field) => field.disabled).forEach((field) => delete body[field.name])
+      // The price is the server's to set for anyone but management; a hidden
+      // field (payment on an edit, say) is not the user's to send.
+      fields.filter((field) => field.disabled || field.hide).forEach((field) => delete body[field.name])
       const result = await save.run(body)
       toast.success(editing ? 'تم حفظ الموعد' : 'تم حجز الموعد')
-      if (enteringQueueNow && TICKETABLE.has(result?.status)) {
+      // The confirmation screen carries the receipt and the queue ticket, so it
+      // shows for a booking that just entered the queue and for any booking
+      // that took a payment.
+      if ((enteringQueueNow && TICKETABLE.has(result?.status)) || result?.receipt_uuid) {
         setJustBooked(result)
         return
       }
@@ -144,17 +282,46 @@ export function AppointmentFormPage() {
           <CardBody>
             <p>
               تم حجز الموعد رقم <strong className="ui-num">{justBooked.serial_number}</strong> للمريض
-              بنجاح، وهو الآن في قائمة الانتظار.
+              بنجاح{TICKETABLE.has(justBooked.status) ? '، وهو الآن في قائمة الانتظار' : ''}.
             </p>
+            {justBooked.receipt_uuid && (
+              <p>
+                المدفوع: <strong>{formatMoney(justBooked.paid_total)}</strong>
+                {Number(justBooked.amount_due) > 0 && (
+                  <>
+                    {' '}
+                    · المتبقي: <strong>{formatMoney(justBooked.amount_due)}</strong>
+                  </>
+                )}
+              </p>
+            )}
+            {Number(justBooked.amount_due) > 0 && (
+              <div className="form-error">
+                لا يدخل المريض للطبيب قبل سداد المتبقي.{' '}
+                <Link to={`/payments/new?appointment=${justBooked.uuid}`}>تحصيل المتبقي</Link>
+              </div>
+            )}
             <div className="form-actions">
-              <a
-                className="ui-btn ui-btn--primary"
-                href={serverUrl(`/appointments/${justBooked.uuid}/ticket/`)}
-                target="_blank"
-                rel="noopener"
-              >
-                طباعة تذكرة الانتظار
-              </a>
+              {justBooked.receipt_uuid && (
+                <a
+                  className="ui-btn ui-btn--primary"
+                  href={serverUrl(`/billing/${justBooked.receipt_uuid}/print/`)}
+                  target="_blank"
+                  rel="noopener"
+                >
+                  طباعة إيصال الدفع
+                </a>
+              )}
+              {TICKETABLE.has(justBooked.status) && (
+                <a
+                  className="ui-btn ui-btn--primary"
+                  href={serverUrl(`/appointments/${justBooked.uuid}/ticket/`)}
+                  target="_blank"
+                  rel="noopener"
+                >
+                  طباعة تذكرة الانتظار
+                </a>
+              )}
               <Button variant="ghost" onClick={() => navigate('/appointments')}>
                 الذهاب لقائمة المواعيد
               </Button>
@@ -174,6 +341,15 @@ export function AppointmentFormPage() {
         title={editing ? `تعديل الموعد ${record?.serial_number ?? ''}` : 'حجز موعد'}
         back={{ to: '/appointments', label: 'رجوع للمواعيد' }}
       />
+      {noShift && (
+        <Card>
+          <CardBody>
+            <div className="form-error">
+              لا توجد وردية مفتوحة. <Link to="/shift">افتح ورديتك</Link> أولاً لتسجيل الدفع مع الحجز.
+            </div>
+          </CardBody>
+        </Card>
+      )}
       <Card>
         <CardBody>
           <form onSubmit={submit}>
@@ -184,6 +360,30 @@ export function AppointmentFormPage() {
               errors={save.fieldErrors}
               disabled={save.submitting}
             />
+            {form.values.service && price !== '' && price != null && (
+              <div className="booking-price" role="status">
+                <div className="booking-price__row">
+                  <span>السعر</span>
+                  <span>{formatMoney(price)}</span>
+                </div>
+                {discount > 0 && (
+                  <div className="booking-price__row">
+                    <span>خصم الكوبون</span>
+                    <span>− {formatMoney(discount)}</span>
+                  </div>
+                )}
+                <div className="booking-price__row booking-price__net">
+                  <span>المبلغ الذي سيدفعه المريض</span>
+                  <strong>{formatMoney(editing ? record?.net_price ?? net : net)}</strong>
+                </div>
+                {canCollect && (
+                  <div className="booking-price__row">
+                    <span>المتبقي بعد الدفع الآن</span>
+                    <span>{formatMoney(Math.max(net - paidNow, 0))}</span>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="form-actions">
               <Button type="submit" variant="primary" loading={save.submitting}>
                 حفظ

@@ -31,6 +31,13 @@ class Appointment(TenantOwnedModel):
     branch = models.ForeignKey('branches.Branch', on_delete=models.SET_NULL, null=True, blank=True)
     scheduled_date = models.DateTimeField()
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    # A coupon applied at booking (billing.DiscountCoupon): the booking keeps
+    # the original price, the discount and the coupon, and what the patient
+    # owes before going in is the net (`net_price`).
+    discount = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    coupon = models.ForeignKey(
+        'billing.DiscountCoupon', on_delete=models.SET_NULL, null=True, blank=True, related_name='appointments'
+    )
     created_by = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True, null=True)
@@ -44,6 +51,11 @@ class Appointment(TenantOwnedModel):
             models.Index(fields=["tenant", "scheduled_date"], name="appointment_date_idx"),
             models.Index(fields=["tenant", "branch", "status"], name="appointment_branch_status_idx"),
         ]
+
+    @property
+    def net_price(self):
+        """What the patient owes for this booking: price less discount."""
+        return max((self.price or 0) - (self.discount or 0), 0)
 
     def save(self, *args, **kwargs):
         if not self.serial_number:

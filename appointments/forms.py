@@ -18,6 +18,24 @@ class AppointmentForm(TenantScopedFormMixin, forms.ModelForm):
         }
 
 
+    def clean(self):
+        """The old screens obey the same rule as the API: a patient goes in to
+        the doctor only once the booking is paid in full (billing.collect)."""
+        from billing.collect import PaymentRequired, check_can_enter, require_paid
+
+        data = super().clean()
+        if data.get("status") != "entered" or self.instance.status == "entered":
+            return data
+        try:
+            if self.instance.pk:
+                check_can_enter(self.instance, price=data.get("price"))
+            else:
+                require_paid(data.get("price") or 0)
+        except PaymentRequired as required:
+            self.add_error("status", str(required))
+        return data
+
+
 class SearchForm(forms.Form):
     query = forms.CharField(max_length=100, required=False, widget=forms.TextInput(attrs={'placeholder': 'ابحث باسم العميل أو الطبيب'}))
     

@@ -12,12 +12,30 @@ from billing.models import (
     Payment,
     PaymentMethod,
 )
+from billing.collect import amount_due, new_receipt_number
 from branches.models import Branch
 from employees.models import Employee
 from patients.models import Patient
 from services.models import Service
 
 from .common import ClinicSerializer
+
+
+class ShiftStamp(serializers.Serializer):
+    """Which shift a piece of money sits in: whose drawer, opened when, closed
+    when. Read-only, and shared by payments and expenses — every list of money
+    answers "who took this, in which shift" the same way."""
+
+    shift_user_name = serializers.SerializerMethodField()
+    shift_opened_at = serializers.DateTimeField(source="shift.opened_at", read_only=True, default=None)
+    shift_closed_at = serializers.DateTimeField(source="shift.closed_at", read_only=True, default=None)
+    shift_status = serializers.CharField(source="shift.status", read_only=True, default=None)
+
+    def get_shift_user_name(self, obj):
+        from accounts.roles import display_name
+
+        shift = obj.shift
+        return display_name(shift.user) if shift is not None else None
 
 
 class PaymentMethodSerializer(ClinicSerializer):
@@ -32,11 +50,12 @@ class ExpenseCategorySerializer(ClinicSerializer):
         fields = ["uuid", "name", "description"]
 
 
-class PaymentSerializer(ClinicSerializer):
+class PaymentSerializer(ShiftStamp, ClinicSerializer):
     appointment = TenantScopedRelatedField(
         model=Appointment, branch_field="branch"
     )
-    patient = TenantScopedRelatedField(model=Patient, branch_field="branch")
+    # The booking's patient — worked out from the booking when left out.
+    patient = TenantScopedRelatedField(model=Patient, branch_field="branch", required=False)
     method = TenantScopedRelatedField(
         model=PaymentMethod, required=False, allow_null=True
     )
@@ -63,9 +82,14 @@ class PaymentSerializer(ClinicSerializer):
             "method", "method_name",
             "branch", "branch_name",
             "date", "notes",
+            "shift_user_name", "shift_opened_at", "shift_closed_at", "shift_status",
             "voided_at", "void_reason", "voided_by_name",
         ]
         read_only_fields = ["date", "voided_at", "void_reason"]
+        # Issued by the system when left out (billing.collect.new_receipt_number).
+        extra_kwargs = {"receipt_number": {"required": False, "allow_blank": True}}
+        # The patient is the booking's, filled in from it in validate().
+        server_filled = ("patient",)
 
     def validate(self, attrs):
         """The payment must belong to the appointment's patient.
@@ -83,10 +107,32 @@ class PaymentSerializer(ClinicSerializer):
             raise serializers.ValidationError(
                 {"patient": "المريض لا يطابق المريض المرتبط بالموعد."}
             )
+        if patient is None and appointment is not None:
+            attrs["patient"] = appointment.patient
+
+        # A payment is against a booking and cannot be more than the booking
+        # still owes (billing.collect). Correcting an existing payment may use
+        # the room its own amount leaves.
+        amount = attrs.get("amount", getattr(self.instance, "amount", None))
+        if amount is not None and appointment is not None:
+            if self.instance is None and amount <= 0:
+                raise serializers.ValidationError({"amount": "المبلغ يجب أن يكون أكبر من صفر."})
+            room = amount_due(appointment)
+            if self.instance is not None and self.instance.appointment_id == appointment.pk:
+                room += self.instance.amount
+            if amount > room:
+                raise serializers.ValidationError(
+                    {"amount": f"المبلغ أكبر من المتبقي على الحجز ({room:.2f})."}
+                )
         return attrs
 
+    def create(self, validated_data):
+        if not validated_data.get("receipt_number"):
+            validated_data["receipt_number"] = new_receipt_number(validated_data["tenant"].pk)
+        return super().create(validated_data)
 
-class ExpenseSerializer(ClinicSerializer):
+
+class ExpenseSerializer(ShiftStamp, ClinicSerializer):
     category = TenantScopedRelatedField(
         model=ExpenseCategory, required=False, allow_null=True
     )
@@ -96,8 +142,7 @@ class ExpenseSerializer(ClinicSerializer):
     method = TenantScopedRelatedField(
         model=PaymentMethod, required=False, allow_null=True
     )
-    # Inside a cash shift the server sets it to today (api/views/billing.py);
-    # outside one — the Owner — it defaults to today when left out.
+    # Inside a cash shift the server sets it to today (api/views/billing.py).
     date = serializers.DateField(required=False)
     # Inside a shift the branch is the shift's; otherwise it is required.
     branch = TenantScopedRelatedField(model=Branch, required=False)
@@ -121,6 +166,7 @@ class ExpenseSerializer(ClinicSerializer):
             "employee", "employee_name",
             "method", "method_name",
             "notes",
+            "shift_user_name", "shift_opened_at", "shift_closed_at", "shift_status",
             "voided_at", "void_reason", "voided_by_name",
         ]
         read_only_fields = ["voided_at", "void_reason"]

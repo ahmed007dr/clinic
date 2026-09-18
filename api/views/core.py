@@ -1,6 +1,9 @@
 """Branches, services and staff."""
 
+from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound
 from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.response import Response
 
 from api.permissions import IsClinicAdmin, IsClinicMember, ReadOnlyForNonAdmin, ReadOnlyForNonOwner
 from accounts.roles import is_clinic_admin, sees_all_branches
@@ -110,13 +113,19 @@ class EmployeeViewSet(ClinicViewSet):
     serializer_class = EmployeeSerializer
     permission_classes = [IsClinicAdmin]
     filter_backends = [SearchFilter, OrderingFilter]
-    search_fields = ["name", "serial_number", "national_id", "phone1"]
+    search_fields = ["name", "serial_number", "national_id", "phone1", "phone2"]
     ordering = ["name"]
 
     def filter_tenant_queryset(self, queryset):
-        return queryset.select_related(
+        queryset = queryset.select_related(
             "employee_type", "branch", "salary_type"
         ).prefetch_related("specializations", "extra_branches")
+        params = self.request.query_params
+        if params.get("employee_type"):
+            queryset = queryset.filter(employee_type__uuid=params["employee_type"])
+        if params.get("branch"):
+            queryset = queryset.filter(branch__uuid=params["branch"])
+        return queryset
 
     # The same two limits the server-rendered employee screens enforce
     # (WIRE-003). Counted clinic-wide, never through the caller's branch view.
@@ -174,3 +183,61 @@ class DoctorViewSet(ReadOnlyClinicViewSet):
         if not branch_id:
             return queryset.none()
         return queryset.filter(Q(branch_id=branch_id) | Q(extra_branches=branch_id)).distinct()
+
+
+    @action(detail=False, methods=["get"], url_path="offerings")
+    def offerings(self, request):
+        """What a booking form may offer once a doctor is chosen.
+
+        `?doctor=<uuid>`: only the services the doctor is under contract for
+        (an active contract line, an active service) with the price each will
+        cost — the contract price, else the catalogue price — and only the
+        doctor's own specialties. No `doctor`: the whole catalogue at its
+        catalogue prices, for a booking not yet given to anyone.
+
+        Prices only, never the doctor's share: the receptionist booking needs
+        to tell the patient what they will pay, not what the doctor earns.
+        """
+        from billing.models import DoctorServiceRate
+
+        doctor_uuid = request.query_params.get("doctor")
+        if not doctor_uuid:
+            services = Service.objects.filter(is_active=True).select_related("specialization")
+            return Response({
+                "contracted": False,
+                "services": [_offer(service, service.base_price) for service in services.order_by("name")],
+                "specializations": [
+                    {"uuid": str(s.uuid), "name": s.name} for s in Specialization.objects.order_by("name")
+                ],
+            })
+
+        # Through the same scoping as the picker: a doctor this user may not
+        # book is a 404, not a price list.
+        doctor = self.get_queryset().filter(uuid=doctor_uuid).first()
+        if doctor is None:
+            raise NotFound()
+        rates = (
+            DoctorServiceRate.objects.filter(doctor=doctor, is_active=True, service__is_active=True)
+            .select_related("service", "service__specialization")
+            .order_by("service__name")
+        )
+        return Response({
+            "contracted": True,
+            "services": [
+                _offer(rate.service, rate.price if rate.price is not None else rate.service.base_price)
+                for rate in rates
+            ],
+            "specializations": [
+                {"uuid": str(s.uuid), "name": s.name} for s in doctor.specializations.order_by("name")
+            ],
+        })
+
+
+def _offer(service, price):
+    specialization = service.specialization
+    return {
+        "uuid": str(service.uuid),
+        "name": service.name,
+        "price": str(price),
+        "specialization": str(specialization.uuid) if specialization else None,
+    }

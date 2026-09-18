@@ -1,5 +1,7 @@
 """Payments, expenses and the financial report."""
 
+from decimal import Decimal, InvalidOperation
+
 from django.db.models import Count, Sum
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
@@ -111,7 +113,9 @@ class PaymentViewSet(RecordedInShiftMixin, ClinicViewSet):
 
     def filter_tenant_queryset(self, queryset):
         queryset = restrict_payments(queryset, self.request.user)
-        queryset = queryset.select_related("patient", "method", "branch", "appointment")
+        queryset = queryset.select_related(
+            "patient", "method", "branch", "appointment", "shift", "shift__user"
+        )
         date_from, date_to = _date_range(self.request.query_params)
         if date_from:
             queryset = queryset.filter(date__date__gte=date_from)
@@ -147,12 +151,24 @@ class ExpenseViewSet(RecordedInShiftMixin, ClinicViewSet):
 
     def filter_tenant_queryset(self, queryset):
         queryset = restrict_expenses(queryset, self.request.user)
-        queryset = queryset.select_related("branch", "category", "employee")
+        queryset = queryset.select_related(
+            "branch", "category", "employee", "method", "shift", "shift__user"
+        )
         date_from, date_to = _date_range(self.request.query_params)
         if date_from:
             queryset = queryset.filter(date__gte=date_from)
         if date_to:
             queryset = queryset.filter(date__lte=date_to)
+        employee = self.request.query_params.get("employee")
+        if employee:
+            queryset = queryset.filter(employee__uuid=employee)
+        for param, lookup in (("amount_min", "amount__gte"), ("amount_max", "amount__lte")):
+            raw = self.request.query_params.get(param)
+            if raw:
+                try:
+                    queryset = queryset.filter(**{lookup: Decimal(raw)})
+                except InvalidOperation:
+                    raise ValidationError({param: "أدخل مبلغاً صحيحاً."})
         branch = self.request.query_params.get("branch")
         if branch:
             queryset = queryset.filter(branch__uuid=branch)

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { Card, CardBody, CardHeader, Pagination, SearchInput, Table } from '@/components/ui'
+import { Card, CardBody, CardHeader, EmptyState, Pagination, SearchInput, Table } from '@/components/ui'
 import { useList } from '@/hooks/useApi'
 import { useDebounce } from '@/hooks/useDebounce'
 
@@ -14,6 +14,10 @@ import './data.css'
  * That last one is the subtle one: change a filter while on page 4 and the
  * server returns page 4 of the new result set, which is usually empty, and the
  * screen looks broken.
+ *
+ * `enabled={false}` holds the request back and shows `idle` instead — for
+ * lists that must not load until the user has said what they want
+ * (`SearchPanel`).
  *
  * `columns` is passed through to `Table`. `filters` is whatever the caller
  * wants to render in the toolbar. Anything genuinely specific to one screen —
@@ -33,6 +37,8 @@ export function ResourceTable({
   empty,
   refreshKey,
   pageSize,
+  enabled = true,
+  idle,
 }) {
   const [page, setPage] = useState(1)
   const [query, setQuery] = useState('')
@@ -54,6 +60,7 @@ export function ResourceTable({
       ...(searchable && search ? { search } : {}),
       ...params,
     },
+    { skip: !enabled },
   )
 
   // Lets a parent force a refresh after it creates or deletes something.
@@ -83,6 +90,10 @@ export function ResourceTable({
       )}
 
       <CardBody flush>
+        {!enabled ? (
+          <EmptyState title={idle?.title ?? 'ابدأ بالبحث'} message={idle?.message} />
+        ) : (
+          <>
         <Table
           columns={columns}
           rows={rows}
@@ -107,6 +118,8 @@ export function ResourceTable({
           onChange={setPage}
           loading={loading}
         />
+          </>
+        )}
       </CardBody>
     </Card>
   )

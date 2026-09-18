@@ -1,40 +1,93 @@
 import { useState } from 'react'
 
 import { api } from '@/api'
-import { Checkbox } from '@/components/ui'
 import { CrudPage } from '@/components/data/CrudPage'
+import { SearchPanel, hasCriteria } from '@/components/data/SearchPanel'
 import { useAuth } from '@/hooks/useAuth'
 import { serverUrl } from '@/lib/config'
 import { formatDate, formatMoney, today } from '@/lib/format'
 
+import { ShiftStamp } from '../shifts/ShiftStamp'
 import { VoidButton } from './VoidButton'
 
 const RESOURCE = api.expenses
 
 export function ExpenseListPage() {
   const { permissions } = useAuth()
-  // Inside a cash shift the date and clinic are the shift's (the server sets
-  // them); asking for them would only invite a back-dated expense.
+  // Every expense is recorded inside the recorder's cash shift, which sets its
+  // date and clinic (the server does); asking for them would only invite a
+  // back-dated expense.
   const inShift = permissions.works_in_shifts
-  const [voided, setVoided] = useState(false)
   // CrudPage refreshes itself after its own saves; a cancellation happens
   // outside it, so the list is remounted to reload.
   const [refreshKey, setRefreshKey] = useState(0)
+  // Reception sees their own open shift's expenses only — a short list, loaded
+  // at once. Management sees the clinic's books, so nothing loads until they
+  // state what they are after and press "بحث".
+  const books = permissions.view_finance
+  const [applied, setApplied] = useState(null)
+  const voided = Boolean(applied?.voided)
+
   return (
     <CrudPage
-      key={`${refreshKey}-${voided}`}
+      key={refreshKey}
       title="المصروفات"
       resource={RESOURCE}
-      params={{ voided: voided ? '1' : undefined }}
-      canEdit={!voided}
-      canDelete={false}
-      extraFilters={
-        permissions.is_admin && (
-          <Checkbox label="الملغاة فقط" checked={voided} onChange={(e) => setVoided(e.target.checked)} />
+      searchable={!books}
+      enabled={!books || applied !== null}
+      idle={{
+        title: 'ابحث في المصروفات',
+        message: 'حدد تاريخاً أو فرعاً أو موظفاً أو مبلغاً، ثم اضغط «بحث».',
+      }}
+      params={
+        books
+          ? {
+              search: applied?.q,
+              from: applied?.from,
+              to: applied?.to,
+              branch: applied?.branch,
+              employee: applied?.employee,
+              amount_min: applied?.amount_min,
+              amount_max: applied?.amount_max,
+              voided: applied?.voided ? '1' : undefined,
+            }
+          : {}
+      }
+      beforeTable={
+        books && (
+          <SearchPanel
+            queryLabel="البند أو اسم الموظف أو ملاحظات"
+            queryPlaceholder="اكتب اسم البند أو الموظف أو جزءاً من الملاحظات"
+            fields={[
+              { name: 'from', label: 'من تاريخ', type: 'date' },
+              { name: 'to', label: 'إلى تاريخ', type: 'date' },
+              ...(permissions.all_branches
+                ? [{ name: 'branch', label: 'الفرع', type: 'relation', resource: api.branches }]
+                : []),
+              {
+                name: 'employee',
+                label: 'الموظف',
+                type: 'relation',
+                resource: api.employees,
+                searchable: true,
+              },
+              { name: 'amount_min', label: 'المبلغ من', type: 'money' },
+              { name: 'amount_max', label: 'المبلغ إلى', type: 'money' },
+              { name: 'voided', label: 'الملغاة فقط', type: 'checkbox' },
+            ]}
+            validate={(values) =>
+              hasCriteria(values, ['voided'])
+                ? null
+                : 'حدد شرط بحث واحد على الأقل: تاريخ أو فرع أو موظف أو مبلغ، ثم اضغط بحث.'
+            }
+            onSearch={setApplied}
+            onReset={() => setApplied(null)}
+          />
         )
       }
+      canEdit={!voided}
+      canDelete={false}
       createLabel="تسجيل مصروف"
-      searchPlaceholder="ابحث بالبند أو الموظف…"
       columns={[
         { key: 'date', header: 'التاريخ', render: (row) => formatDate(row.date) },
         {
@@ -49,6 +102,7 @@ export function ExpenseListPage() {
           header: 'الموظف',
           render: (row) => row.employee_name || '—',
         },
+        { key: 'shift', header: 'الوردية', render: (row) => <ShiftStamp row={row} /> },
         {
           key: 'amount',
           header: 'المبلغ',

@@ -15,7 +15,7 @@ the demo logins off altogether.
 """
 
 import random
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 
 from django.conf import settings
@@ -27,7 +27,17 @@ from django.utils import timezone
 from accounts.models import ClinicRole
 from appointments.models import Appointment
 from audit.models import AuditLog
-from billing.models import CashShift, DoctorCommission, DoctorServiceRate, Expense, ExpenseCategory, Payment, PaymentMethod
+from billing.models import (
+    CashShift,
+    DiscountCoupon,
+    DoctorCommission,
+    DoctorServiceRate,
+    Expense,
+    ExpenseCategory,
+    Payment,
+    PaymentMethod,
+)
+from billing.shifts import summarize
 from branches.models import Branch
 from employees.models import Employee, EmployeeType, SalaryType, Specialization
 from notifications.models import Notification
@@ -152,9 +162,14 @@ class Command(BaseCommand):
         if options["reset"]:
             self._reset()
 
+        # The demo doctors have made-up addresses and the mail settings are the
+        # real ones: generating data must never email anyone.
+        from billing.notify import muted
+
         summaries = []
-        for spec in TENANTS:
-            summaries.append(self._seed_tenant(spec))
+        with muted():
+            for spec in TENANTS:
+                summaries.append(self._seed_tenant(spec))
 
         self._report(summaries)
 
@@ -189,6 +204,7 @@ class Command(BaseCommand):
         # filed under them has.
         CashShift.all_objects.all().delete()
         # Doctor shares and contracts PROTECT/CASCADE from the doctor record.
+        DiscountCoupon.all_objects.all().delete()
         DoctorCommission.all_objects.all().delete()
         DoctorServiceRate.all_objects.all().delete()
         # Clinical records first: Visit.patient, Allergy.patient,
@@ -351,6 +367,16 @@ class Command(BaseCommand):
             users[3].employee = demo_doctor
             users[3].save(update_fields=["employee"])
 
+            # Every doctor is under contract for every service, at the
+            # catalogue price: the booking form offers a doctor's contracted
+            # services only, so a doctor with no contract line offers nothing.
+            for doctor in doctors:
+                for service in services:
+                    DoctorServiceRate.objects.get_or_create(
+                        tenant=tenant, doctor=doctor, service=service,
+                        defaults={"commission_percent": Decimal("40")},
+                    )
+
             patients = [
                 Patient.objects.create(
                     tenant=tenant,
@@ -367,54 +393,23 @@ class Command(BaseCommand):
                 for _ in range(spec["patients"])
             ]
 
-            appointments, payments = [], []
-            for i in range(spec["appointments"]):
-                service = random.choice(services)
-                # A tenth land today so the waiting list and dashboard aren't empty.
-                if random.random() < 0.1:
-                    scheduled = timezone.now()
-                else:
-                    scheduled = fake.date_time_between(start_date="-60d", end_date="+14d")
-                    # The project runs USE_TZ=False; stay naive unless that changes.
-                    if settings.USE_TZ:
-                        scheduled = timezone.make_aware(scheduled)
-                appointment = Appointment.objects.create(
-                    tenant=tenant,
-                    patient=random.choice(patients),
-                    doctor=random.choice(doctors) if doctors else None,
-                    specialization=random.choice(specializations),
-                    service=service,
-                    scheduled_date=scheduled,
-                    status=random.choice(["entered", "waiting", "called", "quick"]),
-                    branch=random.choice(branches),
-                    price=service.base_price,
-                    created_by=random.choice(users),
-                    notes=fake.sentence(),
-                )
-                appointments.append(appointment)
+            appointments, payments, coupons, shifts = self._seed_bookings_and_money(
+                tenant, spec, branches, users, patients, doctors, services,
+                specializations, payment_methods,
+            )
 
-                if random.random() < 0.8:
-                    payments.append(
-                        Payment.objects.create(
-                            tenant=tenant,
-                            appointment=appointment,
-                            patient=appointment.patient,
-                            method=random.choice(payment_methods),
-                            receipt_number=f"{spec['slug'][:3].upper()}-{i + 1:05d}",
-                            amount=appointment.price,
-                            branch=appointment.branch,
-                            notes=fake.sentence(),
-                        )
-                    )
-
-            # Clinical records for roughly a third of the visits that happened.
+            # Clinical records for roughly a third of the visits that happened —
+            # a booking that was completed, or where the patient is with the
+            # doctor now. Entering already opened a visit (medical/checkin.py),
+            # so this fills that one in rather than adding a second.
+            happened = [a for a in appointments if a.status in ("completed", "entered")]
             visits = []
-            for appointment in appointments[: max(3, len(appointments) // 3)]:
-                visits.append(
-                    Visit.objects.create(
-                        tenant=tenant,
+            for appointment in happened[: max(3, len(happened) // 3)]:
+                visit, _ = Visit.objects.update_or_create(
+                    tenant=tenant,
+                    appointment=appointment,
+                    defaults=dict(
                         patient=appointment.patient,
-                        appointment=appointment,
                         doctor=appointment.doctor,
                         branch=appointment.branch,
                         visit_date=appointment.scheduled_date,
@@ -423,8 +418,9 @@ class Command(BaseCommand):
                         diagnosis=random.choice(DIAGNOSES),
                         treatment_plan=fake.sentence(),
                         created_by=users[2],
-                    )
+                    ),
                 )
+                visits.append(visit)
 
             prescriptions = []
             for visit in visits:
@@ -562,19 +558,7 @@ class Command(BaseCommand):
                     )
                 )
 
-            expenses = [
-                Expense.objects.create(
-                    tenant=tenant,
-                    branch=random.choice(branches),
-                    category=random.choice(expense_categories),
-                    employee=random.choice(employees),
-                    amount=Decimal(random.randint(200, 6000)),
-                    date=fake.date_between(start_date="-60d", end_date="today"),
-                    created_by=random.choice(users),
-                    notes=fake.sentence(),
-                )
-                for _ in range(spec["appointments"] // 3)
-            ]
+            expenses = list(Expense.objects.filter(tenant=tenant))
 
         return {
             "tenant": tenant,
@@ -586,6 +570,8 @@ class Command(BaseCommand):
             "appointments": len(appointments),
             "payments": len(payments),
             "expenses": len(expenses),
+            "coupons": len(coupons),
+            "shifts": len(shifts),
             "visits": len(visits),
             "allergies": len(allergies),
             "prescriptions": len(prescriptions),
@@ -594,6 +580,216 @@ class Command(BaseCommand):
             "procedures": len(procedures),
             "lab_results": len(lab_results),
         }
+
+    # ------------------------------------------------------------ bookings, money
+
+    def _seed_bookings_and_money(
+        self, tenant, spec, branches, users, patients, doctors, services,
+        specializations, payment_methods,
+    ):
+        """Bookings, payments, shifts, expenses and coupons — the way the
+        system now works, not as loose rows.
+
+        * Every payment belongs to a booking and sits in a cash shift of the
+          person who took it; expenses sit in shifts too. A shift starts from
+          zero. Past days' shifts are closed with their frozen summary; the
+          reception account's shift for today is open, so the live shift
+          screen has something to show.
+        * A patient is in with the doctor ("entered") only if the booking is
+          paid in full — net of any coupon. Today's queue also has patients
+          with a balance still owing, one not paid at all, and future
+          bookings paid in advance, in part, or not yet.
+        * Coupons in every state: spent on a completed booking, still
+          available, expired, cancelled.
+        """
+        fake = self.fake
+        owner, clinic_admin, reception = users[0], users[1], users[2]
+        now = timezone.now()
+        today = now.date()
+        main = branches[0]
+        cent = Decimal("0.01")
+
+        def at(day, hour, minute=0):
+            moment = datetime.combine(day, time(hour, minute))
+            return timezone.make_aware(moment) if settings.USE_TZ else moment
+
+        # The desk of the first clinic is reception's; the owner, who sees every
+        # clinic, took the money at the others.
+        def cashier_for(branch):
+            return reception if branch.pk == main.pk else owner
+
+        shifts = {}
+
+        def shift_on(branch, day):
+            cashier = cashier_for(branch)
+            key = (cashier.pk, branch.pk, day)
+            if key not in shifts:
+                is_today = day == today
+                shift = CashShift.objects.create(
+                    tenant=tenant, user=cashier, branch=branch,
+                    status=CashShift.Status.OPEN if is_today and cashier == reception else CashShift.Status.CLOSED,
+                )
+                opened = now - timedelta(hours=3) if is_today else at(day, 8)
+                updates = {"opened_at": opened}
+                if shift.status == CashShift.Status.CLOSED:
+                    updates.update(closed_at=at(day, 20), closed_by=cashier)
+                CashShift.all_objects.filter(pk=shift.pk).update(**updates)
+                shifts[key] = shift
+            return shifts[key]
+
+        def book(patient, service, doctor, branch, scheduled, booked_at, status, cashier, coupon=None):
+            discount = min(coupon.amount, service.base_price) if coupon else Decimal("0")
+            appointment = Appointment.objects.create(
+                tenant=tenant, patient=patient, doctor=doctor,
+                specialization=service.specialization or random.choice(specializations),
+                service=service, scheduled_date=scheduled, status=status, branch=branch,
+                price=service.base_price, discount=discount, coupon=coupon,
+                created_by=cashier, notes=fake.sentence(),
+            )
+            # `created_at` is stamped on save; a booking made earlier in a shift
+            # has to say so, or the shift's list of bookings would miss it.
+            Appointment.all_objects.filter(pk=appointment.pk).update(created_at=booked_at)
+            appointment.created_at = booked_at
+            return appointment
+
+        def pay(appointment, amount, when, shift):
+            amount = Decimal(amount).quantize(cent)
+            if amount <= 0:
+                return None
+            payment = Payment.objects.create(
+                tenant=tenant, appointment=appointment, patient=appointment.patient,
+                method=random.choice(payment_methods),
+                receipt_number="R-" + SerialCounter.next_serial(tenant.id, "receipt", when.date()),
+                amount=amount, branch=shift.branch, shift=shift, created_by=shift.user,
+            )
+            Payment.all_objects.filter(pk=payment.pk).update(date=when)
+            return payment
+
+        def spent_coupon(patient, service, used_at, amount):
+            return DiscountCoupon.objects.create(
+                tenant=tenant, patient=patient, amount=amount, service=service,
+                notes="خصم تجريبي", created_by=clinic_admin, used_at=used_at,
+            )
+
+        appointments, payments, coupons = [], [], []
+        total = spec["appointments"]
+        today_pattern = [
+            "waiting_paid", "waiting_part", "called_paid", "entered_paid",
+            "waiting_paid", "quick_unpaid", "waiting_part",
+        ]
+        today_count = min(len(today_pattern), max(3, total // 8))
+        future_count = total // 6
+        past_count = total - today_count - future_count
+
+        # ---- past days: completed and fully paid, or never attended and unpaid
+        for i in range(past_count):
+            day = today - timedelta(days=random.randint(1, 45))
+            branch = random.choice(branches)
+            cashier = cashier_for(branch)
+            service = random.choice(services)
+            patient = random.choice(patients)
+            scheduled = at(day, random.randint(9, 17), random.choice([0, 15, 30, 45]))
+            booked_at = scheduled - timedelta(minutes=15)
+            outcome = random.choices(["completed", "no_show", "cancelled"], weights=[70, 15, 15])[0]
+            coupon = None
+            if outcome == "completed" and len(coupons) < 3:
+                coupon = spent_coupon(
+                    patient, service, booked_at, Decimal(random.choice([50, 100, 150])),
+                )
+                coupons.append(coupon)
+            appointment = book(
+                patient, service, random.choice(doctors) if doctors else None, branch,
+                scheduled, booked_at, outcome, cashier, coupon,
+            )
+            appointments.append(appointment)
+            if outcome == "completed":
+                shift = shift_on(branch, day)
+                payments.append(pay(appointment, appointment.net_price, booked_at + timedelta(minutes=2), shift))
+
+        # ---- today's queue, all at the first clinic and in reception's open shift
+        for i in range(today_count):
+            kind = today_pattern[i]
+            service = random.choice(services)
+            scheduled = now - timedelta(minutes=random.randint(5, 90))
+            booked_at = scheduled - timedelta(minutes=10)
+            shift = shift_on(main, today)
+            status = {
+                "waiting_paid": "waiting", "waiting_part": "waiting",
+                "called_paid": "called", "entered_paid": "waiting", "quick_unpaid": "quick",
+            }[kind]
+            appointment = book(
+                random.choice(patients), service, random.choice(doctors) if doctors else None,
+                main, scheduled, booked_at, status, reception,
+            )
+            if kind == "waiting_part":
+                payments.append(pay(appointment, appointment.net_price / 2, booked_at + timedelta(minutes=2), shift))
+            elif kind != "quick_unpaid":
+                payments.append(pay(appointment, appointment.net_price, booked_at + timedelta(minutes=2), shift))
+            if kind == "entered_paid":
+                # Paid in full first, then sent in — which opens the visit.
+                appointment.status = "entered"
+                appointment.save(update_fields=["status"])
+            appointments.append(appointment)
+
+        # ---- future bookings: paid in advance, a deposit, or not yet
+        for i in range(future_count):
+            service = random.choice(services)
+            scheduled = at(today + timedelta(days=random.randint(1, 14)), random.randint(9, 17))
+            booked_at = now - timedelta(minutes=random.randint(5, 150))
+            kind = random.choices(["full", "deposit", "none"], weights=[40, 20, 40])[0]
+            appointment = book(
+                random.choice(patients), service, random.choice(doctors) if doctors else None,
+                main, scheduled, booked_at, "waiting" if kind != "none" else "quick", reception,
+            )
+            appointments.append(appointment)
+            if kind != "none":
+                amount = appointment.net_price if kind == "full" else appointment.net_price / 3
+                payments.append(pay(appointment, amount, booked_at + timedelta(minutes=2), shift_on(main, today)))
+
+        # ---- coupons still to be used, and two that cannot be
+        tail = patients[-6:]
+        for patient, service, amount in (
+            (tail[0], services[0], 100),
+            (tail[1], services[-1], 150),
+        ):
+            coupons.append(DiscountCoupon.objects.create(
+                tenant=tenant, patient=patient, amount=Decimal(amount), service=service,
+                expires_on=today + timedelta(days=30), notes="كوبون متاح", created_by=clinic_admin,
+            ))
+        specialty = services[0].specialization or specializations[0]
+        coupons.append(DiscountCoupon.objects.create(
+            tenant=tenant, patient=tail[2], amount=Decimal("80"), specialization=specialty,
+            notes="خصم على التخصص", created_by=clinic_admin,
+        ))
+        coupons.append(DiscountCoupon.objects.create(
+            tenant=tenant, patient=tail[3], amount=Decimal("60"), service=services[0],
+            expires_on=today - timedelta(days=5), notes="منتهي", created_by=clinic_admin,
+        ))
+        coupons.append(DiscountCoupon.objects.create(
+            tenant=tenant, patient=tail[4], amount=Decimal("60"), service=services[0],
+            voided_at=now - timedelta(days=2), notes="ملغى", created_by=clinic_admin,
+        ))
+
+        # ---- expenses, each inside a shift, on that shift's day
+        expense_categories = list(ExpenseCategory.objects.filter(tenant=tenant))
+        employees = list(Employee.objects.filter(tenant=tenant))
+        for (_, branch_pk, day), shift in list(shifts.items()):
+            for _ in range(2 if day == today else random.choice([0, 1, 1, 2])):
+                Expense.objects.create(
+                    tenant=tenant, branch=shift.branch, category=random.choice(expense_categories),
+                    employee=random.choice(employees), amount=Decimal(random.randint(50, 900)),
+                    date=day, method=random.choice(payment_methods), shift=shift,
+                    created_by=shift.user, notes=fake.sentence(),
+                )
+
+        # ---- closed shifts carry the summary frozen at closing, as they would
+        for shift in shifts.values():
+            shift.refresh_from_db()
+            if shift.status == CashShift.Status.CLOSED:
+                shift.closing_summary = summarize(shift)
+                shift.save(update_fields=["closing_summary"])
+
+        return appointments, [p for p in payments if p], coupons, list(shifts.values())
 
     def _user(self, tenant, email, username, role, branch):
         user, created = User.objects.get_or_create(
@@ -630,6 +826,10 @@ class Command(BaseCommand):
             self.stdout.write(
                 f"    {s['services']} services  {s['appointments']} appointments  "
                 f"{s['payments']} payments  {s['expenses']} expenses"
+            )
+            self.stdout.write(
+                f"    {s['shifts']} cash shifts (reception's is open today)  "
+                f"{s['coupons']} discount coupons"
             )
             self.stdout.write(
                 f"    {s['visits']} clinical visits  {s['prescriptions']} prescriptions  "

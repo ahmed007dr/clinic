@@ -18,7 +18,7 @@ import { useAsync, useMutation } from '@/hooks/useApi'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
 import { serverUrl } from '@/lib/config'
-import { formatTime } from '@/lib/format'
+import { formatMoney, formatTime } from '@/lib/format'
 
 import { VisitDeskActions } from './VisitDeskActions'
 import './queue.css'
@@ -56,9 +56,18 @@ export function QueuePage() {
     return () => clearInterval(timer)
   }, [reload])
 
+  // A patient goes in to the doctor only once the booking is paid in full
+  // (net of any coupon). With something still owing, the button collects it
+  // first — the payment lands in this cashier's shift — instead of failing.
+  const owes = (row) => Number(row.amount_due) > 0
+
   const advance = async (row) => {
     const step = NEXT_STEP[row.status]
     if (!step) return
+    if (step.status === 'entered' && owes(row)) {
+      navigate(`/payments/new?appointment=${row.uuid}`)
+      return
+    }
     try {
       await move.run(row.uuid, step.status)
       reload()
@@ -135,6 +144,9 @@ export function QueuePage() {
                     <Badge tone={APPOINTMENT_TONES[row.status] ?? 'neutral'}>
                       {row.status_label}
                     </Badge>
+                    {row.status !== 'entered' && owes(row) && (
+                      <Badge tone="warn">متبقي {formatMoney(row.amount_due)}</Badge>
+                    )}
 
                     <div className="queue__actions">
                       {step && (
@@ -144,7 +156,7 @@ export function QueuePage() {
                           onClick={() => advance(row)}
                           disabled={move.submitting}
                         >
-                          {step.label}
+                          {step.status === 'entered' && owes(row) ? 'تحصيل ثم دخول' : step.label}
                         </Button>
                       )}
                       <Button
