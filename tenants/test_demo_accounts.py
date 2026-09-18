@@ -98,6 +98,19 @@ class SeedDemoPasswordTests(TestCase):
         self.assertTrue(user.check_password("run-password-1"))
         self.assertEqual(self.command.created_accounts, [])
 
+    def test_reset_passwords_sets_the_fixed_password_on_existing_accounts(self):
+        self.command._user(self.tenant, "doctor@seed.local", "doctor", self.role, self.branch)
+        self.command.password = "showcase-password"
+        self.command.reset_passwords = True
+        user = self.command._user(self.tenant, "doctor@seed.local", "doctor", self.role, self.branch)
+        self.assertTrue(user.check_password("showcase-password"))
+
+    def test_reset_passwords_refuses_a_random_password(self):
+        from django.core.management.base import CommandError
+
+        with self.assertRaises(CommandError):
+            call_command("seed_demo", "--reset-passwords", stdout=StringIO())
+
     def test_the_old_published_password_is_gone(self):
         from tenants.management.commands import seed_demo
 

@@ -20,7 +20,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
@@ -108,6 +108,7 @@ TENANTS = [
 
 class Command(BaseCommand):
     help = "Seed two demo tenants with realistic Arabic data for local testing."
+    reset_passwords = False
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -120,6 +121,13 @@ class Command(BaseCommand):
             default="",
             help="Password for accounts created by this run. Default: random, "
             "printed once. Use a fixed one only on a local machine.",
+        )
+        parser.add_argument(
+            "--reset-passwords",
+            action="store_true",
+            help="With --password: also set that password on demo accounts that "
+            "already exist, so a showcase copy keeps one known password across "
+            "re-runs.",
         )
 
     def handle(self, *args, **options):
@@ -137,6 +145,9 @@ class Command(BaseCommand):
             14, allowed_chars=PASSWORD_ALPHABET
         )
         self.created_accounts = []
+        self.reset_passwords = options["reset_passwords"]
+        if self.reset_passwords and not options["password"]:
+            raise CommandError("--reset-passwords needs --password: a random one would lock everyone out.")
 
         if options["reset"]:
             self._reset()
@@ -596,6 +607,10 @@ class Command(BaseCommand):
             },
         )
         if created:
+            user.set_password(self.password)
+            user.save(update_fields=["password"])
+            self.created_accounts.append(email)
+        elif self.reset_passwords:
             user.set_password(self.password)
             user.save(update_fields=["password"])
             self.created_accounts.append(email)
