@@ -9,6 +9,8 @@ the staff screen, the settings form, and the aggregates.
 import importlib
 from types import SimpleNamespace
 
+from decimal import Decimal
+
 from django.contrib.auth import get_user_model
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
@@ -69,17 +71,6 @@ class RoleBoundaryTests(TestCase):
             self.client.get(reverse("api:patient-detail", args=[self.pb.uuid])).status_code, 404
         )
 
-    def test_the_old_screens_hold_the_same_line(self):
-        """The server-rendered views are a second door; a clinic Admin must
-        not reach another clinic's patient through it either."""
-        self.login(self.admin_a)
-        self.assertEqual(
-            self.client.get(reverse("patients:patient_detail", args=[self.pb.uuid])).status_code, 404
-        )
-        self.assertEqual(
-            self.client.get(reverse("patients:patient_update", args=[self.pb.uuid])).status_code, 404
-        )
-
     def test_the_session_says_who_is_the_owner(self):
         self.login(self.owner)
         perms = self.client.get(reverse("api:session")).json()["user"]["permissions"]
@@ -129,16 +120,17 @@ class RoleBoundaryTests(TestCase):
         }, content_type="application/json")
         self.assertEqual(response.status_code, 201, response.content)
 
-    def test_a_clinic_admin_cannot_promote_themselves_in_settings(self):
-        """The old settings form let any Admin change their own role."""
+    def test_a_clinic_admin_cannot_promote_themselves(self):
+        """The old settings form let any Admin change their own role; the staff
+        API must not either — not to Owner, and not to another clinic."""
         self.login(self.admin_a)
-        self.client.post(reverse("accounts:user_settings"), {
-            "username": "admin-a", "email": "admin-a@roles.local", "clinic_code": "X",
-            "role": self.roles["Owner"].pk, "branch": self.b.pk,
-        })
-        self.admin_a.refresh_from_db()
-        self.assertEqual(self.admin_a.role.name, "Admin")
-        self.assertEqual(self.admin_a.branch_id, self.a.pk)
+        for body in ({"role": self.roles["Owner"].pk}, {"branch": str(self.b.uuid)}):
+            with self.subTest(body=body):
+                self.client.patch(reverse("api:staff-detail", args=[self.admin_a.uuid]), body,
+                                  content_type="application/json")
+                self.admin_a.refresh_from_db()
+                self.assertEqual(self.admin_a.role.name, "Admin")
+                self.assertEqual(self.admin_a.branch_id, self.a.pk)
 
     # ---------------------------------------------------- group screens
 
@@ -148,16 +140,15 @@ class RoleBoundaryTests(TestCase):
                                           content_type="application/json").status_code, 403)
         self.assertEqual(self.client.get(reverse("api:subscription")).status_code, 403)
         self.assertEqual(self.client.get(reverse("api:clinic-settings")).status_code, 403)
-        self.assertNotEqual(self.client.get(reverse("accounts:user_list")).status_code, 200)
-        self.assertNotEqual(self.client.get(reverse("audit:audit_list")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("audit:audit_list")).status_code, 403)
 
         self.login(self.owner)
         self.assertEqual(self.client.get(reverse("api:subscription")).status_code, 200)
-        self.assertEqual(self.client.get(reverse("accounts:user_list")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("audit:audit_list")).status_code, 200)
 
     # ---------------------------------------------------- aggregates
 
-    def test_the_old_financial_report_no_longer_double_counts(self):
+    def test_the_financial_report_does_not_double_count(self):
         """`annotate(Sum('payment__amount'), Sum('expenses__amount'))` joined two
         reverse relations at once, multiplying every payment by the number of
         expenses in the same clinic."""
@@ -171,14 +162,27 @@ class RoleBoundaryTests(TestCase):
                 Expense.all_objects.create(tenant=self.tenant, branch=self.a, amount=amount,
                                            date=timezone.now().date())
         self.login(self.owner)
-        rows = {b.name: b for b in self.client.get(reverse("billing:financial_report")).context["branches_summary"]}
-        self.assertEqual(rows["Clinic A"].total_revenue, 100)
-        self.assertEqual(rows["Clinic A"].total_expenses, 30)
+        report = self.client.get(reverse("api:financialreport-list")).json()
+        rows = {row["name"]: row for row in report["by_branch"]}
+        self.assertEqual(Decimal(str(rows["Clinic A"]["revenue"])), 100)
+        self.assertEqual(Decimal(str(rows["Clinic A"]["expenses"])), 30)
+        self.assertEqual(Decimal(str(report["revenue"])), 100)
+        self.assertEqual(Decimal(str(report["expenses"])), 30)
 
-    def test_the_old_financial_report_shows_a_clinic_admin_only_their_clinic(self):
+    def test_the_financial_report_shows_a_clinic_admin_only_their_clinic(self):
+        with tenant_context(self.tenant):
+            for patient, branch, receipt, amount in ((self.pa, self.a, "RA", 100), (self.pb, self.b, "RB", 700)):
+                appt = Appointment.all_objects.create(
+                    tenant=self.tenant, patient=patient, branch=branch, scheduled_date=timezone.now()
+                )
+                Payment.all_objects.create(tenant=self.tenant, appointment=appt, patient=patient,
+                                           receipt_number=receipt, amount=amount, branch=branch)
         self.login(self.admin_a)
-        names = {b.name for b in self.client.get(reverse("billing:financial_report")).context["branches_summary"]}
-        self.assertEqual(names, {"Clinic A"})
+        report = self.client.get(reverse("api:financialreport-list")).json()
+        self.assertEqual(Decimal(str(report["revenue"])), 100)
+        self.assertEqual(report["by_branch"], [])
+        self.login(self.owner)
+        self.assertEqual(Decimal(str(self.client.get(reverse("api:financialreport-list")).json()["revenue"])), 800)
 
 
 class OwnerMigrationTests(TestCase):

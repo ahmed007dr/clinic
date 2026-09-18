@@ -1,22 +1,12 @@
+"""The queue ticket, printed from React. (The old booking screens are gone — that
+is the React app and /api/appointments/.)"""
+
 from django.urls import path
-from .views import (
-    appointment_create, appointment_list, appointment_detail, appointment_update, appointment_delete,
-    appointment_ticket_print, waiting_list,
-)
 
-
+from .views import appointment_ticket_print
 
 app_name = "appointments"
 
-
-
 urlpatterns = [
-    path('', appointment_list, name='appointment_list'),
-    path('create/', appointment_create, name='appointment_create'),
-    path('<uuid:uuid>/', appointment_detail, name='appointment_detail'),
-    path('<uuid:uuid>/update/', appointment_update, name='appointment_update'),
-    path('<uuid:uuid>/delete/', appointment_delete, name='appointment_delete'),
     path('<uuid:uuid>/ticket/', appointment_ticket_print, name='appointment_ticket_print'),
-    path('waiting/', waiting_list, name='waiting_list'),
-    # path('waiting/data/', waiting_list_data, name='waiting_list_data'),
 ]

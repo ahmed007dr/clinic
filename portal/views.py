@@ -28,6 +28,8 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from appointments.models import Appointment
+from appointments.queue import WAITING_STATUSES as QUEUE_STATUSES
+from appointments.queue import ahead_counts, doctors_with_patient_inside
 from audit.models import AuditLog
 from billing.models import Payment
 from medical.models import (
@@ -238,6 +240,18 @@ class AppointmentsView(PortalView):
         from platform_admin.clinic_pay import methods_for
 
         methods = methods_for(self.tenant, self.patient.branch)
+        rows = list(rows)
+        # Turn numbers only when something today is still waiting: the count
+        # reads the whole day's queue, and most visits to this page are not
+        # about a booking that is happening now.
+        today = timezone.now().date()
+        if any(a.scheduled_date.date() == today and a.status in QUEUE_STATUSES for a in rows):
+            everyone = Appointment.objects.all()
+            ahead = ahead_counts(everyone)
+            inside = doctors_with_patient_inside(everyone)
+            for a in rows:
+                a.ahead_count = ahead.get(a.pk)
+                a.doctor_busy = (a.branch_id, a.doctor_id) in inside
         return Response([appointment_payload(a, can_pay=bool(methods)) for a in rows])
 
     def post(self, request, slug):
@@ -282,6 +296,11 @@ def appointment_payload(a, can_pay=False):
         "status_label": a.get_status_display(),
         "doctor_name": getattr(a.doctor, "name", None),
         "service_name": getattr(a.service, "name", None),
+        # Today's turn, as numbers only — never who is ahead (see
+        # appointments/queue.py). `ahead_count` is null off today's queue;
+        # `doctor_busy` says the doctor has a patient in with them now.
+        "ahead_count": getattr(a, "ahead_count", None),
+        "doctor_busy": bool(getattr(a, "doctor_busy", False)),
     }
 
 

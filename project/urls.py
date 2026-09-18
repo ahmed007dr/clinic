@@ -6,13 +6,16 @@ from django.urls import include, path, re_path
 from api.spa import spa_index
 from django.conf.urls.static import static
 from django.conf import settings
+from django.http import HttpResponseNotFound
 from django.shortcuts import redirect
 
-def home_redirect(request):
-    if request.user.is_authenticated:
-        return redirect('dashboard')
-    return redirect('login')
-
+def unknown_path(request, unused_path):
+    """Any other address. A person lands in the React app; a client of the API
+    gets the 404 it asked for — a redirect to an HTML page is what makes an API
+    call look like it hangs, and it would hide a mistyped endpoint."""
+    if unused_path.startswith('api/'):
+        return HttpResponseNotFound()
+    return redirect('/app/')
 
 
 urlpatterns = [
@@ -28,29 +31,24 @@ urlpatterns = [
     # client-side routes survive a reload; see api/spa.py.
     re_path(r'^app(?:/(?P<path>.*))?$', spa_index, name='spa'),
 
-    path('accounts/', include(('accounts.urls', 'accounts'), namespace="accounts")),
     path('patients/', include(('patients.urls', 'patients'), namespace="patients")),
     path('appointments/', include(('appointments.urls', 'appointments'), namespace='appointments')),
     path('billing/', include(('billing.urls', 'billing'), namespace="billing")),
-    path('branches/', include(('branches.urls', 'branches'), namespace="branches")),
-    path('employees/', include(('employees.urls', 'employees'), namespace="employees")),
-    path('notifications/', include(('notifications.urls', 'notifications'), namespace="notifications")),
     path('audit/', include(('audit.urls', 'audit'), namespace="audit")),
-    path('services/', include(('services.urls', 'services'), namespace='services')),
     path('medical/', include(('medical.urls', 'medical'), namespace='medical')),
-    path('dashboard/', include(('dashboard.urls', 'dashboard'), namespace="dashboard")),
     # SaaS operators only (platform_admin.permissions). Mounted separately
     # from /admin/, which is Django's own and stays as it is.
     path('platform/', include(('platform_admin.urls', 'platform_admin'), namespace='platform_admin')),
 
-    # The React application is the front door. Typing the bare domain, or a
-    # stale bookmark, lands there — never on the old server-rendered login,
-    # whose screens stay reachable at their own URLs only for what the React
-    # app still links to (prescription print, PDF/Excel export, audit log).
+    # The React application is the front door, and the only interface. What
+    # is still served by Django is what React links to for the browser to print
+    # or download: receipts, tickets, the shift report, the prescription and the
+    # intake form, the PDF / Excel exports, and the audit log page. Every other
+    # old address — a stale bookmark, the old login or dashboard — lands here.
     # A literal path rather than reverse('spa'): that pattern's optional
     # group is not something to trust reverse() with on every request.
     path('', lambda request: redirect('/app/'), name='index'),
-    path('<path:unused_path>/', lambda request, unused_path: redirect('/app/')),
+    path('<path:unused_path>/', unknown_path),
 
 ] 
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

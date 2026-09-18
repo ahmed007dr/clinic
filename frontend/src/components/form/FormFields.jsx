@@ -74,6 +74,9 @@ function FormControl({ field, form, error, disabled }) {
           resource={field.resource}
           searchable={field.searchable}
           labelKey={field.labelKey}
+          renderLabel={field.renderLabel}
+          minSearch={field.minSearch}
+          placeholder={field.placeholder}
           // A function lets one field narrow another — the visit picker lists
           // only the chosen patient's visits.
           params={typeof field.params === 'function' ? field.params(form.values) : field.params}

@@ -223,7 +223,7 @@ def summarize(shift):
 def shift_bookings(shift):
     """The bookings made in this shift: by its person, from when it opened
     (until it closed) — each with what has been paid and what is still owed,
-    so the drawer can be counted against them at any moment."""
+    so the drawer can be counted against them at any moment. Newest first."""
     from appointments.models import Appointment
 
     queryset = Appointment.objects.filter(created_by_id=shift.user_id, created_at__gte=shift.opened_at)
@@ -232,7 +232,7 @@ def shift_bookings(shift):
     return (
         queryset.select_related("patient", "doctor", "service", "branch", "specialization")
         .prefetch_related("visits", "payments")
-        .order_by("created_at")
+        .order_by("-created_at", "-id")
     )
 
 

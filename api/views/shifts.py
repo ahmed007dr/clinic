@@ -89,11 +89,11 @@ class CashShiftViewSet(ReadOnlyClinicViewSet):
             context = self.get_serializer_context()
             data["payments"] = PaymentSerializer(
                 shift.payments.select_related("patient", "method", "branch", "appointment")
-                .order_by("date"), many=True, context=context,
+                .order_by("-date", "-id"), many=True, context=context,
             ).data
             data["expenses"] = ExpenseSerializer(
                 shift.expenses.select_related("branch", "category", "employee", "method")
-                .order_by("id"), many=True, context=context,
+                .order_by("-id"), many=True, context=context,
             ).data
             data["bookings"] = AppointmentSerializer(
                 shift_bookings(shift), many=True, context=context

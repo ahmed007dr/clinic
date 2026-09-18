@@ -307,3 +307,50 @@ class StaffSideTests(PortalBase):
         self.assertEqual(response.status_code, 200)
         self.a.refresh_from_db()
         self.assertTrue(self.a.portal_show_diagnosis)
+
+
+class QueueTurnTests(PortalBase):
+    """The patient sees a number for their turn — never who is ahead."""
+
+    def setUp(self):
+        super().setUp()
+        from employees.models import Employee, EmployeeType
+
+        with tenant_context(self.a):
+            doctor_type = EmployeeType.all_objects.get_or_create(tenant=self.a, name="Doctor")[0]
+            self.doctor = Employee.all_objects.create(
+                tenant=self.a, name="Dr Turn", branch=self.branch, employee_type=doctor_type,
+                national_id="PT-1", salary_value=0,
+            )
+        self.enrol(self.bob)
+
+    def book(self, patient, minutes, status="waiting"):
+        with tenant_context(self.a):
+            return Appointment.all_objects.create(
+                tenant=self.a, patient=patient, doctor=self.doctor, branch=self.branch,
+                status=status, scheduled_date=timezone.now() + timedelta(minutes=minutes),
+            )
+
+    def mine(self):
+        response = self.client.get(self.url("appointments"))
+        self.assertEqual(response.status_code, 200, response.content)
+        return response, response.json()
+
+    def test_the_patient_is_told_how_many_are_ahead_and_nothing_else(self):
+        self.book(self.alice, -10)
+        self.book(self.bob, 0)
+        response, rows = self.mine()
+        self.assertEqual(rows[0]["ahead_count"], 1)
+        self.assertNotIn("Alice", response.content.decode())
+
+    def test_someone_with_the_doctor_is_flagged_but_not_counted(self):
+        self.book(self.alice, -20, status="entered")
+        self.book(self.bob, 0)
+        _, rows = self.mine()
+        self.assertEqual(rows[0]["ahead_count"], 0)
+        self.assertTrue(rows[0]["doctor_busy"])
+
+    def test_a_future_booking_has_no_turn(self):
+        self.book(self.bob, 60 * 24 * 3)
+        _, rows = self.mine()
+        self.assertIsNone(rows[0]["ahead_count"])

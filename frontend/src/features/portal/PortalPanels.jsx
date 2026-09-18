@@ -36,6 +36,30 @@ function Card({ className = '', children }) {
   return <li className={`portal-card ${className}`}>{children}</li>
 }
 
+/** Where the patient stands today, in words: the doctor and how many are
+ * before them. A number only — the server never says who. */
+function TurnNote({ appointment: a }) {
+  let text = null
+  let tone = 'portal-turn'
+  if (a.status === 'entered') {
+    text = 'أنت عند الطبيب الآن'
+    tone += ' portal-turn--now'
+  } else if (a.ahead_count === 0) {
+    text = 'حان دورك — توجّه إلى الاستقبال'
+    tone += ' portal-turn--now'
+  } else if (a.ahead_count > 0) {
+    text = `أمامك ${a.ahead_count} ${a.ahead_count === 1 ? 'مريض' : 'مرضى'}`
+  }
+  if (!text) return null
+  return (
+    <div className={tone}>
+      <strong>{text}</strong>
+      {a.doctor_name && <span>د. {a.doctor_name}</span>}
+      {a.ahead_count === 0 && a.doctor_busy && <span>الطبيب مع مريض الآن</span>}
+    </div>
+  )
+}
+
 export function AppointmentsPanel() {
   const [paying, setPaying] = useState(null)
   return (
@@ -47,6 +71,7 @@ export function AppointmentsPanel() {
               <strong>{formatDateTime(a.scheduled_date)}</strong>
               <Badge tone={APPOINTMENT_TONES[a.status] ?? 'neutral'}>{a.status_label}</Badge>
             </div>
+            <TurnNote appointment={a} />
             <div className="ui-muted">
               {a.status === 'requested'
                 ? 'بانتظار تأكيد العيادة'

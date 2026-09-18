@@ -6,11 +6,12 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 
 from accounts.roles import is_front_desk
-from api.permissions import DeleteRequiresAdmin, IsClinicMember
+from api.permissions import DeleteRequiresAdmin, IsClinicMember, scope_queryset_to_user
 from api.serializers.appointments import AppointmentSerializer
 from api.viewsets import ClinicViewSet
 from billing.collect import PaymentRequired, amount_paid, check_can_enter
 from appointments.models import Appointment
+from appointments.queue import WAITING_STATUSES, ahead_counts
 
 
 class AppointmentViewSet(ClinicViewSet):
@@ -66,7 +67,29 @@ class AppointmentViewSet(ClinicViewSet):
             has_payment = Exists(Payment.objects.filter(appointment=OuterRef("pk")))
             queryset = queryset.filter(has_payment if paid == "1" else ~has_payment)
 
+        # For "collect the rest": bookings that still owe something. Not the
+        # cancelled ones, and not the paid ones.
+        if params.get("owing") == "1" and is_front_desk(self.request.user):
+            queryset = self.owing(queryset)
+
         return queryset
+
+    @staticmethod
+    def owing(queryset):
+        from django.db.models import DecimalField, F, OuterRef, Subquery, Sum, Value
+        from django.db.models.functions import Coalesce
+
+        from billing.models import Payment
+
+        paid = (
+            Payment.objects.filter(appointment=OuterRef("pk"))
+            .order_by().values("appointment").annotate(total=Sum("amount")).values("total")
+        )
+        return (
+            queryset.annotate(paid_sum=Coalesce(Subquery(paid), Value(0), output_field=DecimalField()))
+            .filter(price__gt=F("discount") + F("paid_sum"))
+            .exclude(status__in=["cancelled", "no_show"])
+        )
 
     @action(detail=False, methods=["get"], url_path="today")
     def today(self, request):
@@ -87,15 +110,21 @@ class AppointmentViewSet(ClinicViewSet):
         """The queue: who is here now, in arrival order.
 
         Ordered ascending rather than by newest-first — a queue is read from
-        the front.
+        the front. Each waiting row carries `ahead_count`: how many are before
+        it for the same doctor. It is counted over everything the caller may
+        see, not over what a search or doctor filter left in the list.
         """
         queryset = (
             self.filter_queryset(self.get_queryset())
-            .filter(status__in=["waiting", "entered", "called"])
+            .filter(status__in=[*WAITING_STATUSES, "entered"])
             .filter(scheduled_date__date=timezone.now().date())
-            .order_by("scheduled_date")
+            .order_by("scheduled_date", "id")
         )
-        return Response(self.get_serializer(queryset, many=True).data)
+        rows = list(queryset)
+        ahead = ahead_counts(scope_queryset_to_user(Appointment.objects.all(), request.user))
+        for row in rows:
+            row.ahead_count = ahead.get(row.pk)
+        return Response(self.get_serializer(rows, many=True).data)
 
     @action(detail=True, methods=["post"], url_path="status")
     def set_status(self, request, uuid=None):

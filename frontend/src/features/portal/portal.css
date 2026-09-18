@@ -66,6 +66,23 @@
   gap: var(--s2);
 }
 
+.portal-turn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  flex-wrap: wrap;
+  padding: var(--s3);
+  border-radius: var(--radius);
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.portal-turn--now {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
 .portal-card__row {
   display: flex;
   align-items: center;

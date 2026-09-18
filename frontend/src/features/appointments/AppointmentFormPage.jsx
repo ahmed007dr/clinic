@@ -28,6 +28,12 @@ const FIELDS = [
     // Searchable, not a dropdown: a clinic in its second year has thousands of
     // patients and a select would load every one of them.
     searchable: true,
+    // The desk finds a patient the way they are asked for: by the phone
+    // number they give at the door, or by name. The server matches both
+    // (api/views/patients.py search_fields); the phone is shown beside each
+    // result so two people with the same name can be told apart.
+    placeholder: 'ابحث برقم الهاتف أو اسم المريض',
+    renderLabel: (row) => [row.name, row.phone1, row.serial_number].filter(Boolean).join(' · '),
     required: true,
     span: 2,
   },
@@ -168,38 +174,6 @@ export function AppointmentFormPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.values.service, offer])
 
-  const noContract = Boolean(doctorId) && offer?.contracted && offer.services.length === 0
-  const fields = FIELDS.map((field) => {
-    if (field.name === 'service') {
-      return {
-        ...field,
-        options: serviceOptions,
-        hint: noContract
-          ? 'لا توجد خدمات متعاقد عليها مع هذا الطبيب — تُضاف من الحسابات ← التعاقدات.'
-          : doctorId
-            ? 'الخدمات المتعاقد عليها مع هذا الطبيب فقط.'
-            : 'اختر الطبيب لتظهر خدماته المتعاقد عليها.',
-      }
-    }
-    if (field.name === 'specialization') {
-      return { ...field, options: specializationOptions, hint: doctorId ? 'تخصصات هذا الطبيب فقط.' : undefined }
-    }
-    // The price is the doctor's contract price (billing/pricing.py); only
-    // management may change it. Shown to everyone, editable by them alone.
-    if (field.name === 'price' && !permissions.is_admin) {
-      return { ...field, disabled: true, hint: 'من تعاقد الطبيب — تعديله للإدارة فقط' }
-    }
-    if (field.name === 'coupon') {
-      return {
-        ...field,
-        options: couponOptions,
-        hide: !canCollect || couponOptions.length === 0,
-        hint: 'خصم أعطته الإدارة لهذا المريض على الخدمة المختارة.',
-      }
-    }
-    if (field.name === 'paid_amount' || field.name === 'payment_method') return { ...field, hide: !canCollect }
-    return field
-  })
   const price = form.values.price
 
   // The desk takes the payment here, into their open shift; and may apply a
@@ -242,6 +216,41 @@ export function AppointmentFormPage() {
     skip: !canCollect || !permissions.works_in_shifts,
   })
   const noShift = canCollect && permissions.works_in_shifts && shiftInfo.data && !shiftInfo.data.shift
+
+  // The field list is built last: it needs the offer, the coupons and the desk
+  // state derived above, and a `const` read before its line is a runtime error.
+  const noContract = Boolean(doctorId) && offer?.contracted && offer.services.length === 0
+  const fields = FIELDS.map((field) => {
+    if (field.name === 'service') {
+      return {
+        ...field,
+        options: serviceOptions,
+        hint: noContract
+          ? 'لا توجد خدمات متعاقد عليها مع هذا الطبيب — تُضاف من الحسابات ← التعاقدات.'
+          : doctorId
+            ? 'الخدمات المتعاقد عليها مع هذا الطبيب فقط.'
+            : 'اختر الطبيب لتظهر خدماته المتعاقد عليها.',
+      }
+    }
+    if (field.name === 'specialization') {
+      return { ...field, options: specializationOptions, hint: doctorId ? 'تخصصات هذا الطبيب فقط.' : undefined }
+    }
+    // The price is the doctor's contract price (billing/pricing.py); only
+    // management may change it. Shown to everyone, editable by them alone.
+    if (field.name === 'price' && !permissions.is_admin) {
+      return { ...field, disabled: true, hint: 'من تعاقد الطبيب — تعديله للإدارة فقط' }
+    }
+    if (field.name === 'coupon') {
+      return {
+        ...field,
+        options: couponOptions,
+        hide: !canCollect || couponOptions.length === 0,
+        hint: 'خصم أعطته الإدارة لهذا المريض على الخدمة المختارة.',
+      }
+    }
+    if (field.name === 'paid_amount' || field.name === 'payment_method') return { ...field, hide: !canCollect }
+    return field
+  })
 
   if (editing && loading) return <Loading />
   if (editing && error) return <ErrorState error={error} onRetry={reload} />

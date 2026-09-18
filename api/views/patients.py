@@ -8,6 +8,7 @@ from api.permissions import DeleteRequiresAdmin, IsClinicMember, can_view_clinic
 from api.serializers.patients import PatientListSerializer, PatientSerializer
 from api.viewsets import ClinicViewSet
 from billing.access import restrict_payments
+from patients.filters import narrow_patients
 from patients.models import Patient
 from django.utils import timezone
 from portal.models import PatientAccount, PortalInvitation
@@ -38,14 +39,7 @@ class PatientViewSet(ClinicViewSet):
             # A self-registration is not a patient until the desk confirms it:
             # it waits on the review screen, not in the patient list.
             queryset = queryset.filter(needs_review=False)
-        if params.get("branch"):
-            queryset = queryset.filter(branch__uuid=params["branch"])
-        if params.get("gender") in ("male", "female"):
-            queryset = queryset.filter(gender=params["gender"])
-        if params.get("created_from"):
-            queryset = queryset.filter(created_at__date__gte=params["created_from"])
-        if params.get("created_to"):
-            queryset = queryset.filter(created_at__date__lte=params["created_to"])
+        queryset = narrow_patients(queryset, params)
         if params.get("referral_source"):
             queryset = queryset.filter(referral_source=params["referral_source"])
         return queryset

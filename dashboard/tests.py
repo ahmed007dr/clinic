@@ -1,7 +1,7 @@
 """Static asset integrity.
 
 The application shipped for some time with no static files in version control
-at all: `base.html` loaded twelve vendor assets, `static/` was gitignored, and
+at all: the old base template loaded twelve vendor assets, `static/` was gitignored, and
 the only copy lived in a `static.zip` that had been deleted. A fresh clone
 rendered completely unstyled and nothing caught it, because a missing asset is
 a silent 404 in the browser rather than a failure on the server.
@@ -52,7 +52,7 @@ class StaticAssetReferenceTests(SimpleTestCase):
     def test_templates_actually_reference_assets(self):
         """Guards the guard: if the scan silently matched nothing, the test
         above would pass while asserting nothing at all."""
-        self.assertGreater(len(referenced_assets()), 10)
+        self.assertGreater(len(referenced_assets()), 0)
 
     def test_the_theme_bundle_is_present(self):
         """jQuery and Bootstrap ship inside vendor.bundle.base.js rather than

@@ -618,6 +618,11 @@ class Command(BaseCommand):
         def cashier_for(branch):
             return reception if branch.pk == main.pk else owner
 
+        # Today's shift opened a few hours ago — but never before today began: a
+        # shift is one day's, and its bookings and expenses are dated by it.
+        opened_today = max(now - timedelta(hours=3), at(today, 0, 0))
+        first_booking = opened_today + timedelta(minutes=1)
+
         shifts = {}
 
         def shift_on(branch, day):
@@ -629,7 +634,7 @@ class Command(BaseCommand):
                     tenant=tenant, user=cashier, branch=branch,
                     status=CashShift.Status.OPEN if is_today and cashier == reception else CashShift.Status.CLOSED,
                 )
-                opened = now - timedelta(hours=3) if is_today else at(day, 8)
+                opened = opened_today if is_today else at(day, 8)
                 updates = {"opened_at": opened}
                 if shift.status == CashShift.Status.CLOSED:
                     updates.update(closed_at=at(day, 20), closed_by=cashier)
@@ -711,7 +716,8 @@ class Command(BaseCommand):
             kind = today_pattern[i]
             service = random.choice(services)
             scheduled = now - timedelta(minutes=random.randint(5, 90))
-            booked_at = scheduled - timedelta(minutes=10)
+            booked_at = max(scheduled - timedelta(minutes=10), first_booking)
+            scheduled = max(scheduled, booked_at)
             shift = shift_on(main, today)
             status = {
                 "waiting_paid": "waiting", "waiting_part": "waiting",
@@ -735,7 +741,7 @@ class Command(BaseCommand):
         for i in range(future_count):
             service = random.choice(services)
             scheduled = at(today + timedelta(days=random.randint(1, 14)), random.randint(9, 17))
-            booked_at = now - timedelta(minutes=random.randint(5, 150))
+            booked_at = max(now - timedelta(minutes=random.randint(5, 150)), first_booking)
             kind = random.choices(["full", "deposit", "none"], weights=[40, 20, 40])[0]
             appointment = book(
                 random.choice(patients), service, random.choice(doctors) if doctors else None,

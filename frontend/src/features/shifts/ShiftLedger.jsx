@@ -1,21 +1,61 @@
-import { Badge, Card, CardBody, CardHeader, Table } from '@/components/ui'
+import { useState } from 'react'
+
+import { Badge, Card, CardBody, CardHeader, Table, Tabs } from '@/components/ui'
 import { formatDateTime, formatMoney } from '@/lib/format'
 
+import { ShiftSummary } from './ShiftSummary'
+
 /**
- * Everything the shift holds, as it stands: the bookings made in it with what
- * is paid and what is still owed, every payment, every expense. Counting the
- * drawer at any moment means comparing the cash against this — so it lists the
- * records themselves, not only totals.
+ * A shift in tabs: the count of the drawer first, then the bookings made in it
+ * (with what is paid and what is still owed), every payment, every expense —
+ * each newest first. Counting the drawer at any moment means comparing the
+ * cash against this, so it lists the records themselves, not only totals.
+ *
+ * `summaries` are the leading tabs, `[{ id, label, summary, note? }]`: the
+ * cashier has one ("الجرد"); management also gets the summary frozen at
+ * closing. The chosen tab survives the open shift's refresh, because this
+ * component stays mounted while its data is replaced.
  */
-export function ShiftLedger({ shift, live = false }) {
+export function ShiftTabs({ shift, summaries, title, subtitle, actions, live = false }) {
   const bookings = shift.bookings ?? []
   const payments = shift.payments ?? []
   const expenses = shift.expenses ?? []
+  const [tab, setTab] = useState(summaries[0].id)
+
+  const owing = bookings.filter((row) => Number(row.amount_due) > 0).length
+  const items = [
+    ...summaries.map(({ id, label }) => ({ id, label })),
+    { id: 'bookings', label: 'الحجوزات', badge: bookings.length },
+    { id: 'payments', label: 'الدفعات', badge: payments.length },
+    { id: 'expenses', label: 'المصروفات', badge: expenses.length },
+  ]
+  const summary = summaries.find((item) => item.id === tab)
+
   return (
-    <>
-      <Card>
-        <CardHeader title="الحجوزات" subtitle={`${bookings.length} حجز${live ? ' · تُحدَّث تلقائياً' : ''}`} />
+    <Card>
+      <CardHeader
+        title={title}
+        subtitle={subtitle ?? (live ? 'تُحدَّث تلقائياً' : undefined)}
+        actions={actions}
+      />
+      <div style={{ paddingInline: 'var(--s4)' }}>
+        <Tabs items={items} active={tab} onChange={setTab} />
+      </div>
+
+      {summary && (
+        <CardBody>
+          {summary.note && <p className="ui-muted">{summary.note}</p>}
+          <ShiftSummary summary={summary.summary} />
+        </CardBody>
+      )}
+
+      {tab === 'bookings' && (
         <CardBody flush>
+          {owing > 0 && (
+            <p className="ui-muted" style={{ padding: 'var(--s3) var(--s4) 0' }}>
+              {owing} حجز عليه متبقٍّ لم يُسدَّد بعد.
+            </p>
+          )}
           <Table
             columns={[
               { key: 'serial_number', header: 'الرقم', numeric: true },
@@ -59,10 +99,9 @@ export function ShiftLedger({ shift, live = false }) {
             empty={{ title: 'لا حجوزات', message: 'ستظهر هنا الحجوزات التي تُسجَّل في هذه الوردية.' }}
           />
         </CardBody>
-      </Card>
+      )}
 
-      <Card>
-        <CardHeader title="الدفعات" subtitle={`${payments.length} دفعة`} />
+      {tab === 'payments' && (
         <CardBody flush>
           <Table
             columns={[
@@ -82,10 +121,9 @@ export function ShiftLedger({ shift, live = false }) {
             empty={{ title: 'لا دفعات' }}
           />
         </CardBody>
-      </Card>
+      )}
 
-      <Card>
-        <CardHeader title="المصروفات" subtitle={`${expenses.length} مصروف`} />
+      {tab === 'expenses' && (
         <CardBody flush>
           <Table
             columns={[
@@ -103,7 +141,7 @@ export function ShiftLedger({ shift, live = false }) {
             empty={{ title: 'لا مصروفات' }}
           />
         </CardBody>
-      </Card>
-    </>
+      )}
+    </Card>
   )
 }

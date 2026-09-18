@@ -24,7 +24,7 @@ from appointments.models import Appointment
 from tenants.models import SerialCounter
 
 from .models import DiscountCoupon, Payment
-from .shifts import ShiftError, shift_for_recording
+from .shifts import shift_for_recording
 
 ZERO = Decimal("0")
 CENT = Decimal("0.01")

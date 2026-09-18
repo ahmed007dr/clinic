@@ -160,9 +160,11 @@ CLINIC_NAME = "Dr-ahmed"
 CLINIC_LOGO = "images/logo.svg"
 FOOTER_TEXT = "Copyright &copy; 2025 All rights reserved."
 
-LOGIN_URL = '/accounts/login/' 
-LOGIN_REDIRECT_URL = '/appointments/'
-LOGOUT_REDIRECT_URL = '/accounts/login/' 
+# The React app is the only interface: a print or export link opened while signed
+# out goes to its sign-in, not to a page of the old interface.
+LOGIN_URL = '/app/login'
+LOGIN_REDIRECT_URL = '/app/'
+LOGOUT_REDIRECT_URL = '/app/login'
 
 
 TEMPLATES = [

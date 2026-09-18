@@ -272,21 +272,22 @@ class LimitEnforcementTests(TestCase):
     def test_a_branch_beyond_the_plan_limit_is_refused_on_post(self):
         self.assertEqual(Branch.all_objects.filter(tenant=self.tenant).count(), 1)
         response = self.client.post(
-            reverse("branches:branch_create"),
-            {"name": "Second", "code": "SEC"}, follow=True,
+            reverse("api:branch-list"),
+            {"name": "Second", "code": "SEC"}, content_type="application/json",
         )
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 403, response.content)
         self.assertEqual(Branch.all_objects.filter(tenant=self.tenant).count(), 1)
-        self.assertContains(response, "ترقية الباقة")
+        self.assertIn("ترقية الباقة", response.json()["detail"])
 
     def test_raising_the_plan_allows_the_branch(self):
         """The other half: the limit must be the plan's, not a hard-coded one."""
         Subscription.all_objects.filter(tenant=self.tenant).update(
             plan=Plan.objects.get(code="professional")
         )
-        self.client.post(
-            reverse("branches:branch_create"), {"name": "Second", "code": "SEC"}
+        response = self.client.post(
+            reverse("api:branch-list"), {"name": "Second", "code": "SEC"}, content_type="application/json"
         )
+        self.assertEqual(response.status_code, 201, response.content)
         self.assertEqual(Branch.all_objects.filter(tenant=self.tenant).count(), 2)
 
     def test_the_patient_limit_is_enforced_on_post(self):
@@ -298,11 +299,11 @@ class LimitEnforcementTests(TestCase):
             tenant=self.tenant, name="First", branch=self.branch
         )
         response = self.client.post(
-            reverse("patients:patient_create"),
+            reverse("api:patient-list"),
             {"name": "Second", "gender": "male", "marital_status": "single"},
-            follow=True,
+            content_type="application/json",
         )
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 403, response.content)
         self.assertEqual(Patient.all_objects.filter(tenant=self.tenant).count(), 1)
 
 

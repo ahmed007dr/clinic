@@ -17,6 +17,8 @@ by Django's own token rather than by hand.
 """
 
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
+
+from audit.events import record_sign_in, record_sign_out
 from django.middleware.csrf import get_token
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -176,6 +178,7 @@ class LoginView(APIView):
             )
 
         login(request, user)
+        record_sign_in(request, user)
         return Response({"user": CurrentUserSerializer(user).data})
 
 
@@ -183,6 +186,9 @@ class LogoutView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        user = request.user if request.user.is_authenticated else None
+        if user is not None:
+            record_sign_out(request, user)
         logout(request)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -273,6 +279,7 @@ class TwoFactorView(APIView):
 
         request.session.pop(PENDING_KEY, None)
         login(request, user)
+        record_sign_in(request, user, description="Platform operator logged in (second factor)")
         request.session[TWO_FACTOR_KEY] = True
         request.session.set_expiry(PLATFORM_SESSION_SECONDS)
         return Response({

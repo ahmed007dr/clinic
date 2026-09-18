@@ -87,7 +87,18 @@ export function PaymentListPage() {
         subtitle={books ? undefined : 'دفعات ورديتك المفتوحة فقط'}
         actions={
           <>
-          {books && <ExportButtons path="/billing/export/" />}
+          {books && applied && (
+            <ExportButtons
+              path="/billing/export/"
+              params={{
+                search: applied.q,
+                from: applied.from,
+                to: applied.to,
+                branch: applied.branch,
+                patient: applied.patient,
+              }}
+            />
+          )}
           <Button variant="primary" onClick={() => navigate('/payments/new')}>
             تسجيل دفعة
           </Button>

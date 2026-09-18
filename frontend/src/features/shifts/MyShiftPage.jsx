@@ -20,7 +20,7 @@ import { useToast } from '@/hooks/useToast'
 import { serverUrl } from '@/lib/config'
 import { formatDateTime } from '@/lib/format'
 
-import { ShiftLedger } from './ShiftLedger'
+import { ShiftTabs } from './ShiftLedger'
 import { ShiftSummary } from './ShiftSummary'
 
 //: How often an open shift re-reads itself, so a booking or payment made on
@@ -187,26 +187,20 @@ export function MyShiftPage() {
       )}
 
       {shift && (
-        <div className="ui-stack">
-          <Card>
-            <CardHeader
-              title="الجرد الآن"
-              subtitle="ما سجّله النظام في ورديتك حتى هذه اللحظة، لكل طريقة دفع — قارنه بما في يدك."
-              actions={
-                <>
-                  <Link to="/appointments/new">حجز موعد</Link>
-                  <Link to="/payments/new">تحصيل متبقي</Link>
-                  <Link to="/expenses">تسجيل مصروف</Link>
-                </>
-              }
-            />
-            <CardBody>
-              <ShiftSummary summary={shift.summary} />
-            </CardBody>
-          </Card>
-
-          <ShiftLedger shift={shift} live />
-        </div>
+        <ShiftTabs
+          shift={shift}
+          live
+          title="الجرد الآن"
+          subtitle="ما سجّله النظام في ورديتك حتى هذه اللحظة، لكل طريقة دفع — قارنه بما في يدك · يتحدث تلقائياً"
+          summaries={[{ id: 'now', label: 'الجرد', summary: shift.summary }]}
+          actions={
+            <>
+              <Link to="/appointments/new">حجز موعد</Link>
+              <Link to="/payments/new">تحصيل متبقي</Link>
+              <Link to="/expenses">تسجيل مصروف</Link>
+            </>
+          }
+        />
       )}
 
       <ConfirmDialog

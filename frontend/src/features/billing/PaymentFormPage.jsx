@@ -29,7 +29,13 @@ const CREATE_FIELDS = [
     type: 'relation',
     resource: api.appointments,
     searchable: true,
-    labelKey: 'serial_number',
+    // Found by typing the patient's name (or the booking number) — no list to
+    // scroll — and shown as both. Only bookings that still owe something.
+    params: { owing: 1 },
+    minSearch: 2,
+    renderLabel: (row) => `${row.patient_name} · ${row.serial_number}`,
+    placeholder: 'اكتب اسم المريض أو رقم الحجز…',
+    hint: 'تظهر الحجوزات التي بقي عليها مبلغ فقط.',
     required: true,
     span: 2,
   },

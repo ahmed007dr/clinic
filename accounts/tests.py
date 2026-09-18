@@ -32,19 +32,21 @@ class EmailLoginTests(TestCase):
 
     def test_login_succeeds_with_email(self):
         response = self.client.post(
-            reverse('accounts:login'),
-            {'username': 'doctor@clinic.test', 'password': 'pass12345'},
+            reverse('api:login'),
+            {'email': 'doctor@clinic.test', 'password': 'pass12345'},
+            content_type='application/json',
         )
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 200, response.content)
         self.assertIn('_auth_user_id', self.client.session)
 
     def test_login_with_the_old_username_no_longer_works(self):
         response = self.client.post(
-            reverse('accounts:login'),
-            {'username': 'admin', 'password': 'pass12345'},
+            reverse('api:login'),
+            {'email': 'admin', 'password': 'pass12345'},
+            content_type='application/json',
         )
         self.assertNotIn('_auth_user_id', self.client.session)
-        self.assertEqual(response.status_code, 200)  # re-renders with an error
+        self.assertEqual(response.status_code, 400)  # not an email, not a credential
 
     def test_email_must_be_unique_platform_wide(self):
         other = Tenant.objects.create(name='Other', slug='other', status=Tenant.Status.ACTIVE)
@@ -95,7 +97,7 @@ class PlatformStaffTests(TestCase):
 
     def test_platform_staff_get_no_implicit_data_access(self):
         self.client.login(email='ops@platform.test', password='pass12345')
-        response = self.client.get(reverse('patients:patient_list'))
+        response = self.client.get(reverse('api:patient-list'))
         # No role either, so the role gate turns them away well before scoping.
         self.assertNotEqual(response.status_code, 200)
 

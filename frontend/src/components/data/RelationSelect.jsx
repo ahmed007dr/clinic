@@ -32,6 +32,8 @@ export function RelationSelect({
   params,
   hint,
   disabled,
+  renderLabel,
+  minSearch = 0,
 }) {
   if (searchable) {
     return (
@@ -47,6 +49,8 @@ export function RelationSelect({
         params={params}
         hint={hint}
         disabled={disabled}
+        renderLabel={renderLabel}
+        minSearch={minSearch}
       />
     )
   }
@@ -138,6 +142,8 @@ function SearchableRelation({
   params,
   hint,
   disabled,
+  renderLabel,
+  minSearch = 0,
 }) {
   const [query, setQuery] = useState('')
   const [rows, setRows] = useState([])
@@ -169,8 +175,20 @@ function SearchableRelation({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, resource.path])
 
+  // With `minSearch`, nothing is listed until enough has been typed: the picker
+  // finds a record by what the user types, instead of opening on a list to
+  // scroll through.
+  const tooShort = search.trim().length < minSearch
+  const typedTooLittle = query.trim().length < minSearch
+  const nameOf = (row) => (renderLabel ? renderLabel(row) : (row[labelKey] ?? row.name))
+
   useEffect(() => {
     if (!open) return undefined
+    if (tooShort) {
+      setRows([])
+      setLoading(false)
+      return undefined
+    }
     let active = true
     setLoading(true)
     resource
@@ -188,7 +206,7 @@ function SearchableRelation({
       active = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, open, resource.path, JSON.stringify(params ?? {})])
+  }, [search, open, tooShort, resource.path, JSON.stringify(params ?? {})])
 
   const choose = (row) => {
     setSelected(row)
@@ -204,8 +222,8 @@ function SearchableRelation({
           {selected && !open ? (
             <div className="relation__chosen">
               <span className="relation__name">
-                {selected[labelKey] ?? selected.name}
-                {selected.serial_number && (
+                {nameOf(selected)}
+                {!renderLabel && selected.serial_number && (
                   <span className="ui-muted"> · {selected.serial_number}</span>
                 )}
               </span>
@@ -243,12 +261,15 @@ function SearchableRelation({
               />
               {open && (
                 <div className="relation__list" role="listbox">
-                  {loading && (
+                  {typedTooLittle && minSearch > 0 && (
+                    <div className="relation__status">اكتب {minSearch} أحرف على الأقل للبحث…</div>
+                  )}
+                  {loading && !typedTooLittle && (
                     <div className="relation__status">
                       <Spinner /> جارٍ البحث…
                     </div>
                   )}
-                  {!loading && rows.length === 0 && (
+                  {!loading && !typedTooLittle && rows.length === 0 && (
                     <div className="relation__status">لا توجد نتائج</div>
                   )}
                   {rows.map((row) => (
@@ -260,8 +281,8 @@ function SearchableRelation({
                       className="relation__option"
                       onClick={() => choose(row)}
                     >
-                      <span>{row[labelKey] ?? row.name}</span>
-                      {row.serial_number && (
+                      <span>{nameOf(row)}</span>
+                      {!renderLabel && row.serial_number && (
                         <span className="ui-muted">{row.serial_number}</span>
                       )}
                     </button>

@@ -63,7 +63,20 @@ export function PatientListPage() {
         title="المرضى"
         actions={
           <>
-          <ExportButtons path="/patients/export/" />
+          {/* Management only (the server refuses anyone else), and only of the
+              search on screen — so nothing to export until one has been made. */}
+          {permissions.is_admin && applied && (
+            <ExportButtons
+              path="/patients/export/"
+              params={{
+                search: applied.q,
+                created_from: applied.created_from,
+                created_to: applied.created_to,
+                gender: applied.gender,
+                branch: applied.branch,
+              }}
+            />
+          )}
           {/* The server-rendered, printable intake form in the clinic's own design
               (Print design screen): the patient fills it in by hand and signs. */}
           {permissions.front_desk && (

@@ -31,7 +31,6 @@ NOT_BUILT = """<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8">
 <h1>واجهة React لم تُبنَ بعد</h1>
 <p>شغّل الأمر التالي ثم <code>collectstatic</code>:</p>
 <pre dir="ltr">cd frontend &amp;&amp; npm ci &amp;&amp; npm run build</pre>
-<p>الشاشات القديمة ما زالت تعمل على <a href="/accounts/login/">/accounts/login/</a>.</p>
 </body></html>"""
 
 

@@ -22,28 +22,36 @@ class BranchAuthorizationTests(TestCase):
         self.admin = User.objects.create_user(username='admin', email='admin@t.local', password='pass12345', tenant=self.tenant, role=self.admin_role, branch=self.branch_a)
         self.reception = User.objects.create_user(username='rec', email='rec@t.local', password='pass12345', tenant=self.tenant, role=self.reception_role, branch=self.branch_a)
 
-    def test_reception_cannot_reach_branch_create(self):
-        self.client.login(email='rec@t.local', password='pass12345')
-        response = self.client.get(reverse('branches:branch_create'))
-        self.assertEqual(response.status_code, 302)
-        self.assertIn('/accounts/login/', response.url)
+    def post_branch(self, name):
+        return self.client.post(
+            reverse('api:branch-list'), {'name': name, 'code': name[:3].upper()}, content_type='application/json'
+        )
 
-    def test_admin_can_reach_branch_create(self):
+    def test_reception_cannot_create_a_branch(self):
+        self.client.login(email='rec@t.local', password='pass12345')
+        self.assertEqual(self.post_branch('Nope').status_code, 403)
+
+    def test_admin_can_create_a_branch(self):
         self.client.login(email='admin@t.local', password='pass12345')
-        response = self.client.get(reverse('branches:branch_create'))
-        self.assertEqual(response.status_code, 200)
+        response = self.post_branch('Extra')
+        self.assertEqual(response.status_code, 201, response.content)
 
-    def test_reception_cannot_reach_branch_update(self):
+    def test_reception_cannot_change_a_branch(self):
         self.client.login(email='rec@t.local', password='pass12345')
-        response = self.client.get(reverse('branches:branch_update', args=[self.branch_a.uuid]))
-        self.assertEqual(response.status_code, 302)
+        response = self.client.patch(
+            reverse('api:branch-detail', args=[self.branch_a.uuid]), {'name': 'Hacked'}, content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 403)
+        self.branch_a.refresh_from_db()
+        self.assertEqual(self.branch_a.name, 'Branch A')
 
-    def test_reception_cannot_reach_branch_delete(self):
+    def test_reception_cannot_delete_a_branch(self):
         self.client.login(email='rec@t.local', password='pass12345')
-        response = self.client.get(reverse('branches:branch_delete', args=[self.branch_a.uuid]))
-        self.assertEqual(response.status_code, 302)
+        response = self.client.delete(reverse('api:branch-detail', args=[self.branch_a.uuid]))
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(Branch.all_objects.filter(pk=self.branch_a.pk).exists())
 
     def test_reception_can_still_list_branches(self):
         self.client.login(email='rec@t.local', password='pass12345')
-        response = self.client.get(reverse('branches:branch_list'))
+        response = self.client.get(reverse('api:branch-list'))
         self.assertEqual(response.status_code, 200)

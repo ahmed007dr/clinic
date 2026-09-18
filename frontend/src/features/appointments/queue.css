@@ -11,17 +11,60 @@
   flex-wrap: wrap;
 }
 
-.queue__position {
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 50%;
+.queue__bar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s4);
+  flex-wrap: wrap;
+  margin-bottom: var(--s3);
+}
+
+.queue__bar .ui-tabs {
+  flex: 1 1 24rem;
+  min-width: 0;
+}
+
+/* Where this booking stands in its own doctor's queue. */
+.queue__turn {
+  min-width: 4.25rem;
+  padding: var(--s2);
+  border-radius: 8px;
   background: var(--primary-soft);
   color: var(--primary);
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.15;
+  text-align: center;
   flex-shrink: 0;
+}
+
+.queue__turn-num {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.queue__turn-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.queue__turn--now,
+.queue__turn--inside {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.queue__turn--none {
+  background: none;
+  color: var(--ink-muted);
+}
+
+.queue__doctor {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--primary);
 }
 
 .queue__who {

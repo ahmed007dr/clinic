@@ -13,13 +13,12 @@ control.
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
-from django.urls import Resolver404, resolve, reverse
+from django.urls import reverse
 
 from accounts.models import ClinicRole
 from appointments.models import Appointment
 from branches.models import Branch
 from patients.models import Patient
-from patients.views import patient_detail
 
 from .models import Tenant
 from .testing import act_as_tenant
@@ -43,27 +42,20 @@ class PublicIdentifierTests(TestCase):
         self.client.login(email='admin@t.local', password='pass12345')
 
     def test_uuid_url_serves_the_record(self):
-        response = self.client.get(reverse('patients:patient_detail', args=[self.patient.uuid]))
+        response = self.client.get(reverse('api:patient-detail', args=[self.patient.uuid]))
         self.assertEqual(response.status_code, 200)
 
-    def test_integer_url_no_longer_reaches_the_view(self):
-        """The route is gone, not merely guarded — a redirect shim would have
-        kept the enumeration surface this change exists to remove."""
-        try:
-            match = resolve(f'/patients/{self.patient.pk}/')
-        except Resolver404:
-            return  # no route at all is the ideal outcome
-        self.assertIsNot(match.func, patient_detail)
-
     def test_integer_url_does_not_serve_the_record(self):
-        response = self.client.get(f'/patients/{self.patient.pk}/')
-        self.assertNotEqual(response.status_code, 200)
+        """The route addresses records by UUID only: an integer id — the
+        enumerable identifier this change removed — finds nothing."""
+        response = self.client.get(f'/api/patients/{self.patient.pk}/')
+        self.assertEqual(response.status_code, 404)
 
-    def test_list_page_links_carry_uuids_not_primary_keys(self):
-        response = self.client.get(reverse('patients:patient_list'))
-        body = response.content.decode()
-        self.assertIn(f'/patients/{self.patient.uuid}/', body)
-        self.assertNotIn(f'/patients/{self.patient.pk}/', body)
+    def test_the_list_identifies_records_by_uuid_not_primary_key(self):
+        response = self.client.get(reverse('api:patient-list'))
+        (row,) = response.json()['results']
+        self.assertEqual(row['uuid'], str(self.patient.uuid))
+        self.assertNotIn('id', row)
 
     def test_uuids_are_distinct_per_row(self):
         """Guards the migration trap: AddField with default=uuid.uuid4
@@ -104,7 +96,6 @@ class TicketNumberDisplayTests(TestCase):
         self.client.login(email='admin@t.local', password='pass12345')
 
     def test_detail_shows_the_serial_number_not_the_database_id(self):
-        response = self.client.get(
-            reverse('appointments:appointment_detail', args=[self.appointment.uuid])
-        )
-        self.assertContains(response, self.appointment.serial_number)
+        response = self.client.get(reverse('api:appointment-detail', args=[self.appointment.uuid]))
+        self.assertEqual(response.json()['serial_number'], self.appointment.serial_number)
+        self.assertNotIn('id', response.json())

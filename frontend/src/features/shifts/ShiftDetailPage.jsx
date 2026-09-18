@@ -7,7 +7,6 @@ import {
   Button,
   Card,
   CardBody,
-  CardHeader,
   ConfirmDialog,
   DescriptionList,
   ErrorState,
@@ -19,8 +18,7 @@ import { useToast } from '@/hooks/useToast'
 import { serverUrl } from '@/lib/config'
 import { formatDateTime } from '@/lib/format'
 
-import { ShiftLedger } from './ShiftLedger'
-import { ShiftSummary } from './ShiftSummary'
+import { ShiftTabs } from './ShiftLedger'
 
 /**
  * One shift, for management: the figures now, the figures frozen when it was
@@ -111,30 +109,25 @@ export function ShiftDetailPage() {
           </CardBody>
         </Card>
 
-        <Card>
-          <CardHeader title="الملخص الحالي" subtitle="بحسب طريقة الدفع" />
-          <CardBody>
-            <ShiftSummary summary={shift.summary} />
-          </CardBody>
-        </Card>
-
-        {shift.closing_summary && (
-          <Card>
-            <CardHeader
-              title="الملخص عند الإغلاق"
-              subtitle={
-                changedSinceClosing
-                  ? '⚠ تغيّرت المبالغ بعد الإغلاق — قارن بالملخص الحالي.'
-                  : 'مطابق للملخص الحالي.'
-              }
-            />
-            <CardBody>
-              <ShiftSummary summary={shift.closing_summary} />
-            </CardBody>
-          </Card>
-        )}
-
-        <ShiftLedger shift={shift} />
+        <ShiftTabs
+          shift={shift}
+          title="محتوى الوردية"
+          summaries={[
+            { id: 'now', label: 'الملخص الحالي', summary: shift.summary },
+            ...(shift.closing_summary
+              ? [
+                  {
+                    id: 'closing',
+                    label: 'الملخص عند الإغلاق',
+                    summary: shift.closing_summary,
+                    note: changedSinceClosing
+                      ? '⚠ تغيّرت المبالغ بعد الإغلاق — قارن بالملخص الحالي.'
+                      : 'مطابق للملخص الحالي.',
+                  },
+                ]
+              : []),
+          ]}
+        />
       </div>
 
       <ConfirmDialog

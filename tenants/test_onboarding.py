@@ -124,14 +124,15 @@ class NewTenantIsolationTests(TestCase):
 
     def test_a_new_tenant_starts_with_no_patients(self):
         self.client.login(email="admin@nile.example", password=self.new_password)
-        response = self.client.get(reverse("patients:patient_list"))
+        response = self.client.get(reverse("api:patient-list"))
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["results"], [])
         self.assertNotContains(response, "Existing Patient")
 
     def test_a_new_tenant_cannot_open_the_other_tenants_patient(self):
         self.client.login(email="admin@nile.example", password=self.new_password)
         response = self.client.get(
-            reverse("patients:patient_detail", args=[self.existing_patient.uuid])
+            reverse("api:patient-detail", args=[self.existing_patient.uuid])
         )
         self.assertEqual(response.status_code, 404)
 
@@ -142,7 +143,7 @@ class NewTenantIsolationTests(TestCase):
                 branch=Branch.all_objects.get(tenant=self.new),
             )
         self.client.login(email="admin@existing.example", password="pass12345")
-        response = self.client.get(reverse("patients:patient_list"))
+        response = self.client.get(reverse("api:patient-list"))
         self.assertContains(response, "Existing Patient")
         self.assertNotContains(response, "Nile Patient")
 

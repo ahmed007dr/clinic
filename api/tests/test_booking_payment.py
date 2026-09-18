@@ -135,6 +135,18 @@ class BookingPaymentTests(TestCase):
         self.assertEqual(len(shift["payments"]), 1)
         self.assertEqual(shift["summary"]["revenue"], "200.00")
 
+    def test_the_shift_lists_bookings_payments_and_expenses_newest_first(self):
+        self.login("desk")
+        self.open_shift()
+        first = self.paying(100).json()
+        second = self.booking(patient=self.other_patient, paid_amount="150", payment_method=str(self.cash.uuid)).json()
+        for amount in ("5.00", "9.00"):
+            self.post("api:expense-list", {"amount": amount, "method": str(self.cash.uuid)})
+        shift = self.client.get(reverse("api:shift-current")).json()["shift"]
+        self.assertEqual([b["uuid"] for b in shift["bookings"]], [second["uuid"], first["uuid"]])
+        self.assertEqual([p["amount"] for p in shift["payments"]], ["150.00", "100.00"])
+        self.assertEqual([e["amount"] for e in shift["expenses"]], ["9.00", "5.00"])
+
     def test_a_shift_starts_from_zero_with_no_expected_balance(self):
         self.login("desk")
         opened = self.post("api:shift-open", {"opening_balance": "500"})
@@ -195,6 +207,23 @@ class BookingPaymentTests(TestCase):
         self.assertEqual(booking["payment_status"], "paid")
         # Fully paid: nothing more can be taken.
         self.assertEqual(self.collect(uuid, 1).status_code, 400)
+
+    def test_the_collect_screen_lists_only_bookings_that_still_owe(self):
+        self.login("desk")
+        self.open_shift()
+        owing = self.paying(100).json()["uuid"]          # 200 left
+        self.paying(300, service=self.consult, patient=self.other_patient)  # paid in full
+        never_paid = self.booking(patient=self.other_patient).json()["uuid"]
+        cancelled = self.booking(patient=self.other_patient).json()["uuid"]
+        self.client.patch(
+            reverse("api:appointment-detail", args=[cancelled]), {"status": "cancelled"}, content_type="application/json"
+        )
+        found = self.client.get(reverse("api:appointment-list"), {"owing": "1"}).json()["results"]
+        self.assertEqual({row["uuid"] for row in found}, {owing, never_paid})
+        # And it can be found by the patient's name.
+        by_name = self.client.get(reverse("api:appointment-list"), {"owing": "1", "search": "Mona"}).json()["results"]
+        self.assertEqual([row["uuid"] for row in by_name], [owing])
+        self.assertEqual(by_name[0]["patient_name"], "Mona")
 
     # ----------------------------------------------- paid in full to go in
 

@@ -1,50 +1,60 @@
-{% extends 'base.html' %}
-{% load static %}
-
-{% block body %}
-<div class="container">
-  <h2>سجل التغييرات - {{ clinic_name|default:"Clinic Dashboard" }}</h2>
-  <div class="card">
-    <div class="card-body">
-      <h4 class="card-title">سجل التغييرات</h4>
-      <table id="auditTable" class="table table-striped">
-        <thead>
-          <tr>
-            <th>المستخدم</th>
-            <th>الإجراء</th>
-            <th>اسم النموذج</th>
-            <th>رقم السجل</th>
-            <th>التاريخ</th>
-            <th>الوصف</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for log in audit_logs %}
-          <tr>
-            <td>{{ log.user.username|default:'غير معروف' }}</td>
-            <td>{{ log.action }}</td>
-            <td>{{ log.model_name }}</td>
-            <td>{{ log.object_id }}</td>
-            <td>{{ log.created_at }}</td>
-            <td>{{ log.description|default:'غير محدد' }}</td>
-          </tr>
-          {% empty %}
-          <tr><td colspan="6">لا توجد سجلات</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>سجل التغييرات</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, system-ui, sans-serif; margin: 0; background: #f7f6f3; color: #1a1f21; }
+    main { max-width: 72rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+    header { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
+    h1 { font-size: 1.4rem; margin: 0 0 .25rem; }
+    a { color: #0e6e63; }
+    .muted { color: #5f6c6e; font-size: .9rem; }
+    .wrap { overflow-x: auto; background: #fff; border: 1px solid #e3e1db; border-radius: 8px; margin-top: 1rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    th, td { padding: .55rem .8rem; text-align: start; border-bottom: 1px solid #e3e1db; vertical-align: top; }
+    thead th { background: #f1efeb; color: #5f6c6e; font-size: .8rem; white-space: nowrap; }
+    tbody tr:last-child td { border-bottom: 0; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>سجل التغييرات</h1>
+      <div class="muted">من فعل ماذا ومتى — آخر {{ limit }} سجل.</div>
     </div>
+    <a href="/app/">← العودة إلى التطبيق</a>
+  </header>
+  <div class="wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>المستخدم</th>
+          <th>الإجراء</th>
+          <th>اسم النموذج</th>
+          <th>رقم السجل</th>
+          <th>التاريخ</th>
+          <th>الوصف</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in audit_logs %}
+        <tr>
+          <td>{{ log.user.username|default:'غير معروف' }}</td>
+          <td>{{ log.action }}</td>
+          <td>{{ log.model_name }}</td>
+          <td>{{ log.object_id }}</td>
+          <td>{{ log.created_at }}</td>
+          <td>{{ log.description|default:'غير محدد' }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6">لا توجد سجلات</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
-</div>
-<script src="{% static 'vendors/datatables/jquery.dataTables.min.js' %}"></script>
-<script src="{% static 'vendors/datatables/dataTables.bootstrap5.min.js' %}"></script>
-<script>
-  $(document).ready(function() {
-    $('#auditTable').DataTable({
-      "language": {
-        "url": "{% static 'vendors/datatables/i18n-ar.json' %}"
-      }
-    });
-  });
-</script>
-{% endblock %}
+</main>
+</body>
+</html>

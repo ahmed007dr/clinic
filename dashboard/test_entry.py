@@ -23,7 +23,27 @@ class EntryPointTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response["Location"], "/app/")
 
-    def test_the_old_screens_are_still_reachable_directly(self):
-        """Prescription print, exports and the audit log are still served by
-        them, so they must not be swallowed by the redirect."""
-        self.assertEqual(self.client.get("/accounts/login/").status_code, 200)
+    def test_the_old_interface_is_gone_and_lands_in_the_react_app(self):
+        """The old login, dashboard and list screens no longer exist: their
+        addresses — bookmarks, old emails — all end up in the React app."""
+        for path in ("/accounts/login/", "/dashboard/", "/patients/", "/appointments/", "/billing/expense/",
+                     "/employees/", "/services/", "/branches/", "/notifications/"):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 302)
+                self.assertEqual(response["Location"], "/app/")
+
+    def test_what_react_links_to_is_still_served(self):
+        """Prints and exports live at their own addresses, and must not be
+        swallowed by the redirect above (a signed-out visitor is sent to the
+        React sign-in instead)."""
+        for path in ("/patients/print/intake/", "/patients/export/", "/billing/export/", "/audit/"):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 302)
+                self.assertTrue(response["Location"].startswith("/app/login"), response["Location"])
+
+    def test_an_unknown_api_address_is_a_404_not_a_redirect_to_an_html_page(self):
+        """A redirect would make a mistyped endpoint look like a hang."""
+        response = self.client.get("/api/nothing-here/")
+        self.assertEqual(response.status_code, 404)

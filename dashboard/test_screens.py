@@ -1,24 +1,17 @@
-"""Every screen renders, and every link in every template points somewhere.
+"""What is still server-rendered keeps working, and every link in it points somewhere.
 
-These exist because an audit of the running application found two screens that
-returned 500 while the whole test suite was green — the suite tested views and
-permissions thoroughly, and never asked whether a template could actually be
-rendered end to end.
+Django serves only what the React app links to for the browser to print or
+download — receipts, the queue ticket, the shift report, the prescription, the
+intake form, the exports — and the audit log page. Everything else was React
+and the API, and the old screens are gone.
 
-Both bugs were of a kind unit tests do not catch:
-
-* `employees/specialization_update.html` used `{% url 'specialization_list' %}`
-  without its `employees:` namespace. `NoReverseMatch` is raised while rendering,
-  so the view is fine, the form is fine, and the page is a 500. This is the same
-  mistake that once made every unmatched URL in the project 500 (`redirect('login')`
-  instead of `accounts:login`), so it has now happened twice.
-* `notification_mark_read` used `.get()` rather than `get_object_or_404`, so a
-  notification that did not exist raised `DoesNotExist` and returned a 500 where
-  a 404 was meant.
+These exist because an audit once found screens that returned 500 while the
+whole suite was green: `{% url %}` names without their namespace raise
+`NoReverseMatch` only when the template renders, so the view, the form and the
+permissions all pass and the page is a 500.
 """
 
 import re
-import uuid
 from pathlib import Path
 
 from django.conf import settings
@@ -28,8 +21,6 @@ from django.urls import NoReverseMatch, reverse
 
 from accounts.models import ClinicRole
 from branches.models import Branch
-from notifications.models import Notification
-from tenants.context import tenant_context
 from tenants.models import Tenant
 from tenants.testing import act_as_tenant
 
@@ -72,7 +63,8 @@ class TemplateUrlTagTests(SimpleTestCase):
                 except Exception:
                     pass
 
-        self.assertGreater(scanned, 100, "the scan found almost no url tags — check SKIP_DIRS")
+        # Few templates link anywhere now (they are print pages), so there is no
+        # minimum to assert: the guard is that none of the tags left is broken.
         self.assertEqual(
             broken, {},
             "these template links cannot resolve and will 500 when rendered:\n"
@@ -107,37 +99,10 @@ class TemplateUrlTagTests(SimpleTestCase):
         )
 
 
-class ScreenRenderTests(TestCase):
-    """The screens an ordinary user reaches without any object in hand.
-
-    Renders them for real, per role, so a template error is a failure rather
-    than something a user finds. Object-scoped screens are covered by each app's
-    own tests; what was missing was anything that rendered a template at all.
-    """
-
-    ROLE_EMAILS = {
-        "Admin": "screens-admin@t.local",
-        "Reception": "screens-reception@t.local",
-        "Doctor": "screens-doctor@t.local",
-    }
-
-    # Reached without an id. Each is asserted not to raise; a 302 is a
-    # legitimate answer (role denied, or an export needing a format parameter).
-    LIST_SCREENS = [
-        "patients:patient_list", "patients:patient_create",
-        "appointments:appointment_list", "appointments:appointment_create",
-        "appointments:waiting_list",
-        "billing:payment_list", "billing:payment_create",
-        "billing:expense_list", "billing:expense_create",
-        "billing:expense_category_list", "billing:financial_report",
-        "branches:branch_list", "branches:branch_create",
-        "services:service_list", "services:service_create",
-        "employees:employee_list", "employees:employee_create",
-        "employees:employee_type_list", "employees:specialization_list",
-        "notifications:notification_list",
-        "audit:audit_list",
-        "accounts:user_list", "accounts:user_create", "accounts:user_settings",
-    ]
+class ServerRenderedPagesTests(TestCase):
+    """The audit log renders for the Owner and for nobody else; the print and
+    export pages send a signed-out visitor to the React sign-in, not to a page
+    of an interface that no longer exists."""
 
     def setUp(self):
         self.tenant = Tenant.objects.first()
@@ -145,83 +110,32 @@ class ScreenRenderTests(TestCase):
         from tenants.provisioning import provision_tenant_defaults
 
         provision_tenant_defaults(self.tenant)
-        self.branch = Branch.all_objects.create(
-            tenant=self.tenant, name="Screens", code="SCR"
-        )
-        for role_name, email in self.ROLE_EMAILS.items():
+        self.branch = Branch.all_objects.create(tenant=self.tenant, name="Screens", code="SCR")
+        for role_name in ("Owner", "Admin", "Reception", "Doctor"):
             User.objects.create_user(
-                username=f"screens-{role_name.lower()}", email=email,
+                username=f"screens-{role_name.lower()}", email=f"screens-{role_name.lower()}@t.local",
                 password="pass12345", tenant=self.tenant, branch=self.branch,
                 role=ClinicRole.all_objects.get(tenant=self.tenant, name=role_name),
             )
 
-    def test_no_screen_raises_for_any_role(self):
-        for role, email in self.ROLE_EMAILS.items():
-            self.client.login(email=email, password="pass12345")
-            for name in self.LIST_SCREENS:
-                with self.subTest(role=role, screen=name):
-                    response = self.client.get(reverse(name))
-                    self.assertLess(
-                        response.status_code, 500,
-                        f"{name} returned {response.status_code} for {role}",
-                    )
+    def login(self, role):
+        self.client.logout()
+        self.assertTrue(self.client.login(email=f"screens-{role.lower()}@t.local", password="pass12345"))
 
-    def test_the_dashboard_renders_for_every_role(self):
-        for role, email in self.ROLE_EMAILS.items():
-            self.client.login(email=email, password="pass12345")
-            with self.subTest(role=role):
-                self.assertEqual(self.client.get("/dashboard/").status_code, 200)
+    def test_the_audit_log_renders_for_the_owner_only(self):
+        self.login("Owner")
+        response = self.client.get(reverse("audit:audit_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "سجل التغييرات")
+        self.assertContains(response, 'href="/app/"')
+        for role in ("Admin", "Reception", "Doctor"):
+            self.login(role)
+            self.assertNotEqual(self.client.get(reverse("audit:audit_list")).status_code, 200, role)
 
-
-class NotificationLookupTests(TestCase):
-    """Regression: marking a missing notification read returned 500."""
-
-    def setUp(self):
-        self.tenant = Tenant.objects.first()
-        act_as_tenant(self, self.tenant)
-        from tenants.provisioning import provision_tenant_defaults
-
-        provision_tenant_defaults(self.tenant)
-        branch = Branch.all_objects.create(tenant=self.tenant, name="N", code="N")
-        self.user = User.objects.create_user(
-            username="notify", email="notify@t.local", password="pass12345",
-            tenant=self.tenant, branch=branch,
-            role=ClinicRole.all_objects.get(tenant=self.tenant, name="Admin"),
-        )
-        self.client.login(email="notify@t.local", password="pass12345")
-
-    def test_a_missing_notification_is_a_404_not_a_500(self):
-        response = self.client.get(
-            reverse("notifications:notification_mark_read", args=[uuid.uuid4()])
-        )
-        self.assertEqual(response.status_code, 404)
-
-    def test_another_users_notification_is_also_a_404(self):
-        """Scoped by user already; this pins that the refusal stays a 404 rather
-        than becoming a crash, and never reveals that the id exists."""
-        other = User.objects.create_user(
-            username="other", email="other@t.local", password="pass12345",
-            tenant=self.tenant,
-        )
-        with tenant_context(self.tenant):
-            theirs = Notification.all_objects.create(
-                tenant=self.tenant, user=other, title="theirs", message="x"
-            )
-        response = self.client.get(
-            reverse("notifications:notification_mark_read", args=[theirs.uuid])
-        )
-        self.assertEqual(response.status_code, 404)
-        theirs.refresh_from_db()
-        self.assertFalse(theirs.is_read)
-
-    def test_marking_your_own_notification_works(self):
-        with tenant_context(self.tenant):
-            mine = Notification.all_objects.create(
-                tenant=self.tenant, user=self.user, title="mine", message="x"
-            )
-        response = self.client.get(
-            reverse("notifications:notification_mark_read", args=[mine.uuid])
-        )
-        self.assertEqual(response.status_code, 302)
-        mine.refresh_from_db()
-        self.assertTrue(mine.is_read)
+    def test_a_signed_out_visitor_is_sent_to_the_react_sign_in(self):
+        for url in (reverse("audit:audit_list"), reverse("patients:patient_list_export"),
+                    reverse("billing:payment_list_export"), "/patients/print/intake/"):
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 302)
+                self.assertTrue(response["Location"].startswith("/app/login"), response["Location"])

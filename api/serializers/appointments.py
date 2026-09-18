@@ -84,6 +84,9 @@ class AppointmentSerializer(ActiveChoicesMixin, ClinicSerializer):
     # The receipt of the payment taken with this booking, on the response that
     # creates it — so it can be printed straight away.
     receipt_uuid = serializers.SerializerMethodField()
+    # Only the queue endpoint sets it (api/views/appointments.py `waiting`):
+    # how many are before this booking for its doctor. Null everywhere else.
+    ahead_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Appointment
@@ -99,6 +102,7 @@ class AppointmentSerializer(ActiveChoicesMixin, ClinicSerializer):
             "coupon", "paid_amount", "payment_method",
             "follow_up_date", "has_visit",
             "paid_total", "payment_status", "amount_due", "receipt_uuid",
+            "ahead_count",
         ]
         read_only_fields = ["discount"]
 
@@ -127,6 +131,9 @@ class AppointmentSerializer(ActiveChoicesMixin, ClinicSerializer):
         if paid is None:
             return None
         return f"{max(appointment.net_price - paid, 0):.2f}"
+
+    def get_ahead_count(self, appointment):
+        return getattr(appointment, "ahead_count", None)
 
     def get_receipt_uuid(self, appointment):
         receipt = getattr(appointment, "_new_receipt", None)

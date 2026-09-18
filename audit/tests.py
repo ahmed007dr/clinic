@@ -26,8 +26,7 @@ class AuditLogAccessTests(TestCase):
     def test_reception_cannot_view_audit_log(self):
         self.client.login(email='rec@t.local', password='pass12345')
         response = self.client.get(reverse('audit:audit_list'))
-        self.assertEqual(response.status_code, 302)
-        self.assertIn('/accounts/login/', response.url)
+        self.assertEqual(response.status_code, 403)
 
     def test_admin_can_view_audit_log(self):
         self.client.login(email='admin@t.local', password='pass12345')
@@ -46,10 +45,24 @@ class LoginLogoutAuditTests(TestCase):
         self.user = User.objects.create_user(username='admin', email='admin@t.local', password='pass12345', tenant=self.tenant, role=self.admin_role, branch=self.branch)
 
     def test_login_creates_audit_log_entry(self):
-        self.client.post(reverse('accounts:login'), {'username': 'admin@t.local', 'password': 'pass12345'})
-        self.assertTrue(AuditLog.objects.filter(user=self.user, action='login').exists())
+        response = self.client.post(
+            reverse('api:login'), {'email': 'admin@t.local', 'password': 'pass12345'}, content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        entry = AuditLog.objects.get(user=self.user, action='login')
+        self.assertEqual(entry.tenant_id, self.tenant.pk)
+
+    def test_a_failed_login_is_not_recorded_as_a_login(self):
+        self.client.post(
+            reverse('api:login'), {'email': 'admin@t.local', 'password': 'wrong-password'}, content_type='application/json'
+        )
+        self.assertFalse(AuditLog.objects.filter(action='login').exists())
 
     def test_logout_creates_audit_log_entry(self):
         self.client.login(email='admin@t.local', password='pass12345')
-        self.client.get(reverse('accounts:logout'))
+        self.client.post(reverse('api:logout'))
         self.assertTrue(AuditLog.objects.filter(user=self.user, action='logout').exists())
+
+    def test_logging_out_when_not_signed_in_records_nothing(self):
+        self.client.post(reverse('api:logout'))
+        self.assertFalse(AuditLog.objects.filter(action='logout').exists())

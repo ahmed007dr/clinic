@@ -65,22 +65,14 @@ class CrossTenantIsolationTests(TestCase):
         self.client.login(email='aadmin@t.local', password='pass12345')
 
     def foreign_urls(self):
+        """Another tenant's records, addressed the way the React app does."""
         return [
-            reverse('patients:patient_detail', args=[self.patient_b.uuid]),
-            reverse('patients:patient_update', args=[self.patient_b.uuid]),
-            reverse('patients:patient_delete', args=[self.patient_b.uuid]),
-            reverse('appointments:appointment_detail', args=[self.appointment_b.uuid]),
-            reverse('appointments:appointment_update', args=[self.appointment_b.uuid]),
-            reverse('appointments:appointment_delete', args=[self.appointment_b.uuid]),
-            reverse('billing:payment_detail', args=[self.payment_b.uuid]),
-            reverse('billing:payment_update', args=[self.payment_b.uuid]),
-            reverse('billing:payment_delete', args=[self.payment_b.uuid]),
-            reverse('employees:employee_update', args=[self.employee_b.uuid]),
-            reverse('employees:employee_delete', args=[self.employee_b.uuid]),
-            reverse('branches:branch_update', args=[self.branch_b.uuid]),
-            reverse('branches:branch_delete', args=[self.branch_b.uuid]),
-            reverse('services:service_update', args=[self.service_b.uuid]),
-            reverse('services:service_delete', args=[self.service_b.uuid]),
+            reverse('api:patient-detail', args=[self.patient_b.uuid]),
+            reverse('api:appointment-detail', args=[self.appointment_b.uuid]),
+            reverse('api:payment-detail', args=[self.payment_b.uuid]),
+            reverse('api:employee-detail', args=[self.employee_b.uuid]),
+            reverse('api:branch-detail', args=[self.branch_b.uuid]),
+            reverse('api:service-detail', args=[self.service_b.uuid]),
         ]
 
     def test_reading_another_tenants_records_returns_404(self):
@@ -91,71 +83,37 @@ class CrossTenantIsolationTests(TestCase):
     def test_writing_to_another_tenants_records_returns_404(self):
         for url in self.foreign_urls():
             with self.subTest(url=url):
-                self.assertEqual(self.client.post(url, {}).status_code, 404)
+                self.assertEqual(
+                    self.client.patch(url, {'name': 'Hijacked'}, content_type='application/json').status_code, 404
+                )
 
-    def test_deleting_another_tenants_patient_leaves_it_intact(self):
-        self.client.post(reverse('patients:patient_delete', args=[self.patient_b.uuid]), {})
+    def test_deleting_another_tenants_records_returns_404_and_leaves_them_intact(self):
+        for url in self.foreign_urls():
+            with self.subTest(url=url):
+                self.assertEqual(self.client.delete(url).status_code, 404)
         # Checked from inside tenant B. Asking unbound would return nothing
         # whether or not the row survived, so the assertion would hold vacuously.
         with tenant_context(self.b):
             self.assertTrue(Patient.all_objects.filter(pk=self.patient_b.pk).exists())
+            self.assertTrue(Payment.all_objects.filter(pk=self.payment_b.pk).exists())
 
-    def test_list_views_do_not_include_another_tenants_rows(self):
-        response = self.client.get(reverse('patients:patient_list'))
-        self.assertNotContains(response, 'B Patient')
+    def test_list_endpoints_do_not_include_another_tenants_rows(self):
+        for name, needle in (('api:patient-list', 'B Patient'), ('api:service-list', 'B Service'),
+                             ('api:appointment-list', 'B Patient'), ('api:employee-list', 'B Doctor')):
+            with self.subTest(endpoint=name):
+                self.assertNotContains(self.client.get(reverse(name)), needle)
 
-    def test_service_list_does_not_include_another_tenants_services(self):
-        response = self.client.get(reverse('services:service_list'))
-        self.assertNotContains(response, 'B Service')
-
-
-class FormChoiceTests(TestCase):
-    """Regression: ModelChoiceField querysets are built when the form class is
-    imported, so the tenant-scoped manager resolved with no tenant in context
-    and baked in .none(). Every dropdown on every form was empty — nobody could
-    create an appointment, payment or employee — and it was invisible because
-    the tests that touched forms only ever asserted they were *invalid*."""
-
-    def setUp(self):
-        self.a = Tenant.objects.first()
-        self.b = Tenant.objects.create(name='Rival', slug='rival', status=Tenant.Status.ACTIVE)
-        # A form's ModelChoiceField queryset is lazy: it is evaluated by the
-        # assertion, after the response has returned and the middleware has put
-        # the binding back. Without an outer binding here it would evaluate
-        # unbound and count zero.
-        act_as_tenant(self, self.a)
-        with tenant_context(self.a):
-            role, _ = ClinicRole.all_objects.get_or_create(tenant=self.a, name='Admin')
-            self.branch = Branch.all_objects.create(tenant=self.a, name='Main', code='MN')
-            Patient.all_objects.create(tenant=self.a, name='Ours', branch=self.branch)
-        with tenant_context(self.b):
-            Branch.all_objects.create(tenant=self.b, name='Theirs', code='TH')
-            Patient.all_objects.create(tenant=self.b, name='Theirs', branch=None)
-        User.objects.create_user(
-            username='admin', email='admin@t.local', password='pass12345',
-            tenant=self.a, role=role, branch=self.branch,
+    def test_a_relation_cannot_point_at_another_tenants_record(self):
+        """Posting another clinic's patient UUID is an ordinary validation
+        error — the reason the relation fields are resolved inside the request
+        (api/relations.py), which the old dropdown tests were about."""
+        response = self.client.post(
+            reverse('api:appointment-list'),
+            {'patient': str(self.patient_b.uuid), 'scheduled_date': timezone.now().isoformat()},
+            content_type='application/json',
         )
-        self.client.login(email='admin@t.local', password='pass12345')
-
-    def test_appointment_form_offers_this_tenants_records(self):
-        form = self.client.get(reverse('appointments:appointment_create')).context['form']
-        self.assertEqual(form.fields['patient'].queryset.count(), 1)
-        self.assertEqual(form.fields['branch'].queryset.count(), 1)
-
-    def test_form_choices_exclude_other_tenants(self):
-        form = self.client.get(reverse('appointments:appointment_create')).context['form']
-        self.assertNotIn('Theirs', [str(p) for p in form.fields['patient'].queryset])
-        self.assertNotIn('Theirs', [str(b) for b in form.fields['branch'].queryset])
-
-    def test_payment_form_offers_choices(self):
-        form = self.client.get(reverse('billing:payment_create')).context['form']
-        self.assertEqual(form.fields['patient'].queryset.count(), 1)
-
-    def test_limit_choices_to_is_preserved(self):
-        """Appointment.doctor restricts to the Doctor employee type — rebinding
-        the queryset must not drop that filter."""
-        form = self.client.get(reverse('appointments:appointment_create')).context['form']
-        self.assertIn('employee_type', str(form.fields['doctor'].queryset.query))
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('patient', response.json())
 
 
 class ManagerScopingTests(TestCase):
