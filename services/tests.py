@@ -5,7 +5,6 @@ from accounts.models import ClinicRole
 from branches.models import Branch
 from tenants.models import Tenant
 from tenants.testing import act_as_tenant
-from .forms import ServiceForm
 
 User = get_user_model()
 
@@ -26,22 +25,39 @@ class ServiceAuthorizationTests(TestCase):
         self.branch_admin = User.objects.create_user(username='admin', email='admin@t.local', password='pass12345', tenant=self.tenant, role=self.admin_role, branch=self.branch)
         self.reception = User.objects.create_user(username='rec', email='rec@t.local', password='pass12345', tenant=self.tenant, role=self.reception_role, branch=self.branch)
 
+    def create(self, name='Consultation', price='100'):
+        return self.client.post(
+            reverse('api:service-list'), {'name': name, 'base_price': price}, content_type='application/json'
+        )
+
     def test_role_admin_without_superuser_can_create_service(self):
         self.client.login(email='admin@t.local', password='pass12345')
-        response = self.client.get(reverse('services:service_create'))
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.create().status_code, 201)
 
     def test_reception_cannot_create_service(self):
         self.client.login(email='rec@t.local', password='pass12345')
-        response = self.client.get(reverse('services:service_create'))
-        self.assertEqual(response.status_code, 302)
-        self.assertRedirects(response, reverse('services:service_list'))
+        self.assertEqual(self.create().status_code, 403)
+
+    def test_reception_can_still_read_the_service_list(self):
+        self.client.login(email='rec@t.local', password='pass12345')
+        self.assertEqual(self.client.get(reverse('api:service-list')).status_code, 200)
 
 
 class ServicePriceValidationTests(TestCase):
     """A negative base_price would silently corrupt pricing/reporting downstream."""
 
-    def test_service_form_rejects_negative_base_price(self):
-        form = ServiceForm(data={'name': 'Consultation', 'base_price': '-10'})
-        self.assertFalse(form.is_valid())
-        self.assertIn('base_price', form.errors)
+    def setUp(self):
+        self.tenant = Tenant.objects.first()
+        act_as_tenant(self, self.tenant)
+        role, _ = ClinicRole.all_objects.get_or_create(tenant=self.tenant, name='Admin')
+        branch = Branch.all_objects.create(tenant=self.tenant, name='Branch A', code='A')
+        User.objects.create_user(username='admin', email='admin@t.local', password='pass12345',
+                                 tenant=self.tenant, role=role, branch=branch)
+        self.client.login(email='admin@t.local', password='pass12345')
+
+    def test_a_negative_base_price_is_rejected(self):
+        response = self.client.post(
+            reverse('api:service-list'), {'name': 'Consultation', 'base_price': '-10'}, content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('base_price', response.json())

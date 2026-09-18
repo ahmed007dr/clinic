@@ -97,6 +97,10 @@ export function QueuePage() {
   const navigate = useNavigate()
   const toast = useToast()
   const { permissions } = useAuth()
+  // The desk runs the queue — call, send in, collect, print. A doctor only
+  // looks at who is waiting for them (the owner's rule, 2026-09-19); the
+  // server refuses the moves too (api/views/appointments.py FrontDeskWrites).
+  const desk = permissions.front_desk
   const { data, loading, error, reload } = useAsync(() => api.appointments.waiting(), [])
   const move = useMutation((uuid, status) => api.appointments.setStatus(uuid, status))
 
@@ -143,27 +147,35 @@ export function QueuePage() {
   const activeDoctor = doctors.some((item) => item.value === doctor) ? doctor : ''
   const inScope = activeDoctor ? all.filter((row) => row.doctor === activeDoctor) : all
 
-  const tabs = TABS.map((item) => ({
+  // Nobody but the desk sees what a booking still owes, so no tab for it.
+  const visibleTabs = TABS.filter((item) => desk || item.id !== 'owing')
+  const tabs = visibleTabs.map((item) => ({
     id: item.id,
     label: item.label,
     badge: inScope.filter(item.match).length,
   }))
-  const current = TABS.find((item) => item.id === tab) ?? TABS[0]
+  const current = visibleTabs.find((item) => item.id === tab) ?? visibleTabs[0]
   const rows = inScope.filter(current.match)
 
   return (
     <>
       <PageHeader
         title="قائمة الانتظار"
-        subtitle="حجوزات اليوم بترتيب الوصول · تُحدَّث تلقائياً"
+        subtitle={
+          desk
+            ? 'حجوزات اليوم بترتيب الوصول · تُحدَّث تلقائياً'
+            : 'المرضى المنتظرون لديك اليوم بترتيب الوصول · للاطلاع فقط · تُحدَّث تلقائياً'
+        }
         actions={
           <>
             <Button variant="ghost" onClick={reload} loading={loading}>
               تحديث
             </Button>
-            <Button variant="primary" onClick={() => navigate('/appointments/new')}>
-              حجز سريع
-            </Button>
+            {desk && (
+              <Button variant="primary" onClick={() => navigate('/appointments/new')}>
+                حجز سريع
+              </Button>
+            )}
           </>
         }
       />
@@ -242,7 +254,7 @@ export function QueuePage() {
                     )}
 
                     <div className="queue__actions">
-                      {step && (
+                      {desk && step && (
                         <Button
                           variant="primary"
                           size="sm"
@@ -259,7 +271,7 @@ export function QueuePage() {
                       >
                         الملف
                       </Button>
-                      {TICKETABLE.has(row.status) && (
+                      {desk && TICKETABLE.has(row.status) && (
                         <a
                           className="ui-btn ui-btn--ghost ui-btn--sm"
                           href={serverUrl(`/appointments/${row.uuid}/ticket/`)}
@@ -269,9 +281,7 @@ export function QueuePage() {
                           تذكرة الانتظار
                         </a>
                       )}
-                      {permissions.front_desk && (
-                        <VisitDeskActions appointment={row} onChanged={reload} />
-                      )}
+                      {desk && <VisitDeskActions appointment={row} onChanged={reload} />}
                     </div>
                   </div>
                 </CardBody>

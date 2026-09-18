@@ -12,7 +12,12 @@ export function portalApi(slug) {
     me: () => get('me/'),
     login: (phone, password) => http.post(`${base}/auth/login/`, { phone, password }),
     acceptInvite: (token, password) => http.post(`${base}/auth/accept-invite/`, { token, password }),
+    /** A one-time code emailed to the patient; the phone or the email identifies who. */
+    requestCode: (identifier) => http.post(`${base}/auth/otp/request/`, { identifier }),
+    verifyCode: (identifier, code) => http.post(`${base}/auth/otp/verify/`, { identifier, code }),
     logout: () => http.post(`${base}/auth/logout/`),
+    /** Specialties, the patient's clinic's doctors and, per doctor, contracted services + price. */
+    bookingOptions: () => get('booking/options/'),
     appointments: () => get('appointments/'),
     requestAppointment: (body) => http.post(`${base}/appointments/`, body),
     visits: () => get('visits/'),

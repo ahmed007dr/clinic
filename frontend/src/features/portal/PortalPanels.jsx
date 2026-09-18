@@ -50,10 +50,16 @@ function TurnNote({ appointment: a }) {
   } else if (a.ahead_count > 0) {
     text = `أمامك ${a.ahead_count} ${a.ahead_count === 1 ? 'مريض' : 'مرضى'}`
   }
-  if (!text) return null
+  if (!text && !a.ticket_number) return null
   return (
     <div className={tone}>
-      <strong>{text}</strong>
+      {a.ticket_number && (
+        <span className="portal-turn__ticket">
+          رقم التذكرة <strong className="ui-num" dir="ltr">{a.ticket_number}</strong>
+          {a.queue_position && <> · ترتيبك <strong className="ui-num">{a.queue_position}</strong></>}
+        </span>
+      )}
+      {text && <strong>{text}</strong>}
       {a.doctor_name && <span>د. {a.doctor_name}</span>}
       {a.ahead_count === 0 && a.doctor_busy && <span>الطبيب مع مريض الآن</span>}
     </div>
@@ -73,9 +79,9 @@ export function AppointmentsPanel() {
             </div>
             <TurnNote appointment={a} />
             <div className="ui-muted">
-              {a.status === 'requested'
-                ? 'بانتظار تأكيد العيادة'
-                : [a.service_name, a.doctor_name].filter(Boolean).join(' · ') || '—'}
+              {[a.service_name, a.doctor_name && `د. ${a.doctor_name}`].filter(Boolean).join(' · ')
+                || (a.status === 'requested' ? '' : '—')}
+              {a.status === 'requested' && `${a.service_name || a.doctor_name ? ' — ' : ''}بانتظار تأكيد العيادة`}
             </div>
             {Number(a.due) > 0 && (
               <div className="portal-card__row">

@@ -199,19 +199,3 @@ class FinanceVisibilityTests(TestCase):
                 entries = self.client.get(url).json()["entries"]
                 payments = [e for e in entries if e["kind"] == "payment"]
                 self.assertEqual(len(payments), expected)
-
-    # ------------------------------------------- server-rendered screens
-
-    def test_old_money_screens_refuse_non_admins(self):
-        paths = [
-            reverse("billing:payment_list"),
-            reverse("billing:payment_detail", args=[self.today_payment.uuid]),
-            reverse("billing:expense_list"),
-            reverse("billing:financial_report"),
-        ]
-        for role in ("Reception", "Doctor"):
-            self.login(role)
-            for path in paths:
-                with self.subTest(role=role, path=path):
-                    # user_passes_test redirects to the login page.
-                    self.assertEqual(self.client.get(path).status_code, 302)

@@ -83,6 +83,12 @@
   color: var(--ok);
 }
 
+/* The slip number the patient quotes at the desk: full width, above the rest. */
+.portal-turn__ticket {
+  flex-basis: 100%;
+  font-size: var(--text-sm);
+}
+
 .portal-card__row {
   display: flex;
   align-items: center;

@@ -13,6 +13,7 @@ import {
   Table,
 } from '@/components/ui'
 import { RelationSelect } from '@/components/data/RelationSelect'
+import { EmailReportButton } from '@/components/data/EmailReportButton'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useAsync } from '@/hooks/useApi'
 import { useAuth } from '@/hooks/useAuth'
@@ -42,6 +43,7 @@ export function FinancialReportPage() {
       <PageHeader
         title="التقرير المالي"
         subtitle={permissions.all_branches ? 'كل الفروع' : 'فرعك'}
+        actions={<EmailReportButton />}
       />
 
       <div className="ui-stack">
@@ -123,6 +125,8 @@ export function FinancialReportPage() {
                       },
                     ]}
                     rows={data.by_method}
+                    // Totals per method, not records: there is no uuid to key by.
+                    rowKey={(row) => row.name}
                     empty={{ title: 'لا توجد دفعات في هذه الفترة' }}
                   />
                 </CardBody>
@@ -148,6 +152,7 @@ export function FinancialReportPage() {
                       },
                     ]}
                     rows={data.by_category}
+                    rowKey={(row) => row.name}
                     empty={{ title: 'لا توجد مصروفات في هذه الفترة' }}
                   />
                 </CardBody>

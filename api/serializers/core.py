@@ -131,8 +131,16 @@ class DoctorBriefSerializer(ClinicSerializer):
     branch_name = serializers.CharField(source="branch.name", read_only=True)
     # So a picker can narrow doctors to a specialty without a second request.
     specializations = serializers.SlugRelatedField(slug_field="uuid", many=True, read_only=True)
+    # Shown to management only, to tell two doctors apart when searching by
+    # phone; whoever is merely booking a visit has no need of it.
+    phone1 = serializers.SerializerMethodField()
+
+    def get_phone1(self, employee):
+        from accounts.roles import is_clinic_admin
+
+        return employee.phone1 if is_clinic_admin(self.request_user) else None
 
     class Meta:
         model = Employee
-        fields = ["uuid", "name", "branch", "branch_name", "specializations"]
+        fields = ["uuid", "name", "phone1", "branch", "branch_name", "specializations"]
         read_only_fields = fields

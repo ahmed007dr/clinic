@@ -9,7 +9,6 @@ from appointments.models import Appointment
 from tenants.models import Tenant
 from tenants.testing import act_as_tenant
 from .models import Payment
-from .forms import PaymentForm, ExpenseForm
 
 User = get_user_model()
 
@@ -36,64 +35,63 @@ class BillingTestBase(TestCase):
 
 
 class FinancialReportTests(BillingTestBase):
-    """Regression tests for SEC-003/H4: financial_report must require login and not crash on search."""
+    """Regression tests for SEC-003/H4: the financial report requires a sign-in
+    and is management's alone (through the API the React app uses)."""
 
-    def test_anonymous_user_is_redirected_to_login(self):
-        response = self.client.get(reverse('billing:financial_report'))
-        self.assertEqual(response.status_code, 302)
-        self.assertIn('/accounts/login/', response.url)
+    def test_anonymous_user_is_refused(self):
+        response = self.client.get(reverse('api:financialreport-list'))
+        self.assertIn(response.status_code, (401, 403))
 
-    def test_doctor_revenue_search_does_not_crash(self):
+    def test_reception_cannot_read_the_report(self):
+        self.client.login(email='reca@t.local', password='pass12345')
+        self.assertEqual(self.client.get(reverse('api:financialreport-list')).status_code, 403)
+
+    def test_the_owner_can_read_the_report(self):
         self.client.login(email='admin@t.local', password='pass12345')
-        response = self.client.get(reverse('billing:financial_report'), {'doctor_revenue_search': 'x'})
+        response = self.client.get(reverse('api:financialreport-list'))
         self.assertEqual(response.status_code, 200)
-
-    def test_non_employee_search_does_not_crash(self):
-        self.client.login(email='admin@t.local', password='pass12345')
-        response = self.client.get(reverse('billing:financial_report'), {'non_employee_search': 'x'})
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(float(response.json()['revenue']), 100.0)
 
 
 class PaymentDetailScopingTests(BillingTestBase):
-    """Regression tests for SEC-004: payment_detail must not leak cross-branch payments."""
+    """Regression tests for SEC-004: a payment must not leak across branches."""
 
     def test_reception_cannot_view_other_branch_payment(self):
         self.client.login(email='reca@t.local', password='pass12345')
-        response = self.client.get(reverse('billing:payment_detail', args=[self.payment_b.uuid]))
+        response = self.client.get(reverse('api:payment-detail', args=[self.payment_b.uuid]))
         self.assertNotEqual(response.status_code, 200)
 
-    def test_reception_cannot_open_the_old_payment_screen_at_all(self):
-        """Superseded by billing.access: reception sees only today's money,
-        through the React app; this screen shows any payment on any date."""
+    def test_reception_sees_only_the_money_of_their_open_shift(self):
+        """billing.access: reception sees today's money — the payments of their
+        own open shift. This payment is in no shift of theirs, even in their
+        own branch."""
         self.client.login(email='recb@t.local', password='pass12345')
-        response = self.client.get(reverse('billing:payment_detail', args=[self.payment_b.uuid]))
-        self.assertEqual(response.status_code, 302)
+        response = self.client.get(reverse('api:payment-detail', args=[self.payment_b.uuid]))
+        self.assertEqual(response.status_code, 404)
 
     def test_admin_can_view_any_branch_payment(self):
         self.client.login(email='admin@t.local', password='pass12345')
-        response = self.client.get(reverse('billing:payment_detail', args=[self.payment_b.uuid]))
+        response = self.client.get(reverse('api:payment-detail', args=[self.payment_b.uuid]))
         self.assertEqual(response.status_code, 200)
 
 
 class NegativeAmountValidationTests(BillingTestBase):
-    """A negative amount would silently corrupt every revenue total in financial_report."""
+    """A negative amount would silently corrupt every revenue total in the financial report."""
 
-    def test_payment_form_rejects_negative_amount(self):
-        form = PaymentForm(data={
-            'appointment': self.appointment_b.pk,
-            'patient': self.patient_b.pk,
-            'receipt_number': 'R-NEG-1',
-            'amount': '-50',
-            'branch': self.branch_b.pk,
-        })
-        self.assertFalse(form.is_valid())
-        self.assertIn('amount', form.errors)
+    def setUp(self):
+        super().setUp()
+        self.client.login(email='admin@t.local', password='pass12345')
 
-    def test_expense_form_rejects_negative_amount(self):
-        form = ExpenseForm(data={
-            'branch': self.branch_b.pk,
-            'amount': '-50',
-            'date': timezone.now().date(),
-        })
-        self.assertFalse(form.is_valid())
-        self.assertIn('amount', form.errors)
+    def test_a_payment_rejects_a_negative_amount(self):
+        response = self.client.post(reverse('api:payment-list'), {
+            'appointment': str(self.appointment_b.uuid), 'amount': '-50',
+        }, content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('amount', response.json())
+
+    def test_an_expense_rejects_a_negative_amount(self):
+        response = self.client.post(reverse('api:expense-list'), {
+            'branch': str(self.branch_b.uuid), 'amount': '-50', 'date': str(timezone.now().date()),
+        }, content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('amount', response.json())

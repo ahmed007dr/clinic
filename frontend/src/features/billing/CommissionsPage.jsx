@@ -2,12 +2,15 @@ import { useState } from 'react'
 
 import { api } from '@/api'
 import { Badge, Button, Checkbox, Input, Select, StatTile } from '@/components/ui'
+import { MultiRelationSelect } from '@/components/data/MultiRelationSelect'
 import { RelationSelect } from '@/components/data/RelationSelect'
 import { ResourceTable } from '@/components/data/ResourceTable'
+import { EmailReportButton } from '@/components/data/EmailReportButton'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useAsync, useMutation } from '@/hooks/useApi'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
+import { serverUrl } from '@/lib/config'
 import { formatDateTime, formatMoney } from '@/lib/format'
 
 /**
@@ -23,13 +26,28 @@ export function CommissionsPage() {
   const { permissions } = useAuth()
   const manage = permissions.is_admin
   const [status, setStatus] = useState('')
-  const [doctor, setDoctor] = useState('')
+  const [doctors, setDoctors] = useState([]) // one or several
+  const [service, setService] = useState('')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [chosen, setChosen] = useState(new Set())
   const [refreshKey, setRefreshKey] = useState(0)
 
-  const params = { status, doctor: doctor || undefined, from, to }
+  const params = {
+    status,
+    doctor: doctors.length ? doctors.join(',') : undefined,
+    service: service || undefined,
+    from,
+    to,
+  }
+  // The signed sheet is the list on screen: same filters, on paper
+  // (billing/commissions.py `narrow`). Whatever the status filter says —
+  // pending or already handed over — is what gets printed.
+  const printUrl = serverUrl(
+    `/billing/commissions/print/?${new URLSearchParams(
+      Object.entries(params).filter(([, value]) => value),
+    )}`,
+  )
   const summary = useAsync(() => api.commissions.summary(params), [JSON.stringify(params), refreshKey])
   const settle = useMutation(() => api.commissions.settle([...chosen]))
 
@@ -96,16 +114,22 @@ export function CommissionsPage() {
         title={manage ? 'نسب الأطباء' : 'نسبي وحساباتي'}
         subtitle="نسبة الطبيب من المبلغ المدفوع فعلاً لكل خدمة"
         actions={
-          manage && (
-            <Button variant="primary" onClick={onSettle} disabled={chosen.size === 0} loading={settle.submitting}>
-              تسجيل استلام المحدد ({chosen.size})
-            </Button>
-          )
+          <>
+            <EmailReportButton />
+            <a className="ui-btn ui-btn--secondary" href={printUrl} target="_blank" rel="noopener">
+              طباعة التقرير{status ? ` (${status === 'settled' ? 'المستلمة' : 'المعلّقة'})` : ''}
+            </a>
+            {manage && (
+              <Button variant="primary" onClick={onSettle} disabled={chosen.size === 0} loading={settle.submitting}>
+                تسجيل استلام المحدد ({chosen.size})
+              </Button>
+            )}
+          </>
         }
       />
 
       <div className="ui-stack">
-        <div className="ui-grid">
+        <div className="ui-grid ui-grid--3">
           <StatTile label="معلّقة" value={formatMoney(summary.data?.pending)} tone="primary" icon="⏳" />
           <StatTile label="مستلمة" value={formatMoney(summary.data?.settled)} tone="ok" icon="✓" />
           <StatTile label="الإجمالي" value={formatMoney(summary.data?.total)} icon="Σ" />
@@ -130,13 +154,22 @@ export function CommissionsPage() {
                 ]}
               />
               {manage && (
-                <RelationSelect
-                  resource={api.doctors}
-                  value={doctor}
-                  onChange={(value) => setDoctor(value ?? '')}
-                  placeholder="كل الأطباء"
-                />
+                <div style={{ minWidth: '16rem' }}>
+                  <MultiRelationSelect
+                    resource={api.doctors}
+                    value={doctors}
+                    onChange={setDoctors}
+                    placeholder="كل الأطباء — ابحث بالاسم أو الهاتف"
+                    renderLabel={(row) => (row.phone1 ? `${row.name} · ${row.phone1}` : row.name)}
+                  />
+                </div>
               )}
+              <RelationSelect
+                resource={api.services}
+                value={service}
+                onChange={(value) => setService(value ?? '')}
+                placeholder="كل الخدمات"
+              />
               <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="من تاريخ" />
               <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="إلى تاريخ" />
             </>

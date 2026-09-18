@@ -160,7 +160,8 @@ class DoctorViewSet(ReadOnlyClinicViewSet):
     serializer_class = DoctorBriefSerializer
     permission_classes = [IsClinicMember]
     filter_backends = [SearchFilter, OrderingFilter]
-    search_fields = ["name"]
+    # By name or by phone: the desk knows a doctor by either.
+    search_fields = ["name", "phone1", "phone2"]
     ordering = ["name"]
 
     # Scoped by hand below: a doctor the Owner linked to several clinics must

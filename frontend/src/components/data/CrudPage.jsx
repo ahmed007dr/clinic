@@ -66,6 +66,12 @@ export function CrudPage({
 
   const form = useForm(initial, { serverErrors: save.fieldErrors })
 
+  // `lockOnEdit` fields are chosen once, when the record is made, and only
+  // shown afterwards — a treatment plan's patient, say, for a doctor.
+  const shown = fields.map((field) =>
+    field.lockOnEdit && editing && editing !== 'new' ? { ...field, disabled: true } : field,
+  )
+
   const submit = async (event) => {
     event.preventDefault()
     try {
@@ -73,7 +79,7 @@ export function CrudPage({
       // A hidden or disabled field is one the server decides (an expense's
       // date inside a cash shift, a price from the doctor's contract):
       // sending its value would at best be ignored and at worst refused.
-      fields
+      shown
         .filter((field) => field.hide || field.disabled)
         .forEach((field) => delete body[field.name])
       await save.run(body)
@@ -170,7 +176,7 @@ export function CrudPage({
         <form onSubmit={submit}>
           {save.formError && <div className="form-error">{save.formError}</div>}
           <FormFields
-            fields={fields}
+            fields={shown}
             form={form}
             errors={save.fieldErrors}
             disabled={save.submitting}

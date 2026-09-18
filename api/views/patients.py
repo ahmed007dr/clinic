@@ -4,7 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 
-from api.permissions import DeleteRequiresAdmin, IsClinicMember, can_view_clinical
+from api.permissions import DeleteRequiresAdmin, FrontDeskWrites, IsClinicMember, can_view_clinical
 from api.serializers.patients import PatientListSerializer, PatientSerializer
 from api.viewsets import ClinicViewSet
 from billing.access import restrict_payments
@@ -18,12 +18,28 @@ from tenants.context import get_current_tenant
 class PatientViewSet(ClinicViewSet):
     queryset = Patient.objects.all()
     serializer_class = PatientSerializer
-    permission_classes = [IsClinicMember, DeleteRequiresAdmin]
+    # A doctor looks up their own patients; registering and editing them is
+    # the desk's work.
+    permission_classes = [IsClinicMember, DeleteRequiresAdmin, FrontDeskWrites]
     plan_limit = "max_patients"
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ["name", "serial_number", "phone1", "phone2", "national_id"]
     ordering_fields = ["name", "created_at", "serial_number"]
     ordering = ["-created_at"]
+
+    def destroy(self, request, *args, **kwargs):
+        """A patient with clinical records cannot be deleted: the record must be
+        kept. Said plainly, not as a server error."""
+        from django.db.models import ProtectedError
+        from rest_framework.response import Response
+
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {"detail": "لا يمكن حذف هذا المريض لوجود سجلات طبية مرتبطة به. السجلات الطبية يجب الاحتفاظ بها."},
+                status=409,
+            )
 
     def plan_limit_count(self):
         from patients.intake import confirmed_patients
@@ -170,6 +186,7 @@ class PatientViewSet(ClinicViewSet):
         )
         return Response({
             "has_account": account is not None,
+            "has_email": bool(patient.email),
             "is_active": bool(account and account.is_active),
             "last_login": account.last_login if account else None,
             "invite_expires_at": invite.expires_at if invite else None,
@@ -189,10 +206,21 @@ class PatientViewSet(ClinicViewSet):
                 {"detail": "سجّل رقم هاتف المريض أولاً — الدخول إلى البوابة يتم برقم الهاتف."},
                 status=400,
             )
+        # Checked before issuing: a new invitation cancels the previous link.
+        if request.data.get("send_email") and not patient.email:
+            return Response({"detail": "لا يوجد بريد إلكتروني مسجّل للمريض."}, status=400)
         invitation, token = PortalInvitation.issue(patient, created_by=request.user)
         slug = get_current_tenant().slug
         url = request.build_absolute_uri(f"/app/portal/{slug}/invite") + f"#{token}"
-        response = Response({"url": url, "expires_at": invitation.expires_at})
+        emailed = None
+        if request.data.get("send_email"):
+            from portal import mail
+            from portal.models import INVITATION_TTL
+
+            emailed = mail.send_invitation(
+                get_current_tenant(), patient, url, int(INVITATION_TTL.total_seconds() // 3600)
+            )
+        response = Response({"url": url, "expires_at": invitation.expires_at, "emailed": emailed})
         response["Cache-Control"] = "no-store"
         return response
 

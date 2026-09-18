@@ -144,3 +144,29 @@
     grid-column: auto;
   }
 }
+
+/* ------------------------------------------------- multi-value relation */
+
+.multi__chips {
+  list-style: none;
+  margin: 0 0 var(--s2);
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+}
+
+.multi__chip {
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: 2px var(--s3);
+  cursor: pointer;
+}
+
+.multi__chip:hover {
+  background: var(--surface-sunken);
+}

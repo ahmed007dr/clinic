@@ -31,6 +31,9 @@ SESSION_IDLE = timedelta(minutes=30)
 SESSION_ABSOLUTE = timedelta(days=7)
 MAX_FAILED_LOGINS = 5
 LOCKOUT = timedelta(minutes=15)
+CODE_TTL = timedelta(minutes=10)
+CODE_RESEND_AFTER = timedelta(seconds=60)
+CODE_MAX_ATTEMPTS = 5
 
 
 def new_token():
@@ -81,6 +84,67 @@ class PatientAccount(TenantOwnedModel):
         PortalSession.objects.filter(account=self, revoked_at__isnull=True).update(
             revoked_at=timezone.now()
         )
+
+
+def new_code():
+    """Six digits, from the OS entropy pool."""
+    return f"{secrets.randbelow(10**6):06d}"
+
+
+class PortalLoginCode(TenantOwnedModel):
+    """A one-time sign-in code emailed to the patient (docs/12, Phase 2).
+
+    Stored hashed, like every portal credential. It lives ten minutes, works
+    once, and is voided after five wrong guesses — six digits alone would not
+    survive an attacker who could guess without limit.
+    """
+
+    account = models.ForeignKey(PatientAccount, on_delete=models.CASCADE, related_name="login_codes")
+    code_hash = models.CharField(max_length=64)
+    expires_at = models.DateTimeField()
+    attempts = models.PositiveSmallIntegerField(default=0)
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta(TenantOwnedModel.Meta):
+        verbose_name = "رمز دخول بوابة"
+
+    @classmethod
+    def issue(cls, account):
+        """Returns (row, code), or (None, None) if one was sent under a
+        minute ago. A new code voids any earlier unused one."""
+        recent = cls.objects.filter(
+            account=account, created_at__gt=timezone.now() - CODE_RESEND_AFTER
+        ).exists()
+        if recent:
+            return None, None
+        cls.objects.filter(account=account, used_at__isnull=True).update(used_at=timezone.now())
+        code = new_code()
+        row = cls.objects.create(
+            tenant=account.tenant, account=account, code_hash=hash_token(code),
+            expires_at=timezone.now() + CODE_TTL,
+        )
+        return row, code
+
+    @property
+    def is_usable(self):
+        return (
+            self.used_at is None
+            and self.expires_at > timezone.now()
+            and self.attempts < CODE_MAX_ATTEMPTS
+        )
+
+    def verify(self, code):
+        """True once, for the right code. A wrong guess is counted."""
+        if not self.is_usable:
+            return False
+        if secrets.compare_digest(self.code_hash, hash_token(str(code).strip())):
+            self.used_at = timezone.now()
+            self.save(update_fields=["used_at"])
+            return True
+        self.attempts += 1
+        self.save(update_fields=["attempts"])
+        return False
 
 
 class PortalInvitation(TenantOwnedModel):

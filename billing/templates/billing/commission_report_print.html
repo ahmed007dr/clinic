@@ -1,0 +1,103 @@
+{% load static %}<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>تقرير نسب الأطباء</title>
+  <link rel="stylesheet" href="{% static 'css/cairo.css' %}">
+  {% include "print/_styles.html" %}
+  <style>
+    @page { size: A4; margin: 12mm; }
+    body { padding: 12px; font-size: 13px; }
+    .sheet { max-width: 190mm; }
+    .rep__kind { text-align: center; font-weight: 700; font-size: 18px; margin: 0 0 4px; color: var(--accent); }
+    .rep__period { text-align: center; font-size: 12px; color: #555; margin: 0 0 14px; }
+    .rep__totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0 4px; }
+    .rep__totals div { background: #f4f6f7; border-radius: 6px; padding: 8px; text-align: center; }
+    .rep__totals b { display: block; font-size: 16px; color: var(--accent); }
+    .rep__totals span { font-size: 11px; color: #555; }
+    .doc { margin-top: 22px; }
+    .doc + .doc { break-before: page; }
+    .doc h2 { font-size: 15px; margin: 0 0 6px; color: var(--accent); display: flex; justify-content: space-between; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { padding: 5px 6px; border-bottom: 1px solid #ddd; text-align: start; vertical-align: top; }
+    thead th { background: #f4f6f7; font-size: 11px; color: #444; }
+    td.n, th.n { text-align: left; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    tfoot td { font-weight: 700; border-top: 2px solid #999; border-bottom: 0; }
+    .rep__ack { margin-top: 14px; font-size: 12px; }
+    .rep__sign { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; font-size: 12px; break-inside: avoid; }
+    .rep__sign div { border-top: 1px solid #333; padding-top: 4px; text-align: center; }
+    .rep__printed { margin-top: 14px; font-size: 10px; color: #777; text-align: center; }
+    @media print { .print-btn { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <button class="print-btn" onclick="window.print()">طباعة</button>
+
+    {% include "print/_header.html" %}
+
+    <p class="rep__kind">تقرير نسب الأطباء — {{ status_label }}</p>
+    <p class="rep__period">
+      {% if date_from or date_to %}عن الفترة من {{ date_from|default:"البداية" }} إلى {{ date_to|default:"اليوم" }}{% else %}عن كل الفترات{% endif %}
+      · {{ count }} بند
+    </p>
+
+    <div class="rep__totals">
+      <div><b>{{ grand.pending }}</b><span>معلّقة</span></div>
+      <div><b>{{ grand.settled }}</b><span>مستلمة</span></div>
+      <div><b>{{ grand.total }}</b><span>الإجمالي</span></div>
+    </div>
+
+    {% for block in blocks %}
+      <section class="doc">
+        <h2><span>د. {{ block.doctor.name }}</span><span>{{ block.totals.total }}</span></h2>
+        <table>
+          <thead>
+            <tr>
+              <th>التاريخ</th><th>المريض</th><th>الخدمة</th>
+              <th class="n">السعر الأصلي</th><th class="n">المدفوع</th><th class="n">النسبة</th>
+              <th class="n">النصيب</th><th>الحالة</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in block.rows %}
+              <tr>
+                <td>{{ s.created_at|date:"Y-m-d" }}</td>
+                <td>{{ s.patient.name|default:"—" }}</td>
+                <td>{{ s.description|default:"—" }}</td>
+                <td class="n">{{ s.original_price|floatformat:2 }}</td>
+                <td class="n">{{ s.paid_amount|floatformat:2 }}</td>
+                <td class="n">{{ s.percent|floatformat:"-2" }}%</td>
+                <td class="n">{{ s.amount|floatformat:2 }}</td>
+                <td>{{ s.get_status_display }}{% if s.settled_at %} · {{ s.settled_at|date:"Y-m-d" }}{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="6">معلّقة {{ block.totals.pending }} · مستلمة {{ block.totals.settled }}</td>
+              <td class="n">{{ block.totals.total }}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <p class="rep__ack">
+          أقرّ أنا د. {{ block.doctor.name }} باستلام المبلغ الموضّح أعلاه عن الفترة المذكورة.
+        </p>
+        <div class="rep__sign">
+          <div>توقيع الطبيب بالاستلام — د. {{ block.doctor.name }}</div>
+          <div>توقيع الأدمن</div>
+        </div>
+      </section>
+    {% empty %}
+      <p style="text-align:center;margin:40px 0;">لا توجد نسب مطابقة لهذا التقرير.</p>
+    {% endfor %}
+
+    <p class="rep__printed">طُبع بواسطة {{ printed_by }} · {% now "Y-m-d H:i" %}</p>
+    {% if layout.note %}<p class="rep__printed">{{ layout.note }}</p>{% endif %}
+    {% include "print/_footer.html" %}
+  </div>
+  <script>window.onload = function () { window.print(); };</script>
+</body>
+</html>

@@ -62,11 +62,11 @@ export const routes = [
   { path: 'patients/new', element: StaffIntakePage, permission: 'front_desk' },
   { path: 'patients/review', element: RegistrationReviewPage, permission: 'front_desk' },
   { path: 'patients/:uuid', element: PatientDetailPage },
-  { path: 'patients/:uuid/edit', element: PatientFormPage },
+  { path: 'patients/:uuid/edit', element: PatientFormPage, permission: 'front_desk' },
 
   { path: 'appointments', element: AppointmentListPage },
-  { path: 'appointments/new', element: AppointmentFormPage },
-  { path: 'appointments/:uuid/edit', element: AppointmentFormPage },
+  { path: 'appointments/new', element: AppointmentFormPage, permission: 'front_desk' },
+  { path: 'appointments/:uuid/edit', element: AppointmentFormPage, permission: 'front_desk' },
   { path: 'queue', element: QueuePage },
 
   { path: 'payments', element: PaymentListPage, permission: 'manage_billing' },

@@ -15,15 +15,19 @@ import { formatDateTime } from '@/lib/format'
 export function PortalCard({ patientUuid, hasPhone }) {
   const toast = useToast()
   const { data, reload } = useAsync(() => api.patients.portalStatus(patientUuid), [patientUuid])
-  const invite = useMutation(() => api.patients.portalInvite(patientUuid))
+  const invite = useMutation((body) => api.patients.portalInvite(patientUuid, body))
   const revoke = useMutation(() => api.patients.portalRevoke(patientUuid))
   const [link, setLink] = useState(null)
   const [confirming, setConfirming] = useState(false)
 
-  const issue = async () => {
+  const issue = async (sendEmail = false) => {
     try {
-      const result = await invite.run()
+      const result = await invite.run(sendEmail ? { send_email: true } : {})
       setLink(result.url)
+      if (sendEmail) {
+        if (result.emailed) toast.success('أُرسل رابط الدعوة إلى بريد المريض')
+        else toast.warn('تعذّر إرسال البريد — انسخ الرابط وأرسله للمريض')
+      }
       reload()
     } catch (error) {
       toast.error(error.message)
@@ -74,9 +78,21 @@ export function PortalCard({ patientUuid, hasPhone }) {
               </span>
             </div>
           ) : (
-            <Button size="sm" onClick={issue} loading={invite.submitting} disabled={!hasPhone}>
-              {data?.has_account ? 'رابط دعوة جديد' : 'دعوة للبوابة'}
-            </Button>
+            <>
+              <Button size="sm" onClick={() => issue(false)} loading={invite.submitting} disabled={!hasPhone}>
+                {data?.has_account ? 'رابط دعوة جديد' : 'دعوة للبوابة'}
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => issue(true)} loading={invite.submitting}
+                disabled={!hasPhone || !data?.has_email}
+                title={data?.has_email ? undefined : 'سجّل البريد الإلكتروني للمريض أولاً'}>
+                إرسال الدعوة بالبريد
+              </Button>
+            </>
+          )}
+          {hasPhone && data && !data.has_email && (
+            <span className="ui-muted" style={{ fontSize: 'var(--text-xs)' }}>
+              أضف بريد المريض الإلكتروني ليصله رمز الدخول ورابط الدعوة بالبريد.
+            </span>
           )}
           {!hasPhone && (
             <span className="ui-muted" style={{ fontSize: 'var(--text-xs)' }}>

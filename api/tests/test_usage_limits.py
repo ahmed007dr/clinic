@@ -124,20 +124,6 @@ class UsageLimitTests(TestCase):
             with self.assertRaises(LimitReached):
                 check_storage(self.tenant, 2 * 1024 * 1024)
 
-    # ------------------------------------------------------ server-rendered
-
-    def test_the_employee_screen_enforces_the_same_limit(self):
-        self.employee("N1", self.nurse_type)
-        self.limit("max_staff", 1)
-        response = self.client.post(reverse("employees:employee_create"), {
-            "name": "N2", "branch": self.branch.pk, "national_id": "N2",
-            "salary_value": "100", "hire_date": "2026-01-01",
-            "employee_type": self.nurse_type.pk,
-        }, follow=True)
-        messages = [str(m) for m in response.context["messages"]]
-        self.assertTrue(any("الموظفون" in m for m in messages), messages)
-        self.assertEqual(self.count("N2"), 0)
-
     # ------------------------------------------------------ the clinic's page
 
     def test_the_clinic_sees_its_own_usage(self):

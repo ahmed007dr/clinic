@@ -26,7 +26,8 @@ export const patients = {
   /** §19 — the unified history the system never had a screen for. */
   timeline: (uuid) => http.get(`/patients/${uuid}/timeline/`),
   portalStatus: (uuid) => http.get(`/patients/${uuid}/portal/`),
-  portalInvite: (uuid) => http.post(`/patients/${uuid}/portal-invite/`),
+  /** `{ send_email: true }` also emails the link to the patient's own address. */
+  portalInvite: (uuid, body) => http.post(`/patients/${uuid}/portal-invite/`, body),
   portalRevoke: (uuid) => http.post(`/patients/${uuid}/portal-revoke/`),
   /** The history the patient reported — clinical roles only. */
   history: (uuid) => http.get(`/patients/${uuid}/history/`),
@@ -276,6 +277,11 @@ export const doctorProfile = {
   reject: (doctor, note) => http.post(`/doctor-profiles/${doctor}/reject/`, { note }),
 }
 
+/** Send the signed-in person their own report, to their own address. */
+export const myReport = {
+  email: (body) => http.post('/my-report/email/', body),
+}
+
 export const api = {
   branches,
   services,
@@ -320,6 +326,7 @@ export const api = {
   commissions,
   printSettings,
   doctorProfile,
+  myReport,
 }
 
 export default api

@@ -15,7 +15,7 @@ from .views.subscription import SubscriptionView
 from .views.settings import ClinicSettingsView
 from .views import attendance, contracts, coupons, intake, meta, owner, shifts
 from .views.print_settings import PrintSettingsView
-from .views import doctor_profile
+from .views import doctor_profile, my_report
 from . import platform, platform_backups, platform_business, platform_control, platform_pay, signup
 
 router = DefaultRouter()
@@ -94,6 +94,7 @@ urlpatterns = [
         name="doctor-profile-reject",
     ),
     path("dashboard/", dashboard_views.DashboardView.as_view(), name="dashboard"),
+    path("my-report/email/", my_report.MyReportEmailView.as_view(), name="my-report-email"),
     path("subscription/", SubscriptionView.as_view(), name="subscription"),
     # The group's own invoices from the platform, and paying them online.
     path("subscription/invoices/", platform_pay.OwnerInvoicesView.as_view(), name="subscription-invoices"),

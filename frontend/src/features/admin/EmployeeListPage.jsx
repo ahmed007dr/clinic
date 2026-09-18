@@ -121,7 +121,7 @@ export function EmployeeListPage() {
         },
         { name: 'phone1', label: 'الهاتف', type: 'tel' },
         { name: 'phone2', label: 'هاتف آخر', type: 'tel' },
-        { name: 'email', label: 'البريد', type: 'email' },
+        { name: 'email', label: 'البريد', type: 'email', hint: 'تصله عليه تقارير الكشوفات والحسابات عند طلبها.' },
         {
           name: 'salary_type',
           label: 'نوع الراتب',

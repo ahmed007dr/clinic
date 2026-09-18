@@ -38,7 +38,7 @@ const FIELDS = [
   },
   { name: 'birth_date', label: 'تاريخ الميلاد', type: 'date' },
   { name: 'national_id', label: 'الرقم القومي' },
-  { name: 'email', label: 'البريد الإلكتروني', type: 'email' },
+  { name: 'email', label: 'البريد الإلكتروني', type: 'email', hint: 'يصله عليه رمز الدخول إلى بوابة المرضى.' },
   {
     name: 'branch',
     label: 'الفرع',

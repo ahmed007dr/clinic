@@ -69,7 +69,7 @@ class PrivateAttachmentStorage(FileSystemStorage):
     def url(self, name):
         raise ValueError(
             "Medical attachments have no public URL by design; "
-            "serve them through medical.views.attachment_download."
+            "serve them through the attachments API's download endpoint."
         )
 
 

@@ -39,6 +39,7 @@ __all__ = [
     "CanViewClinical",
     "ChangeRequiresAdmin",
     "DeleteRequiresAdmin",
+    "FrontDeskWrites",
     "IsClinicAdmin",
     "IsClinicMember",
     "IsFrontDesk",
@@ -180,6 +181,18 @@ class WriteRequiresFrontDesk(permissions.BasePermission):
     a payment would be taking money outside any cash shift."""
 
     message = "تسجيل المبالغ مقصور على الاستقبال والإدارة."
+
+    def has_permission(self, request, view):
+        return request.method in permissions.SAFE_METHODS or is_front_desk(request.user)
+
+
+class FrontDeskWrites(permissions.BasePermission):
+    """Anyone allowed in may read (what they read is narrowed elsewhere); only
+    the front desk may book or register. A doctor receives the bookings made
+    for them by the desk and looks up their own patients — they do not make
+    appointments or add patients (the group owner's rule, 2026-09-19)."""
+
+    message = "الحجز وتسجيل المرضى مقصوران على الاستقبال والإدارة."
 
     def has_permission(self, request, view):
         return request.method in permissions.SAFE_METHODS or is_front_desk(request.user)

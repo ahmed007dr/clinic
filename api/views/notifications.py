@@ -2,6 +2,7 @@
 
 from django.utils import timezone
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
 from api.permissions import IsClinicMember
@@ -24,7 +25,14 @@ class NotificationViewSet(ReadOnlyClinicViewSet):
     serializer_class = NotificationSerializer
     permission_classes = [IsClinicMember]
     branch_field = None
+    # POST is for the `read` / `read-all` actions only; `create` below refuses
+    # a notification written through the API. Read-only viewsets block POST
+    # outright, which is what made marking a notification read a 405.
+    http_method_names = ["get", "post", "head", "options"]
     ordering = ["-created_at"]
+
+    def create(self, request, *args, **kwargs):
+        raise PermissionDenied("الإشعارات يُنشئها النظام.")
 
     def filter_tenant_queryset(self, queryset):
         queryset = queryset.filter(user=self.request.user)

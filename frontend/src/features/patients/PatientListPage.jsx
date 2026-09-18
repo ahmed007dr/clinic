@@ -93,9 +93,12 @@ export function PatientListPage() {
           {permissions.front_desk && (
             <Button onClick={() => navigate('/patients/review')}>{t('nav.review')}</Button>
           )}
-          <Button variant="primary" onClick={() => navigate('/patients/new')}>
-            تسجيل مريض
-          </Button>
+          {/* A doctor looks up their own patients; the desk registers them. */}
+          {permissions.front_desk && (
+            <Button variant="primary" onClick={() => navigate('/patients/new')}>
+              تسجيل مريض
+            </Button>
+          )}
           </>
         }
       />

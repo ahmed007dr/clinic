@@ -30,6 +30,17 @@ from billing.pricing import enforce_attrs
 from .common import ActiveChoicesMixin, ClinicSerializer
 
 
+def refuse_discount_beyond_the_line(attrs, instance):
+    """A discount larger than the line it discounts turns revenue negative. The
+    database refuses it too (a CHECK constraint), but a constraint violation is
+    a 500 to the person at the desk; this is the same rule as a clear message."""
+    quantity = attrs.get("quantity", getattr(instance, "quantity", 1) or 1)
+    price = attrs.get("unit_price", getattr(instance, "unit_price", 0) or 0)
+    discount = attrs.get("discount", getattr(instance, "discount", 0) or 0)
+    if discount > quantity * price:
+        raise serializers.ValidationError({"discount": "الخصم أكبر من قيمة البند."})
+
+
 class VisitMatchesPatient:
     """A clinical record's visit must be the same patient's visit.
 
@@ -242,6 +253,37 @@ class TreatmentPlanSerializer(ActiveChoicesMixin, VisitMatchesPatient, ClinicSer
             "created_at", "updated_at",
         ]
 
+    #: What a plan is *for* — who, by whom, where, which service, from when.
+    #: A doctor works the plan (title, sessions, status, notes) but does not
+    #: re-point it; that is for the desk and management.
+    DOCTOR_LOCKED = ("patient", "doctor", "branch", "service", "start_date")
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if self.instance is None and attrs.get("branch") is None:
+            # A plan with no clinic is one nobody below the Owner can see again.
+            from accounts.roles import current_branch_id
+
+            patient = attrs.get("patient")
+            branch_id = getattr(patient, "branch_id", None) or current_branch_id(self.request_user)
+            if branch_id:
+                attrs["branch"] = Branch.objects.filter(pk=branch_id).first()
+        self._refuse_doctor_repointing(attrs)
+        return attrs
+
+    def _refuse_doctor_repointing(self, attrs):
+        from accounts.roles import is_doctor
+
+        if self.instance is None or not is_doctor(self.request_user):
+            return
+        errors = {
+            name: "لا يمكن للطبيب تعديل هذا الحقل."
+            for name in self.DOCTOR_LOCKED
+            if name in attrs and attrs[name] != getattr(self.instance, name)
+        }
+        if errors:
+            raise serializers.ValidationError(errors)
+
     def get_completed_sessions(self, plan):
         """Progress is what the plan screen is for, so it ships with the plan
         rather than costing a second request per row."""
@@ -276,6 +318,8 @@ class TreatmentSessionSerializer(ActiveChoicesMixin, ClinicSerializer):
             "quantity", "unit_price", "discount",
             "result", "notes", "created_at", "updated_at",
         ]
+        # Numbered within the plan when left out (TreatmentSession.save).
+        extra_kwargs = {"sequence": {"required": False}}
 
     def validate(self, attrs):
         plan = attrs.get("plan") or getattr(self.instance, "plan", None)
@@ -287,12 +331,19 @@ class TreatmentSessionSerializer(ActiveChoicesMixin, ClinicSerializer):
         if self.instance is None and plan is not None and attrs.get("service") is None:
             # A session delivers its plan's service, and is priced as one.
             attrs["service"] = plan.service
+        if self.instance is None and plan is not None:
+            # Delivered at the plan's clinic, by the plan's doctor, unless said otherwise.
+            attrs.setdefault("branch", plan.branch)
+            if attrs.get("doctor") is None:
+                attrs["doctor"] = plan.doctor
         # Price and discount: the contract's, unless management sets them
         # (billing.pricing).
-        return enforce_attrs(
+        attrs = enforce_attrs(
             attrs, self.request_user, self.instance,
             price_field="unit_price", discount_field="discount",
         )
+        refuse_discount_beyond_the_line(attrs, self.instance)
+        return attrs
 
 
 class ProcedureSerializer(ActiveChoicesMixin, VisitMatchesPatient, ClinicSerializer):
@@ -323,10 +374,19 @@ class ProcedureSerializer(ActiveChoicesMixin, VisitMatchesPatient, ClinicSeriali
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
-        return enforce_attrs(
+        visit = attrs.get("visit")
+        if self.instance is None and visit is not None:
+            # Done in the visit it belongs to: its doctor and its clinic.
+            if attrs.get("doctor") is None:
+                attrs["doctor"] = visit.doctor
+            if attrs.get("branch") is None:
+                attrs["branch"] = visit.branch
+        attrs = enforce_attrs(
             attrs, self.request_user, self.instance,
             price_field="unit_price", discount_field="discount",
         )
+        refuse_discount_beyond_the_line(attrs, self.instance)
+        return attrs
 
 
 class LabResultSerializer(VisitMatchesPatient, ClinicSerializer):
@@ -368,6 +428,19 @@ class LabResultSerializer(VisitMatchesPatient, ClinicSerializer):
             "acknowledged_by", "acknowledged_at", "released_to_patient", "released_at",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        status = attrs.get("status", getattr(self.instance, "status", None))
+        value = attrs.get("value", getattr(self.instance, "value", ""))
+        if status == LabResult.Status.RESULTED and not (value or "").strip():
+            # A result that has arrived with nothing in it reads as "normal" to
+            # everyone who looks at the list.
+            raise serializers.ValidationError({"value": "أدخل قيمة النتيجة قبل تسجيلها كصادرة."})
+        if self.instance is None and attrs.get("branch") is None:
+            patient = attrs.get("patient")
+            attrs["branch"] = getattr(patient, "branch", None)
+        return attrs
+
 
 class MedicalAttachmentSerializer(VisitMatchesPatient, ClinicSerializer):
     patient = TenantScopedRelatedField(model=Patient, branch_field="branch")
@@ -407,14 +480,21 @@ class MedicalAttachmentSerializer(VisitMatchesPatient, ClinicSerializer):
             "released_to_patient", "released_at",
         ]
 
-    def validate_file(self, uploaded):
-        """The same checks `MedicalAttachmentForm.clean_file` performs.
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if self.instance is None and attrs.get("branch") is None:
+            # Filed under the patient's clinic: a document with no clinic is one
+            # nobody below the Owner — the uploader included — can open again.
+            attrs["branch"] = getattr(attrs.get("patient"), "branch", None)
+        return attrs
 
-        Not shared with the form by accident of history but re-applied here
-        deliberately: an upload endpoint that trusts the declared content type
-        accepts an executable named `report.pdf`, and the API is a second front
-        door to the same storage. `validate_attachment` reads the leading bytes
-        rather than believing the extension.
+    def validate_file(self, uploaded):
+        """Refuse what should never be stored.
+
+        An upload endpoint that trusts the declared content type accepts an
+        executable named `report.pdf`. `validate_attachment` reads the leading
+        bytes rather than believing the extension, checks the size and refuses an
+        empty file.
 
         The derived columns are computed while the upload is still in hand —
         once the field holds a stored file there is nothing left to hash.

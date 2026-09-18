@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head><meta charset="UTF-8"><title>{{ title }}</title></head>
+<body style="font-family: Arial, sans-serif; direction: rtl; text-align: right; margin: 20px;">
+  <h2 style="color: #2c3e50;">{{ title }} — {{ name }}</h2>
+  <p>{{ clinic }} · الفترة: {{ period }}</p>
+  {% for section in sections %}
+    <h3 style="color: #34495e;">{{ section.heading }}</h3>
+    {% if section.rows %}
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 8px;">
+        <thead>
+          <tr style="background-color: #f8f9fa;">
+            {% for header in section.headers %}<th style="border: 1px solid #ddd; padding: 8px;">{{ header }}</th>{% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in section.rows %}
+            <tr>{% for cell in row %}<td style="border: 1px solid #ddd; padding: 8px;">{{ cell }}</td>{% endfor %}</tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p style="color: #777;">لا توجد بيانات في هذه الفترة.</p>
+    {% endif %}
+    {% if section.note %}<p><strong>{{ section.note }}</strong></p>{% endif %}
+  {% endfor %}
+  <p style="color: #999; font-size: 12px;">أُرسل هذا التقرير إلى بريدك بناءً على طلبك من النظام.</p>
+</body>
+</html>

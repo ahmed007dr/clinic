@@ -6,7 +6,7 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 
 from accounts.roles import is_front_desk
-from api.permissions import DeleteRequiresAdmin, IsClinicMember, scope_queryset_to_user
+from api.permissions import DeleteRequiresAdmin, FrontDeskWrites, IsClinicMember, scope_queryset_to_user
 from api.serializers.appointments import AppointmentSerializer
 from api.viewsets import ClinicViewSet
 from billing.collect import PaymentRequired, amount_paid, check_can_enter
@@ -17,7 +17,8 @@ from appointments.queue import WAITING_STATUSES, ahead_counts
 class AppointmentViewSet(ClinicViewSet):
     queryset = Appointment.objects.all()
     serializer_class = AppointmentSerializer
-    permission_classes = [IsClinicMember, DeleteRequiresAdmin]
+    # A doctor reads their own bookings and queue; the desk makes and moves them.
+    permission_classes = [IsClinicMember, DeleteRequiresAdmin, FrontDeskWrites]
     created_by_field = "created_by"
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = [

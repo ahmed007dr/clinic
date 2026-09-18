@@ -90,11 +90,14 @@ export function PatientDetailPage() {
                 زيارة جديدة
               </Button>
             )}
-            <Button
-              onClick={() => navigate(`/appointments/new?patient=${patient.uuid}`)}
-            >
-              حجز موعد
-            </Button>
+            {/* Booking and editing a patient are the desk's; a doctor reads. */}
+            {permissions.front_desk && (
+              <Button
+                onClick={() => navigate(`/appointments/new?patient=${patient.uuid}`)}
+              >
+                حجز موعد
+              </Button>
+            )}
             {/* Pre-filled with what is on record, for the patient to check and sign. */}
             {permissions.front_desk && (
               <a
@@ -106,9 +109,11 @@ export function PatientDetailPage() {
                 {t('patients.print_intake')}
               </a>
             )}
-            <Button variant="ghost" onClick={() => navigate(`/patients/${uuid}/edit`)}>
-              تعديل
-            </Button>
+            {permissions.front_desk && (
+              <Button variant="ghost" onClick={() => navigate(`/patients/${uuid}/edit`)}>
+                تعديل
+              </Button>
+            )}
           </>
         }
       />

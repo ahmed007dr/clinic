@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { api } from '@/api'
 import { Badge, PLAN_TONES } from '@/components/ui'
 import { CrudPage } from '@/components/data/CrudPage'
+import { useAuth } from '@/hooks/useAuth'
 import { formatDate, today } from '@/lib/format'
 
 const STATUSES = [
@@ -15,6 +16,11 @@ const STATUSES = [
 export function TreatmentPlanListPage() {
   const [search] = useSearchParams()
   const patient = search.get('patient') || undefined
+  const { permissions } = useAuth()
+  // A doctor works the plan — its sessions, status and notes — but who it is
+  // for, by whom, where and from when are set once and locked (api/serializers/
+  // clinical.py TreatmentPlanSerializer.DOCTOR_LOCKED).
+  const lock = permissions.is_doctor
 
   return (
     <CrudPage
@@ -57,6 +63,7 @@ export function TreatmentPlanListPage() {
           resource: api.patients,
           searchable: true,
           required: true,
+          lockOnEdit: lock,
           default: patient ?? '',
         },
         {
@@ -67,14 +74,15 @@ export function TreatmentPlanListPage() {
           required: true,
           default: 1,
         },
-        { name: 'doctor', label: 'الطبيب', type: 'relation', resource: api.doctors },
-        { name: 'service', label: 'الخدمة', type: 'relation', resource: api.services },
-        { name: 'branch', label: 'الفرع', type: 'relation', resource: api.branches },
+        { name: 'doctor', label: 'الطبيب', type: 'relation', resource: api.doctors, lockOnEdit: lock },
+        { name: 'service', label: 'الخدمة', type: 'relation', resource: api.services, lockOnEdit: lock },
+        { name: 'branch', label: 'الفرع', type: 'relation', resource: api.branches, lockOnEdit: lock },
         {
           name: 'start_date',
           label: 'تاريخ البدء',
           type: 'date',
           required: true,
+          lockOnEdit: lock,
           default: today(),
         },
         {

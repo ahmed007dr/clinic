@@ -81,6 +81,33 @@ def settle(actor, commissions):
     )
 
 
+def _uuids(raw):
+    """`?doctor=a,b` — one or several, comma-separated."""
+    return [value for value in (raw or "").split(",") if value]
+
+
+def narrow(commissions, params):
+    """The shares a screen or a printed report asks for: status, one or more
+    doctors, one or more services, and a period (by the day earned).
+
+    One place, so the list on screen, its totals and the sheet the doctor
+    signs can never disagree about which shares they cover.
+    """
+    if params.get("status"):
+        commissions = commissions.filter(status=params["status"])
+    doctors = _uuids(params.get("doctor"))
+    if doctors:
+        commissions = commissions.filter(doctor__uuid__in=doctors)
+    services = _uuids(params.get("service"))
+    if services:
+        commissions = commissions.filter(service__uuid__in=services)
+    if params.get("from"):
+        commissions = commissions.filter(created_at__date__gte=params["from"])
+    if params.get("to"):
+        commissions = commissions.filter(created_at__date__lte=params["to"])
+    return commissions
+
+
 def totals(commissions):
     """Pending and settled sums for a queryset of shares."""
     from django.db.models import Sum

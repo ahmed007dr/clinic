@@ -12,7 +12,7 @@ from django.shortcuts import get_object_or_404, render
 from accounts.roles import is_clinic_admin, scope_queryset_to_user
 from utils.utils import export_excel, export_pdf
 
-from .models import Expense, Payment
+from .models import DoctorCommission, Expense, Payment
 
 
 def is_admin(user):
@@ -143,4 +143,58 @@ def shift_print(request, uuid):
         "changed_since_closing": bool(closing) and closing.get("net") != summary["net"],
         "payments": payments,
         "expenses": expenses,
+    })
+
+
+@login_required
+def commission_report_print(request):
+    """The doctors' shares for a period, printed for signature: what each
+    doctor earned (or was handed) service by service, with a line for the
+    doctor to sign as received and one for the admin who handed it over.
+
+    Takes the same filters as the screen (`billing.commissions.narrow`), so
+    what is printed is what was on screen. Management prints for their clinic;
+    a doctor prints their own only (`scope_queryset_to_user`); the front desk
+    has no business with the doctors' money.
+    """
+    from django.core.exceptions import PermissionDenied
+
+    from accounts.roles import display_name, is_doctor
+    from branches.printing import letterhead, receipt_layout
+    from .commissions import narrow, totals
+
+    user = request.user
+    if not (is_clinic_admin(user) or is_doctor(user)):
+        raise PermissionDenied('تقرير نسب الأطباء مقصور على الإدارة والأطباء.')
+
+    params = request.GET
+    shares = narrow(
+        scope_queryset_to_user(
+            DoctorCommission.objects.select_related("doctor", "patient", "branch"), user
+        ),
+        params,
+    ).order_by("doctor__name", "doctor_id", "created_at")
+
+    # One block per doctor, each with its own subtotal and signature line: the
+    # sheet is handed to each of them to sign for what is theirs.
+    blocks = []
+    for share in shares:
+        if not blocks or blocks[-1]["doctor"].pk != share.doctor_id:
+            blocks.append({"doctor": share.doctor, "rows": []})
+        blocks[-1]["rows"].append(share)
+    for block in blocks:
+        block["totals"] = totals(shares.filter(doctor_id=block["doctor"].pk))
+
+    status = params.get("status")
+    branch = getattr(user, "branch", None) if getattr(user, "branch_id", None) else None
+    return render(request, "billing/commission_report_print.html", {
+        "letterhead": letterhead(branch, request),
+        "layout": receipt_layout(branch),
+        "blocks": blocks,
+        "grand": totals(shares),
+        "count": sum(len(block["rows"]) for block in blocks),
+        "status_label": {"pending": "المعلّقة", "settled": "المستلمة"}.get(status, "المعلّقة والمستلمة"),
+        "date_from": params.get("from") or None,
+        "date_to": params.get("to") or None,
+        "printed_by": display_name(user),
     })

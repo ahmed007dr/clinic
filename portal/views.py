@@ -17,6 +17,7 @@ Every read of clinical data is written to the clinic's audit trail.
 """
 
 from django.db import transaction
+from django.db.models import Q
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -31,7 +32,10 @@ from appointments.models import Appointment
 from appointments.queue import WAITING_STATUSES as QUEUE_STATUSES
 from appointments.queue import ahead_counts, doctors_with_patient_inside
 from audit.models import AuditLog
-from billing.models import Payment
+from billing.models import DoctorServiceRate, Payment
+from billing.pricing import price_for
+from employees.models import Employee, Specialization
+from services.models import Service
 from medical.models import (
     Allergy,
     LabResult,
@@ -45,6 +49,7 @@ from tenants.context import tenant_context
 from tenants.models import Tenant
 from urllib.parse import quote
 
+from . import mail
 from .auth import (
     COOKIE,
     IsPortalPatient,
@@ -53,9 +58,10 @@ from .auth import (
     enforce_csrf,
     set_session_cookie,
 )
-from .models import PatientAccount, PortalInvitation, PortalSession, hash_token
+from .models import PatientAccount, PortalInvitation, PortalLoginCode, PortalSession, hash_token
 
 LOGIN_ERROR = "رقم الهاتف أو كلمة المرور غير صحيحة."
+OTP_ERROR = "الرمز غير صحيح أو انتهت صلاحيته."
 MAX_PENDING_REQUESTS = 3
 LIST_CAP = 200
 
@@ -206,6 +212,76 @@ class LoginView(PortalView):
         return signed_in(self, account, slug, me_payload(self.tenant, account.patient))
 
 
+def accounts_for(identifier):
+    """Active accounts whose patient has this phone number or this email. A
+    household often shares either, so there may be several."""
+    identifier = str(identifier or "").strip()
+    accounts = PatientAccount.objects.select_related("patient__branch").filter(is_active=True)
+    if "@" in identifier:
+        wanted = identifier.lower()
+        return [a for a in accounts if (a.patient.email or "").strip().lower() == wanted]
+    phone = normalize_phone(identifier)
+    if not phone:
+        return []
+    return [
+        a for a in accounts
+        if phone in (normalize_phone(a.patient.phone1), normalize_phone(a.patient.phone2))
+    ]
+
+
+OTP_SENT = "إن كان لحسابك بريد إلكتروني مسجّل في العيادة فقد أرسلنا إليه رمز الدخول."
+
+
+class OtpRequestView(PortalView):
+    """Email a one-time sign-in code. The answer is the same whether or not an
+    account, an email address or a mail server exists — never an oracle."""
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [PortalLoginThrottle]
+
+    def post(self, request, slug):
+        enforce_csrf(request)
+        by_email = {}
+        for account in accounts_for(request.data.get("identifier"))[:5]:
+            address = (account.patient.email or "").strip()
+            if not address or account.is_locked:
+                continue
+            row, code = PortalLoginCode.issue(account)
+            if row is not None:
+                by_email.setdefault(address, []).append((account.patient, code))
+        for address, entries in by_email.items():
+            mail.send_login_codes(self.tenant, address, entries)
+        return Response({"detail": OTP_SENT})
+
+
+class OtpVerifyView(PortalView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [PortalLoginThrottle]
+
+    def post(self, request, slug):
+        enforce_csrf(request)
+        code = str(request.data.get("code") or "").strip()
+        accounts = accounts_for(request.data.get("identifier"))
+        if not code or not accounts:
+            return Response({"detail": OTP_ERROR}, status=400)
+        if any(account.is_locked for account in accounts):
+            return Response({"detail": "محاولات كثيرة. حاول مرة أخرى بعد ١٥ دقيقة."}, status=429)
+        for account in accounts:
+            row = (
+                PortalLoginCode.objects.filter(account=account, used_at__isnull=True)
+                .order_by("-created_at").first()
+            )
+            if row is not None and row.verify(code):
+                account.failed_logins = 0
+                account.save(update_fields=["failed_logins"])
+                return signed_in(self, account, slug, me_payload(self.tenant, account.patient))
+        for account in accounts:
+            account.register_failure()
+        return Response({"detail": OTP_ERROR}, status=400)
+
+
 class LogoutView(PortalView):
     authentication_classes = []
     permission_classes = [AllowAny]
@@ -230,6 +306,128 @@ class MeView(PortalView):
 # ------------------------------------------------------------------- data
 
 
+def doctors_for(patient):
+    """The doctors this patient may ask for: those of their own clinic, home or
+    visiting. A patient with no clinic on file sees the group's doctors."""
+    doctors = Employee.objects.filter(employee_type__name="Doctor")
+    if patient.branch_id:
+        doctors = doctors.filter(
+            Q(branch_id=patient.branch_id) | Q(extra_branches=patient.branch_id)
+        ).distinct()
+    return doctors
+
+
+def _offer(service, price):
+    return {
+        "uuid": str(service.uuid),
+        "name": service.name,
+        "price": str(price),
+        "specialization": str(service.specialization.uuid) if service.specialization_id else None,
+    }
+
+
+def contract_rates(doctor_ids):
+    """`{doctor id: [active contract lines]}` — what each doctor is under
+    contract to offer, for services still on offer."""
+    rates = (
+        DoctorServiceRate.objects.filter(doctor_id__in=doctor_ids, is_active=True, service__is_active=True)
+        .select_related("service", "service__specialization")
+        .order_by("service__name")
+    )
+    grouped = {}
+    for rate in rates:
+        grouped.setdefault(rate.doctor_id, []).append(rate)
+    return grouped
+
+
+def resolve_choice(patient, data):
+    """The doctor / service / specialty a patient asked for, checked against
+    the same rules the front desk's booking form follows: a doctor of their
+    clinic, a service that doctor is under contract for, one of that doctor's
+    specialties. Price is the contract's — the patient never sets one.
+
+    Returns (fields for the Appointment, errors)."""
+    doctor_uuid = str(data.get("doctor") or "").strip()
+    service_uuid = str(data.get("service") or "").strip()
+    specialization_uuid = str(data.get("specialization") or "").strip()
+    fields = {"price": 0}
+    errors = {}
+
+    doctor = None
+    if doctor_uuid:
+        doctor = doctors_for(patient).filter(uuid=doctor_uuid).prefetch_related("specializations").first()             if _is_uuid(doctor_uuid) else None
+        if doctor is None:
+            errors["doctor"] = ["الطبيب غير متاح."]
+    service = None
+    if service_uuid and "doctor" not in errors:
+        service = Service.objects.filter(uuid=service_uuid, is_active=True).select_related("specialization").first()             if _is_uuid(service_uuid) else None
+        if service is None:
+            errors["service"] = ["الخدمة غير متاحة."]
+        elif doctor is not None and not DoctorServiceRate.objects.filter(
+            doctor=doctor, service=service, is_active=True
+        ).exists():
+            errors["service"] = ["هذه الخدمة غير متاحة مع هذا الطبيب."]
+    specialization = None
+    if specialization_uuid:
+        specialization = Specialization.objects.filter(uuid=specialization_uuid).first()             if _is_uuid(specialization_uuid) else None
+        if specialization is None or (
+            doctor is not None and not doctor.specializations.filter(pk=specialization.pk).exists()
+        ):
+            errors["specialization"] = ["التخصص غير متاح مع هذا الطبيب."]
+    if errors:
+        return None, errors
+
+    if specialization is None and service is not None and service.specialization_id:
+        if doctor is None or doctor.specializations.filter(pk=service.specialization_id).exists():
+            specialization = service.specialization
+    fields.update(doctor=doctor, service=service, specialization=specialization)
+    if service is not None:
+        fields["price"] = price_for(doctor, service) or 0
+    return fields, None
+
+
+def _is_uuid(value):
+    import uuid
+
+    try:
+        uuid.UUID(value)
+        return True
+    except ValueError:
+        return False
+
+
+class BookingOptionsView(PortalView):
+    """What the request form may offer: the specialties, the patient's clinic's
+    doctors, and per doctor only the services they are under contract for —
+    each with the price it will cost. Prices only, never a doctor's share."""
+
+    def get(self, request, slug):
+        doctors = list(doctors_for(self.patient).prefetch_related("specializations").order_by("name"))
+        rates = contract_rates([d.pk for d in doctors])
+        specializations = {}
+        payload = []
+        for doctor in doctors:
+            own = list(doctor.specializations.all())
+            for item in own:
+                specializations[item.pk] = item
+            payload.append({
+                "uuid": str(doctor.uuid),
+                "name": doctor.name,
+                "specializations": [str(item.uuid) for item in own],
+                "services": [
+                    _offer(r.service, r.price if r.price is not None else r.service.base_price)
+                    for r in rates.get(doctor.pk, [])
+                ],
+            })
+        return Response({
+            "specializations": [
+                {"uuid": str(item.uuid), "name": item.name}
+                for item in sorted(specializations.values(), key=lambda i: i.name)
+            ],
+            "doctors": payload,
+        })
+
+
 class AppointmentsView(PortalView):
     def get(self, request, slug):
         rows = (
@@ -251,6 +449,7 @@ class AppointmentsView(PortalView):
             inside = doctors_with_patient_inside(everyone)
             for a in rows:
                 a.ahead_count = ahead.get(a.pk)
+                a.waiting_today = a.scheduled_date.date() == today and a.status in QUEUE_STATUSES
                 a.doctor_busy = (a.branch_id, a.doctor_id) in inside
         return Response([appointment_payload(a, can_pay=bool(methods)) for a in rows])
 
@@ -265,6 +464,9 @@ class AppointmentsView(PortalView):
             return Response(
                 {"detail": "لديك طلبات مواعيد لم تُؤكَّد بعد. انتظر رد العيادة."}, status=400
             )
+        choice, errors = resolve_choice(self.patient, request.data)
+        if errors:
+            return Response(errors, status=400)
         notes = str(request.data.get("notes") or "").strip()[:1000]
         # Atomic, so a failure after the INSERT — in a save signal, say —
         # rolls the row back instead of leaving a request the patient was told
@@ -276,7 +478,7 @@ class AppointmentsView(PortalView):
                 branch=self.patient.branch,
                 status="requested",
                 scheduled_date=when,
-                price=0,
+                **choice,
                 notes=f"[طلب من بوابة المرضى] {notes}".strip(),
             )
         return Response(appointment_payload(appointment), status=201)
@@ -300,6 +502,10 @@ def appointment_payload(a, can_pay=False):
         # appointments/queue.py). `ahead_count` is null off today's queue;
         # `doctor_busy` says the doctor has a patient in with them now.
         "ahead_count": getattr(a, "ahead_count", None),
+        # The number on the slip reception prints, for today's booking still
+        # waiting: the patient can quote it at the desk.
+        "ticket_number": a.serial_number if getattr(a, "waiting_today", False) else None,
+        "queue_position": a.ahead_count + 1 if getattr(a, "ahead_count", None) is not None else None,
         "doctor_busy": bool(getattr(a, "doctor_busy", False)),
     }
 

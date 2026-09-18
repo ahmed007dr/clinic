@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '@/api'
 import { Badge, Button, Checkbox, Input, Select, APPOINTMENT_TONES } from '@/components/ui'
 import { ResourceTable } from '@/components/data/ResourceTable'
+import { EmailReportButton } from '@/components/data/EmailReportButton'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useAuth } from '@/hooks/useAuth'
 import { formatDateTime, formatMoney } from '@/lib/format'
@@ -92,10 +93,16 @@ export function AppointmentListPage() {
     <>
       <PageHeader
         title="المواعيد"
+        // A doctor reads the bookings made for them; the desk makes them.
         actions={
-          <Button variant="primary" onClick={() => navigate('/appointments/new')}>
-            حجز موعد
-          </Button>
+          <>
+            <EmailReportButton />
+            {permissions.front_desk && (
+              <Button variant="primary" onClick={() => navigate('/appointments/new')}>
+                حجز موعد
+              </Button>
+            )}
+          </>
         }
       />
       <ResourceTable
@@ -112,7 +119,9 @@ export function AppointmentListPage() {
           paid: paid || undefined,
         }}
         searchPlaceholder="ابحث برقم التذكرة أو اسم المريض…"
-        onRowClick={(row) => navigate(`/appointments/${row.uuid}/edit`)}
+        onRowClick={
+          permissions.front_desk ? (row) => navigate(`/appointments/${row.uuid}/edit`) : undefined
+        }
         filters={
           <>
             <Checkbox

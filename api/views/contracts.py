@@ -22,7 +22,7 @@ from accounts.roles import (
 from api.permissions import IsClinicMember
 from api.serializers.billing import DoctorCommissionSerializer, DoctorServiceRateSerializer
 from api.viewsets import ClinicViewSet, ReadOnlyClinicViewSet
-from billing.commissions import settle, totals
+from billing.commissions import narrow, settle, totals
 from billing.models import DoctorCommission, DoctorServiceRate
 from billing.pricing import price_for
 from employees.models import Employee
@@ -90,16 +90,7 @@ class DoctorCommissionViewSet(ReadOnlyClinicViewSet):
         if not (is_clinic_admin(user) or is_doctor(user)):
             return queryset.none()
         queryset = queryset.select_related("doctor", "patient", "branch", "payment", "settled_by")
-        params = self.request.query_params
-        if params.get("status"):
-            queryset = queryset.filter(status=params["status"])
-        if params.get("doctor"):
-            queryset = queryset.filter(doctor__uuid=params["doctor"])
-        if params.get("from"):
-            queryset = queryset.filter(created_at__date__gte=params["from"])
-        if params.get("to"):
-            queryset = queryset.filter(created_at__date__lte=params["to"])
-        return queryset
+        return narrow(queryset, self.request.query_params)
 
     def create(self, request, *args, **kwargs):
         raise PermissionDenied("تُحتسب النسب تلقائياً من الدفعات.")
