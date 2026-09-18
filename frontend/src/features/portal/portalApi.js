@@ -33,6 +33,8 @@ export function portalApi(slug) {
     allergies: () => get('allergies/'),
     /** New-patient self-registration, when the group has turned it on. */
     registerOptions: () => get('register/options/'),
+    /** The group's running branches: address, phone, map, hours, specialties. Public. */
+    about: () => get('about/'),
     /** The group's clinics' public social/contact links (portal footer). */
     links: () => get('links/'),
     register: (body) => http.post(`${base}/register/`, body),

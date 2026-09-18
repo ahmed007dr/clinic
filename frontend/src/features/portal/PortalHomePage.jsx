@@ -17,6 +17,7 @@ import {
   VisitsPanel,
 } from './PortalPanels'
 import { usePortal } from './PortalContext'
+import { PortalAbout } from './PortalAbout'
 import { RequestAppointment } from './RequestAppointment'
 
 const TABS = [
@@ -27,6 +28,7 @@ const TABS = [
   { id: 'plans', label: 'خطط العلاج', Panel: PlansPanel },
   { id: 'visits', label: 'الزيارات', Panel: VisitsPanel },
   { id: 'payments', label: 'المدفوعات', Panel: PaymentsPanel },
+  { id: 'about', label: 'عن العيادة', Panel: PortalAbout },
 ]
 
 export function PortalHomePage() {

@@ -13,6 +13,8 @@ import { createResource } from './resource'
 
 /* Reference data */
 export const branches = createResource('branches')
+/* What the portal's "About" tab says about each branch — the Owner's, and a branch Admin's own. */
+export const about = createResource('about')
 export const services = createResource('services')
 export const employeeTypes = createResource('employee-types')
 export const specializations = createResource('specializations')
@@ -284,6 +286,7 @@ export const myReport = {
 
 export const api = {
   branches,
+  about,
   services,
   employeeTypes,
   specializations,

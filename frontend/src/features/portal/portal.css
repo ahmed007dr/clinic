@@ -209,3 +209,57 @@ html:has(.portal__header) {
   color: var(--primary);
   font-weight: 600;
 }
+
+/* ------------------------------------------------- About the clinic */
+
+.portal-about {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.portal-about__name {
+  margin: 0;
+  font-size: var(--text-lg, 1.15rem);
+}
+
+/* Hours and the short description are written with line breaks. */
+.portal-about__text {
+  margin: 0;
+  white-space: pre-line;
+  color: var(--ink-muted);
+}
+
+.portal-about__facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--s1) var(--s3);
+  margin: 0;
+}
+
+.portal-about__facts dt {
+  color: var(--ink-faint);
+  font-size: var(--text-sm);
+}
+
+.portal-about__facts dd {
+  margin: 0;
+}
+
+.portal-about__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  list-style: none;
+  margin: var(--s2) 0 0;
+  padding: 0;
+}
+
+.portal-about__chips li {
+  padding: 0.15rem 0.7rem;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}

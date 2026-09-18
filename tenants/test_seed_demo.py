@@ -119,3 +119,22 @@ class MutedMailTests(TestCase):
                 self.assertFalse(notify._send(doctor, "s", ["l"]))
         # And the switch is off again afterwards.
         self.assertFalse(notify._muted)
+
+
+class AboutTabDataTests(TestCase):
+    """The portal's "About" tab has something to show on the demo data."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_demo", "--password", "seed-pass-2", stdout=StringIO())
+
+    def test_every_demo_branch_publishes_its_details_and_specialties(self):
+        from django.urls import reverse
+
+        for slug in ("dr-ahmed", "nile-clinic"):
+            body = self.client.get(reverse("api:portal:about", kwargs={"slug": slug})).json()
+            self.assertTrue(body["branches"], slug)
+            for branch in body["branches"]:
+                for field in ("address", "phone", "map_url", "working_hours", "about_text"):
+                    self.assertTrue(branch[field], (slug, branch["name"], field))
+                self.assertTrue(branch["specializations"], (slug, branch["name"]))

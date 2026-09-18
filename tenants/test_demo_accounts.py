@@ -115,3 +115,83 @@ class SeedDemoPasswordTests(TestCase):
         from tenants.management.commands import seed_demo
 
         self.assertFalse(hasattr(seed_demo, "DEMO_PASSWORD"))
+
+
+class DemoPortalPatientsTests(TestCase):
+    """The demo dataset includes patients who can sign in to the portal, and
+    `disable_demo_accounts` switches those off with the staff logins."""
+
+    PASSWORD = "Demo-Portal-Pass-1"
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_demo", "--password", cls.PASSWORD, stdout=StringIO())
+
+    def portal_login(self, slug, phone, password=None):
+        from django.urls import reverse
+
+        return self.client.post(
+            reverse("api:portal:login", kwargs={"slug": slug}),
+            {"phone": phone, "password": password or self.PASSWORD},
+            content_type="application/json",
+        )
+
+    def test_both_clinics_have_two_portal_patients_who_can_sign_in(self):
+        for slug in ("dr-ahmed", "nile-clinic"):
+            for phone in ("01099000001", "01099000002"):
+                self.assertEqual(self.portal_login(slug, phone).status_code, 200, (slug, phone))
+
+    def test_the_first_patient_has_something_in_every_tab(self):
+        from django.urls import reverse
+
+        self.portal_login("dr-ahmed", "01099000001")
+        get = lambda name: self.client.get(reverse(f"api:portal:{name}", kwargs={"slug": "dr-ahmed"})).json()
+        appointments = get("appointments")
+        waiting = [a for a in appointments if a["status"] == "waiting"]
+        self.assertEqual(len(waiting), 1)
+        self.assertTrue(waiting[0]["ticket_number"])
+        self.assertEqual(waiting[0]["queue_position"], waiting[0]["ahead_count"] + 1)
+        self.assertGreater(float(waiting[0]["due"]), 0)  # part paid
+        self.assertTrue(any(a["status"] == "requested" for a in appointments))
+        self.assertTrue(get("prescriptions"))
+        self.assertTrue(get("payments"))
+        self.assertTrue(get("treatment-plans"))
+        self.assertTrue(get("allergies"))
+        # One lab result released, one held back.
+        self.assertEqual(len(get("lab-results")), 1)
+
+    def test_the_second_patient_is_new_with_an_empty_portal(self):
+        from django.urls import reverse
+
+        self.portal_login("dr-ahmed", "01099000002")
+        for name in ("appointments", "prescriptions", "payments"):
+            self.assertEqual(
+                self.client.get(reverse(f"api:portal:{name}", kwargs={"slug": "dr-ahmed"})).json(), []
+            )
+
+    def test_disable_demo_accounts_switches_the_portal_logins_off_too(self):
+        out = StringIO()
+        call_command("disable_demo_accounts", "--dry-run", stdout=out)
+        self.assertIn("portal dr-ahmed: 01099000001", out.getvalue())
+        self.assertEqual(self.portal_login("dr-ahmed", "01099000001").status_code, 200)
+
+        call_command("disable_demo_accounts", stdout=StringIO())
+        for slug in ("dr-ahmed", "nile-clinic"):
+            self.assertEqual(self.portal_login(slug, "01099000001").status_code, 400)
+        again = StringIO()
+        call_command("disable_demo_accounts", stdout=again)
+        self.assertIn("No active demo accounts", again.getvalue())
+
+    def test_a_real_patient_is_never_switched_off(self):
+        from patients.models import Patient
+        from portal.models import PatientAccount
+
+        tenant = Tenant.objects.get(slug="dr-ahmed")
+        with tenant_context(tenant):
+            real = Patient.objects.create(
+                tenant=tenant, name="Real", phone1="01111111111", email="real@clinic.com"
+            )
+            PatientAccount.objects.create(tenant=tenant, patient=real)
+        call_command("disable_demo_accounts", stdout=StringIO())
+        with tenant_context(tenant):
+            self.assertTrue(PatientAccount.objects.get(patient=real).is_active)

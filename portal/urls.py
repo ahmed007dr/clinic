@@ -16,6 +16,7 @@ urlpatterns = [
     path("register/options/", registration.RegisterOptionsView.as_view(), name="register-options"),
     path("register/", registration.RegisterView.as_view(), name="register"),
     path("links/", registration.PublicLinksView.as_view(), name="links"),
+    path("about/", registration.PublicAboutView.as_view(), name="about"),
     path("booking/options/", views.BookingOptionsView.as_view(), name="booking-options"),
     path("appointments/", views.AppointmentsView.as_view(), name="appointments"),
     path("appointments/<uuid:uuid>/pay/", views.AppointmentPayView.as_view(), name="appointment-pay"),

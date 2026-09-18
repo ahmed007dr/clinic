@@ -5,6 +5,7 @@ import { Loading, Toasts } from '@/components/ui'
 
 import { portalApi } from './portalApi'
 import { PortalContext } from './PortalContext'
+import { PortalAboutPage } from './PortalAboutPage'
 import { PortalFooter } from './PortalFooter'
 import { PortalHomePage } from './PortalHomePage'
 import { PortalInvitePage } from './PortalInvitePage'
@@ -46,6 +47,7 @@ export function PortalApp() {
         <Route path="login" element={<PortalLoginPage />} />
         <Route path="invite" element={<PortalInvitePage />} />
         <Route path="register" element={<PortalRegisterPage />} />
+        <Route path="about" element={<PortalAboutPage />} />
         <Route
           index
           element={loading ? <Loading /> : me ? <PortalHomePage /> : <Navigate to="login" replace />}

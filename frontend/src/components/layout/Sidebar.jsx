@@ -63,6 +63,7 @@ const SECTIONS = [
       { to: '/employees', label: 'nav.employees', icon: '🧑‍⚕️' },
       { to: '/attendance', label: 'nav.attendance', icon: '🕘' },
       { to: '/branches', label: 'nav.branches', icon: '🏥', permission: 'is_owner' },
+      { to: '/about', label: 'nav.about', icon: '🪧' },
       { to: '/services', label: 'nav.services', icon: '🗂' },
       { to: '/subscription', label: 'nav.subscription', icon: '🎫', permission: 'is_owner' },
       { to: '/settings/print', label: 'nav.print_design', icon: '🖨' },

@@ -107,6 +107,9 @@ export function PortalLoginPage() {
         <p className="portal-auth__note">
           <Link to={`/portal/${slug}/register`}>{t('intake.portal_register_link')}</Link>
         </p>
+        <p className="portal-auth__note">
+          <Link to={`/portal/${slug}/about`}>عن العيادة: الفروع والتخصصات والعناوين</Link>
+        </p>
       </main>
     </div>
   )

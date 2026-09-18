@@ -29,6 +29,13 @@ class Branch(TenantOwnedModel):
     # The printed forms' look (the intake form, prescriptions): set by the
     # clinic's Admin or the Owner. Header = logo + name + these lines; footer
     # = `footer_text`. See templates/print/_letterhead.html.
+    # "About the clinic" — what the patient portal shows about this branch, before
+    # and after sign-in. Written by the group's Owner or this branch's Admin
+    # (api/views/about.py). The address and phone above are shown too.
+    map_url = models.URLField(max_length=500, blank=True, default="")
+    working_hours = models.TextField(blank=True, default="")
+    about_text = models.TextField(blank=True, default="")
+
     print_header_title = models.CharField(max_length=150, blank=True, default="")
     print_header_subtitle = models.CharField(max_length=200, blank=True, default="")
     print_accent_color = models.CharField(max_length=7, blank=True, default="#0e6e63")

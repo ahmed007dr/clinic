@@ -15,7 +15,7 @@ the demo logins off altogether.
 """
 
 import random
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from django.conf import settings
@@ -52,6 +52,7 @@ from medical.models import (
     Visit,
 )
 from patients.models import Patient
+from portal.models import PatientAccount, PortalInvitation, PortalLoginCode, PortalSession
 from services.models import Service
 from subscriptions.models import Plan, Subscription
 from tenants.context import tenant_context
@@ -84,6 +85,17 @@ MEDICATIONS = [
     ("لوراتادين", "10 مجم", "مرة يومياً", "10 أيام", "قبل النوم"),
     ("دوكسيسيكلين", "100 مجم", "مرتين يومياً", "شهر", "بعد الأكل"),
     ("مرطب طبي", "-", "عند اللزوم", "مستمر", "بعد الاستحمام"),
+]
+
+# Two demo patients per clinic with a portal login (password = the run's).
+# Fixed phone and email so they can be written down and typed: the portal signs
+# in by phone (or emails a code). Their email is on a `.local` domain, so a
+# sign-in code cannot actually arrive -- put a real address on the record to try
+# that. `disable_demo_accounts` switches these logins off with the staff ones.
+PORTAL_PATIENTS = [
+    # (name, phone, email local part, has a full record)
+    ("منى السيد (عميل تجريبي)", "01099000001", "patient1", True),
+    ("خالد عمر (عميل تجريبي)", "01099000002", "patient2", False),
 ]
 
 TENANTS = [
@@ -155,6 +167,7 @@ class Command(BaseCommand):
             14, allowed_chars=PASSWORD_ALPHABET
         )
         self.created_accounts = []
+        self.created_portal = []
         self.reset_passwords = options["reset_passwords"]
         if self.reset_passwords and not options["password"]:
             raise CommandError("--reset-passwords needs --password: a random one would lock everyone out.")
@@ -231,6 +244,11 @@ class Command(BaseCommand):
         Allergy.all_objects.all().delete()
         Appointment.all_objects.all().delete()
         Notification.all_objects.all().delete()
+        # Portal logins hang off patients; they go first so nothing PROTECTs the tenant.
+        PortalLoginCode.all_objects.all().delete()
+        PortalSession.all_objects.all().delete()
+        PortalInvitation.all_objects.all().delete()
+        PatientAccount.all_objects.all().delete()
         Patient.all_objects.all().delete()
         Employee.all_objects.all().delete()
         Service.all_objects.all().delete()
@@ -278,7 +296,13 @@ class Command(BaseCommand):
             branches = [
                 Branch.objects.get_or_create(
                     tenant=tenant, code=code,
-                    defaults={"name": name, "address": fake.address(), "phone": fake.phone_number()[:32]},
+                    defaults={
+                    "name": name, "address": fake.address(), "phone": fake.phone_number()[:32],
+                    # What the patient portal's "About" tab shows.
+                    "map_url": f"https://maps.google.com/?q={code}",
+                    "working_hours": "السبت – الخميس: ٩ ص – ٩ م\nالجمعة: إجازة",
+                    "about_text": f"فرع {name}: كشف واستشارات وجلسات ليزر بأحدث الأجهزة على يد أطباء متخصصين.",
+                },
                 )[0]
                 for name, code in spec["branches"]
             ]
@@ -558,6 +582,10 @@ class Command(BaseCommand):
                     )
                 )
 
+            portal_accounts = self._seed_portal_patients(
+                tenant, branches, users, demo_doctor, services, specializations, payment_methods
+            )
+
             expenses = list(Expense.objects.filter(tenant=tenant))
 
         return {
@@ -579,7 +607,137 @@ class Command(BaseCommand):
             "sessions": len(sessions),
             "procedures": len(procedures),
             "lab_results": len(lab_results),
+            "portal": portal_accounts,
         }
+
+    # ---------------------------------------------------------- portal patients
+
+    def _seed_portal_patients(
+        self, tenant, branches, users, doctor, services, specializations, payment_methods
+    ):
+        """Patients who can sign in to the portal, so it can be shown and tried.
+
+        The first has something in every tab: a visit with a diagnosis, a
+        prescription, one released lab result (and one still held back, to show
+        the release rule), an allergy, a treatment course in progress, and
+        today's booking waiting in the queue -- part paid, so it has a ticket, a
+        turn and a balance. The second is a new patient with an empty portal.
+        """
+        from billing.pricing import price_for
+
+        main = branches[0]
+        reception, demo_doctor_user = users[2], users[3]
+        service = services[0]
+        now = timezone.now()
+        accounts = []
+
+        for name, phone, local, full in PORTAL_PATIENTS:
+            email = f"{local}@{tenant.slug}.local"
+            patient, created = Patient.objects.get_or_create(
+                tenant=tenant, phone1=phone,
+                defaults=dict(
+                    name=name, email=email, branch=main,
+                    gender="female" if full else "male",
+                    birth_date=date(1990, 5, 17),
+                    national_id=self.fake.unique.numerify(text="##############"),
+                    marital_status="single",
+                ),
+            )
+            account, account_created = PatientAccount.objects.get_or_create(
+                patient=patient, defaults={"tenant": tenant}
+            )
+            if account_created or self.reset_passwords:
+                account.set_password(self.password)
+                account.is_active = True
+                account.failed_logins = 0
+                account.locked_until = None
+                account.save()
+                self.created_portal.append(phone)
+            accounts.append({"name": name, "phone": phone, "email": email, "full": full})
+
+            # The record is built once; a re-run of the seeder leaves it alone.
+            if not full or not created:
+                continue
+
+            past = Appointment.objects.create(
+                tenant=tenant, patient=patient, doctor=doctor, branch=main, service=service,
+                specialization=service.specialization or random.choice(specializations),
+                status="completed", scheduled_date=now - timedelta(days=10), price=0,
+                notes="متابعة", created_by=reception,
+            )
+            visit = Visit.objects.create(
+                tenant=tenant, appointment=past, patient=patient, doctor=doctor, branch=main,
+                visit_date=past.scheduled_date, chief_complaint="حكة وطفح جلدي",
+                examination="احمرار وجفاف بالساعدين", diagnosis="التهاب جلدي تحسسي",
+                treatment_plan="مرطب وكريم موضعي", follow_up_date=(now + timedelta(days=7)).date(),
+                created_by=reception,
+            )
+            prescription = Prescription.objects.create(
+                tenant=tenant, visit=visit, patient=patient, doctor=doctor,
+                issued_at=visit.visit_date, created_by=reception,
+            )
+            for medication, dosage, frequency, duration, instructions in MEDICATIONS[:3]:
+                PrescriptionItem.objects.create(
+                    tenant=tenant, prescription=prescription, medication=medication,
+                    dosage=dosage, frequency=frequency, duration=duration, instructions=instructions,
+                )
+            Allergy.objects.create(
+                tenant=tenant, patient=patient, substance="البنسلين", reaction="طفح جلدي",
+                severity=Allergy.Severity.MODERATE, recorded_by=reception,
+            )
+            for test_name, unit, ref, normal, abnormal in LAB_TESTS[:2]:
+                shown = test_name == LAB_TESTS[0][0]
+                LabResult.objects.create(
+                    tenant=tenant, patient=patient, visit=visit, ordered_by=doctor, branch=main,
+                    test_name=test_name, specimen="دم وريدي", lab_name="معمل المركز",
+                    value=normal if shown else abnormal, unit=unit, reference_range=ref,
+                    flag=LabResult.Flag.NORMAL if shown else LabResult.Flag.ABNORMAL,
+                    status=LabResult.Status.RESULTED, ordered_at=visit.visit_date,
+                    # The second is left unreleased: the doctor has not called yet.
+                    released_to_patient=shown, released_at=now if shown else None,
+                    released_by=demo_doctor_user if shown else None, created_by=reception,
+                )
+            plan = TreatmentPlan.objects.create(
+                tenant=tenant, patient=patient, visit=visit, doctor=doctor, branch=main,
+                service=service, title=f"{service.name} - برنامج علاجي", planned_sessions=6,
+                start_date=visit.visit_date.date(), created_by=reception,
+            )
+            for index in range(3):
+                done = index < 2
+                TreatmentSession.objects.create(
+                    tenant=tenant, plan=plan, patient=patient, doctor=doctor, branch=main,
+                    service=service, scheduled_date=visit.visit_date + timedelta(days=7 * index),
+                    performed_at=visit.visit_date + timedelta(days=7 * index) if done else None,
+                    status=TreatmentSession.Status.COMPLETED if done else TreatmentSession.Status.SCHEDULED,
+                    quantity=1, unit_price=service.base_price, discount=Decimal(0),
+                    result="تحسن ملحوظ" if done else "", created_by=reception,
+                )
+
+            # Today, waiting, part paid: a ticket number, a turn, a balance.
+            price = price_for(doctor, service) or service.base_price
+            today_booking = Appointment.objects.create(
+                tenant=tenant, patient=patient, doctor=doctor, branch=main, service=service,
+                specialization=service.specialization or random.choice(specializations),
+                status="waiting", scheduled_date=now, price=price, created_by=reception,
+            )
+            shift = CashShift.objects.filter(
+                user=reception, branch=main, status=CashShift.Status.OPEN
+            ).first()
+            if shift is not None:
+                Payment.objects.create(
+                    tenant=tenant, appointment=today_booking, patient=patient,
+                    method=random.choice(payment_methods),
+                    receipt_number="R-" + SerialCounter.next_serial(tenant.id, "receipt", now.date()),
+                    amount=(Decimal(price) / 2).quantize(Decimal("0.01")),
+                    branch=main, shift=shift, created_by=reception,
+                )
+            # And a request the patient made from the portal, awaiting reception.
+            Appointment.objects.create(
+                tenant=tenant, patient=patient, doctor=doctor, branch=main, service=service,
+                status="requested", scheduled_date=now + timedelta(days=3), price=price,
+                notes="[طلب من بوابة المرضى] متابعة",
+            )
+        return accounts
 
     # ------------------------------------------------------------ bookings, money
 
@@ -849,6 +1007,11 @@ class Command(BaseCommand):
             self.stdout.write(f"    clinicadmin@{s['slug']}.local  (Admin — first clinic)")
             self.stdout.write(f"    reception@{s['slug']}.local    (Reception)")
             self.stdout.write(f"    doctor@{s['slug']}.local       (Doctor)")
+            for account in s["portal"]:
+                self.stdout.write(
+                    f"    portal /app/portal/{s['slug']}/  phone {account['phone']}  "
+                    f"({account['name']})"
+                )
 
         self.stdout.write("")
         if self.created_accounts:
@@ -860,7 +1023,11 @@ class Command(BaseCommand):
             self.stdout.write("  existed keep the password they had.")
         else:
             self.stdout.write("  No accounts were created; existing ones keep their passwords.")
-        self.stdout.write("  Log in with the EMAIL, not the username.")
+        self.stdout.write("  Log in with the EMAIL, not the username. Portal patients: PHONE.")
+        if self.created_portal:
+            self.stdout.write(
+                f"  {len(self.created_portal)} portal patient login(s) created or reset: same password."
+            )
         self.stdout.write(
             self.style.WARNING(
                 "  Before real use: python manage.py disable_demo_accounts"

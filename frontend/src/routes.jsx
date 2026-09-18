@@ -32,6 +32,7 @@ const FinancialReportPage = page(() => import('@/features/billing/FinancialRepor
 const DoctorRatesPage = page(() => import('@/features/billing/DoctorRatesPage'), 'DoctorRatesPage')
 const CommissionsPage = page(() => import('@/features/billing/CommissionsPage'), 'CommissionsPage')
 const CouponListPage = page(() => import('@/features/billing/CouponListPage'), 'CouponListPage')
+const AboutPage = page(() => import('@/features/admin/AboutPage'), 'AboutPage')
 const MyShiftPage = page(() => import('@/features/shifts/MyShiftPage'), 'MyShiftPage')
 const ShiftListPage = page(() => import('@/features/shifts/ShiftListPage'), 'ShiftListPage')
 const ShiftDetailPage = page(() => import('@/features/shifts/ShiftDetailPage'), 'ShiftDetailPage')
@@ -97,6 +98,8 @@ export const routes = [
   { path: 'employees', element: EmployeeListPage, permission: 'is_admin' },
   { path: 'attendance', element: AttendanceSheetPage, permission: 'is_admin' },
   { path: 'branches', element: BranchListPage, permission: 'is_owner' },
+  // The portal's "About the clinic": the Owner edits every branch, an Admin their own.
+  { path: 'about', element: AboutPage, permission: 'is_admin' },
   { path: 'services', element: ServiceListPage, permission: 'is_admin' },
   { path: 'settings', element: SettingsPage, permission: 'is_admin' },
   { path: 'settings/print', element: PrintSettingsPage, permission: 'is_admin' },

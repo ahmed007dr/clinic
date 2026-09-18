@@ -97,6 +97,36 @@ class RegisterView(_RegistrationView):
         return Response({"detail": "تم استلام بياناتك. ستتواصل معك العيادة لتأكيد التسجيل."}, status=201)
 
 
+class PublicAboutView(PortalView):
+    """The group's running branches — address, phone, map, hours, a few words,
+    and the specialties they offer — for the portal's "About" tab and the page a
+    new visitor sees before signing in. Public on purpose, and only what a clinic
+    publishes anyway: no doctor names, no e-mail, nothing of the patients."""
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request, slug):
+        from branches.about import specialties_by_branch
+
+        specialties = specialties_by_branch()
+        return Response({
+            "clinic": self.tenant.name,
+            "branches": [
+                {
+                    "name": branch.name,
+                    "address": branch.address or "",
+                    "phone": branch.phone or "",
+                    "map_url": branch.map_url,
+                    "working_hours": branch.working_hours,
+                    "about_text": branch.about_text,
+                    "specializations": specialties.get(branch.pk, []),
+                }
+                for branch in Branch.objects.filter(is_active=True).order_by("name")
+            ],
+        })
+
+
 class PublicLinksView(PortalView):
     """The group's clinics' social and contact links, for the portal's public
     pages (sign-in, registration). Public on purpose — these are the links a

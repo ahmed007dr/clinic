@@ -21,6 +21,33 @@ class BranchSerializer(ClinicSerializer):
         ]
 
 
+class BranchAboutSerializer(ClinicSerializer):
+    """What the portal tells the public about a branch — and nothing else of it.
+    The name and whether it runs are the Owner's, through BranchSerializer."""
+
+    name = serializers.CharField(read_only=True)
+    is_active = serializers.BooleanField(read_only=True)
+    specializations = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Branch
+        fields = [
+            "uuid", "name", "is_active",
+            "address", "phone", "map_url", "working_hours", "about_text",
+            "specializations",
+        ]
+
+    def get_specializations(self, branch):
+        """Worked out from the branch's doctors (branches.about); read-only."""
+        return self.context.get("specialties", {}).get(branch.pk, [])
+
+    def validate_map_url(self, value):
+        # A link the public will click: web pages only, never `javascript:`.
+        if value and not value.lower().startswith(("http://", "https://")):
+            raise serializers.ValidationError("الرابط يجب أن يبدأ بـ https://")
+        return value
+
+
 class EmployeeTypeSerializer(ClinicSerializer):
     class Meta:
         model = EmployeeType
