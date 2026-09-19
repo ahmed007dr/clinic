@@ -29,8 +29,8 @@ DEMO_EMAIL = re.compile(
 )
 
 
-# The demo patients' portal logins: "patient1@<slug>.local", "patient2@<slug>.local".
-DEMO_PATIENT_EMAIL = re.compile(r"^patient[12]@[a-z0-9-]+\.local$", re.IGNORECASE)
+# The demo patients' portal logins: "patient1@<slug>.local" … "patient3@<slug>.local".
+DEMO_PATIENT_EMAIL = re.compile(r"^patient[123]@[a-z0-9-]+\.local$", re.IGNORECASE)
 
 
 def demo_patient_accounts():

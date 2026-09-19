@@ -195,3 +195,34 @@ class DemoPortalPatientsTests(TestCase):
         call_command("disable_demo_accounts", stdout=StringIO())
         with tenant_context(tenant):
             self.assertTrue(PatientAccount.objects.get(patient=real).is_active)
+
+
+class DemoWebsiteCustomerTests(TestCase):
+    """The third demo patient is the website customer: her portal shows the
+    public booking journey in every state (tenants/management/commands/_demo_portal.py)."""
+
+    PASSWORD = "Demo-Portal-Pass-3"
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_demo", "--password", cls.PASSWORD, stdout=StringIO())
+
+    def test_she_signs_in_and_sees_requests_a_confirmed_booking_quantity_and_online_payment(self):
+        from django.urls import reverse
+
+        signed = self.client.post(
+            reverse("api:portal:login", kwargs={"slug": "dr-ahmed"}),
+            {"phone": "01099000003", "password": self.PASSWORD}, content_type="application/json")
+        self.assertEqual(signed.status_code, 200)
+        bookings = self.client.get(reverse("api:portal:appointments", kwargs={"slug": "dr-ahmed"})).json()
+        by_status = {b["status"] for b in bookings}
+        self.assertTrue({"requested", "waiting", "cancelled"} <= by_status, by_status)
+        self.assertTrue(all(b["source"] == "portal" for b in bookings))
+        self.assertTrue(any(b["quantity"] for b in bookings))
+        self.assertTrue(any(b["payment_status"] == "paid" for b in bookings))
+        self.assertTrue(any(b["reschedule_requested_for"] for b in bookings))
+
+    def test_disabling_the_demo_accounts_switches_her_login_off_too(self):
+        out = StringIO()
+        call_command("disable_demo_accounts", "--dry-run", stdout=out)
+        self.assertIn("portal dr-ahmed: 01099000003", out.getvalue())

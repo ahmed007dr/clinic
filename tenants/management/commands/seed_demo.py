@@ -62,6 +62,7 @@ from django.utils.crypto import get_random_string
 from tenants.provisioning import PASSWORD_ALPHABET, provision_tenant_defaults
 
 from ._demo_data import get_generator
+from ._demo_portal import seed_public_portal
 
 User = get_user_model()
 
@@ -96,7 +97,17 @@ PORTAL_PATIENTS = [
     # (name, phone, email local part, has a full record)
     ("منى السيد (عميل تجريبي)", "01099000001", "patient1", True),
     ("خالد عمر (عميل تجريبي)", "01099000002", "patient2", False),
+    # A website customer: the public portal's bookings (requests, an instant one,
+    # by quantity, paid online, cancelled) are seeded on this one (_demo_portal.py).
+    ("سارة إبراهيم (عميل تجريبي)", "01099000003", "patient3", False),
 ]
+
+# Tenant-owned tables the reset clears besides the ones it names one by one.
+RESET_TOO = (
+    "Attendance", "MedicalAttachment", "PatientCondition", "PatientMedicalProfile", "PatientIntake",
+    "BranchService", "DoctorSchedule", "DoctorTimeOff", "BranchHoliday", "ReportRecipient", "Printer",
+    "EmailLog", "PortalVerification",
+)
 
 TENANTS = [
     {
@@ -244,6 +255,13 @@ class Command(BaseCommand):
         Allergy.all_objects.all().delete()
         Appointment.all_objects.all().delete()
         Notification.all_objects.all().delete()
+        # Everything else that hangs off patients, doctors, clinics or services
+        # (the public portal's tables among them), before those go.
+        from django.apps import apps
+
+        for model in apps.get_models():
+            if model.__name__ in RESET_TOO:
+                model.all_objects.all().delete()
         # Portal logins hang off patients; they go first so nothing PROTECTs the tenant.
         PortalLoginCode.all_objects.all().delete()
         PortalSession.all_objects.all().delete()
@@ -586,6 +604,12 @@ class Command(BaseCommand):
                 tenant, branches, users, demo_doctor, services, specializations, payment_methods
             )
 
+            # The public portal and online booking (docs/15): directory listing,
+            # images, catalogue, schedules, website bookings, the online shift.
+            public = seed_public_portal(
+                self, tenant, branches, users, doctors, services, specializations, payment_methods,
+            )
+
             expenses = list(Expense.objects.filter(tenant=tenant))
 
         return {
@@ -608,6 +632,7 @@ class Command(BaseCommand):
             "procedures": len(procedures),
             "lab_results": len(lab_results),
             "portal": portal_accounts,
+            "public": public,
         }
 
     # ---------------------------------------------------------- portal patients
@@ -1002,6 +1027,12 @@ class Command(BaseCommand):
             self.stdout.write(
                 f"    {s['plans']} treatment plans  {s['sessions']} sessions  "
                 f"{s['procedures']} procedures  {s['lab_results']} lab results"
+            )
+            public = s["public"]
+            self.stdout.write(
+                f"    public portal: listed in the directory  {public['services']} services  "
+                f"{public['schedules']} schedule days  {public['website_bookings']} website bookings  "
+                f"{public['online_payments']} online payments  {public['doctor_sizes']} in-room quantity"
             )
             self.stdout.write(f"    admin@{s['slug']}.local        (Owner — every clinic)")
             self.stdout.write(f"    clinicadmin@{s['slug']}.local  (Admin — first clinic)")
