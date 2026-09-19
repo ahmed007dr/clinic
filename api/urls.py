@@ -13,6 +13,7 @@ from .views import dashboard as dashboard_views
 from .views import notifications, patients
 from .views.subscription import SubscriptionView
 from .views.settings import ClinicSettingsView
+from .views import service_orders
 from .views import about, attendance, contracts, coupons, email_log, intake, meta, owner, owner_email, shifts
 from .views.print_settings import PrintSettingsView
 from .views import branch_services, doctor_profile, my_report, public_media, schedules
@@ -132,6 +133,13 @@ urlpatterns = [
     # Which services each clinic offers (docs/15, D9).
     path("branch-services/", branch_services.BranchServicesView.as_view(), name="branch-services"),
     # The public page's logo and cover, with the Owner's approval (docs/15, D8).
+    # The customers' service orders, from the clinic's side (docs/16, Phase C).
+    path("service-orders/", service_orders.ServiceOrderListView.as_view(), name="service-orders"),
+    path("service-orders/<uuid:uuid>/", service_orders.ServiceOrderDetailView.as_view(), name="service-order-detail"),
+    path("service-orders/<uuid:uuid>/approve/", service_orders.ServiceOrderApproveView.as_view(), name="service-order-approve"),
+    path("service-orders/<uuid:uuid>/reject/", service_orders.ServiceOrderRejectView.as_view(), name="service-order-reject"),
+    path("service-orders/<uuid:uuid>/contacted/", service_orders.ServiceOrderContactedView.as_view(), name="service-order-contacted"),
+    path("service-orders/<uuid:uuid>/schedule/", service_orders.ServiceOrderScheduleView.as_view(), name="service-order-schedule"),
     path("public-media/", public_media.PublicMediaListView.as_view(), name="public-media"),
     path("public-media/group/", public_media.GroupMediaView.as_view(), name="public-media-group"),
     path("public-media/group/<str:kind>/", public_media.GroupMediaKindView.as_view(), name="public-media-group-kind"),

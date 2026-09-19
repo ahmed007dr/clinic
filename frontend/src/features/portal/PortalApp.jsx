@@ -6,6 +6,7 @@ import { Loading, Toasts } from '@/components/ui'
 import { portalApi } from './portalApi'
 import { PortalContext } from './PortalContext'
 import { PortalAboutPage } from './PortalAboutPage'
+import { PortalCartPage } from './PortalCartPage'
 import { PortalCatalogPage } from './PortalCatalogPage'
 import { PortalFooter } from './PortalFooter'
 import { PortalHomePage } from './PortalHomePage'
@@ -42,7 +43,7 @@ export function PortalApp() {
     refresh()
   }, [refresh])
 
-  const value = useMemo(() => ({ slug, api, me, setMe, refresh }), [slug, api, me, refresh])
+  const value = useMemo(() => ({ slug, api, me, setMe, refresh, loading }), [slug, api, me, refresh, loading])
 
   return (
     <PortalContext.Provider value={value}>
@@ -54,7 +55,10 @@ export function PortalApp() {
         <Route path="services" element={<PortalCatalogPage />} />
         <Route path="services/:service" element={<PortalCatalogPage />} />
         <Route path="services/:service/:branch" element={<PortalCatalogPage />} />
+        {/* The doctor-and-time path, for a customer who wants a particular doctor and time. */}
+        <Route path="services/:service/:branch/doctors" element={<PortalCatalogPage doctors />} />
         <Route path="services/:service/:branch/:doctor" element={<PortalCatalogPage />} />
+        <Route path="cart" element={<PortalCartPage />} />
         <Route path="about" element={<PortalAboutPage />} />
         <Route
           index

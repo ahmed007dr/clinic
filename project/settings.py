@@ -145,6 +145,8 @@ REST_FRAMEWORK = {
         "signup": "5/hour",
         # The public directory of clinic groups (api/directory.py).
         "directory": "60/min",
+        # Sending and withdrawing service orders, per customer (portal/orders.py).
+        "portal_order": "30/hour",
     },
     "UNAUTHENTICATED_USER": "django.contrib.auth.models.AnonymousUser",
 }

@@ -2,7 +2,7 @@
 
 from django.urls import path
 
-from . import account, catalog, my_bookings, registration, views
+from . import account, catalog, my_bookings, orders, registration, views
 
 app_name = "portal"
 
@@ -25,6 +25,7 @@ urlpatterns = [
     path("about/", registration.PublicAboutView.as_view(), name="about"),
     # The public catalogue: service → the clinics that offer it → its doctors (docs/15, Phase 3).
     path("catalog/services/", catalog.CatalogServicesView.as_view(), name="catalog-services"),
+    path("catalog/regions/", catalog.CatalogRegionsView.as_view(), name="catalog-regions"),
     path("catalog/services/<uuid:service>/branches/", catalog.CatalogBranchesView.as_view(), name="catalog-branches"),
     path(
         "catalog/services/<uuid:service>/branches/<uuid:branch>/doctors/",
@@ -32,7 +33,14 @@ urlpatterns = [
     ),
     path("catalog/availability/", catalog.CatalogAvailabilityView.as_view(), name="catalog-availability"),
     path("catalog/availability/days/", catalog.CatalogAvailableDaysView.as_view(), name="catalog-availability-days"),
+    # A clinic's times for a service across its doctors — what «طلباتي» offers (docs/16).
+    path("catalog/availability/branch-days/", catalog.CatalogBranchDaysView.as_view(), name="catalog-branch-days"),
+    path("catalog/availability/branch-times/", catalog.CatalogBranchTimesView.as_view(), name="catalog-branch-times"),
     path("booking/options/", views.BookingOptionsView.as_view(), name="booking-options"),
+    # «طلباتي» — the customer's service orders (docs/16).
+    path("orders/", orders.OrdersView.as_view(), name="orders"),
+    path("orders/<uuid:uuid>/", orders.OrderDetailView.as_view(), name="order-detail"),
+    path("orders/<uuid:uuid>/cancel/", orders.OrderCancelView.as_view(), name="order-cancel"),
     path("appointments/", views.AppointmentsView.as_view(), name="appointments"),
     path("appointments/<uuid:uuid>/", my_bookings.AppointmentDetailView.as_view(), name="appointment-detail"),
     path("appointments/<uuid:uuid>/cancel/", my_bookings.AppointmentCancelView.as_view(), name="appointment-cancel"),

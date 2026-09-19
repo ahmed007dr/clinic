@@ -256,6 +256,98 @@ function PayOnline({ appointment, onClose }) {
   )
 }
 
+const ORDER_TONES = {
+  submitted: 'warn', approved: 'info', contacted: 'info', scheduled: 'ok', rejected: 'urgent', cancelled: 'neutral',
+}
+
+/** «طلباتي»: what the customer sent, and where each order stands with the clinic (docs/16). */
+export function OrdersPanel() {
+  return (
+    <PortalList load={(api) => api.orders()} empty="لم ترسل أي طلب بعد. اختر خدمة من الصفحة الرئيسية.">
+      {(order) => (
+        <Card key={order.uuid}>
+          <div className="portal-card__row">
+            <strong>{order.serial_number}</strong>
+            <Badge tone={ORDER_TONES[order.status] ?? 'neutral'}>{order.status_label}</Badge>
+          </div>
+          <span>{order.branch.name}{order.branch.phone && <span className="ui-muted"> — {order.branch.phone}</span>}</span>
+          <ul className="portal-order-lines">
+            {order.lines.map((line) => (
+              <li key={`${order.uuid}-${line.service_name}`}>
+                {line.service_name}
+                {line.quantity && ` × ${Number(line.quantity)} ${line.quantity_unit}`}
+                <span className="ui-muted">
+                  {' — '}
+                  {line.unit_price === null ? 'السعر بعد التقييم' : `${line.price_is_final ? '' : '≈ '}${formatMoney(line.price)}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <span className="ui-muted">
+            {order.total_is_estimate ? 'الإجمالي التقديري' : 'الإجمالي'}: {formatMoney(order.total)}
+          </span>
+          <OrderNote order={order} />
+          <OrderActions order={order} />
+        </Card>
+      )}
+    </PortalList>
+  )
+}
+
+function OrderNote({ order }) {
+  if (order.status === 'submitted') return <span className="ui-muted">بانتظار موافقة العيادة على طلبك.</span>
+  if (order.status === 'approved') return <span className="ui-muted">وافقت العيادة. ستتصل بك خدمة العملاء قريباً لتحديد الطبيب والموعد.</span>
+  if (order.status === 'contacted') return <span className="ui-muted">اتصلت بك خدمة العملاء. يُحدَّد الموعد النهائي.</span>
+  if (order.status === 'rejected' && order.review_note) return <span className="ui-muted">السبب: {order.review_note}</span>
+  if (order.status === 'scheduled') {
+    return (
+      <ul className="portal-order-lines" aria-label="المواعيد">
+        {order.appointments.map((a) => (
+          <li key={a.uuid}>
+            {a.service_name}{a.doctor_name && ` — د. ${a.doctor_name}`}
+            <strong> — {formatDateTime(a.scheduled_date)}</strong>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+  return null
+}
+
+function OrderActions({ order }) {
+  const { api } = usePortal()
+  const toast = useToast()
+  const [confirming, setConfirming] = useState(false)
+  const [busy, setBusy] = useState(false)
+  if (!order.is_open) return null
+
+  const cancel = async () => {
+    setBusy(true)
+    try {
+      await api.cancelOrder(order.uuid)
+      toast.success('تم إلغاء الطلب.')
+      window.location.reload()
+    } catch (caught) {
+      toast.error(caught.message)
+      setConfirming(false)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <>
+      <div className="portal-card__row">
+        <Button size="sm" variant="ghost" onClick={() => setConfirming(true)}>إلغاء الطلب</Button>
+      </div>
+      <ConfirmDialog
+        open={confirming} onClose={() => setConfirming(false)} onConfirm={cancel} loading={busy}
+        title="إلغاء الطلب" message="هل تريد إلغاء هذا الطلب؟" confirmLabel="نعم، إلغاء" cancelLabel="رجوع"
+      />
+    </>
+  )
+}
+
 export function PrescriptionsPanel() {
   const [printing, setPrinting] = useState(null)
 

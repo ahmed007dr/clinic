@@ -126,6 +126,7 @@ class PublicAboutView(PortalView):
             branches.append({
                 "name": branch.name,
                 "address": branch.address or "",
+                "governorate": branch.governorate or "",
                 "phone": branch.phone or "",
                 "map_url": branch.map_url,
                 "working_hours": branch.working_hours,

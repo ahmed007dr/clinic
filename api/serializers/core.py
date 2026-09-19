@@ -43,6 +43,8 @@ class BranchAboutSerializer(ClinicSerializer):
             # for the clinic's call (docs/15, D3).
             "online_booking_confirms_at_once", "online_cancel_notice_hours",
             "address", "phone", "map_url", "working_hours", "about_text",
+            # Where the clinic is: the public page lists the nearest first (docs/16).
+            "governorate", "latitude", "longitude",
             "specializations",
         ]
 
@@ -61,6 +63,25 @@ class BranchAboutSerializer(ClinicSerializer):
         if value and not value.lower().startswith(("http://", "https://")):
             raise serializers.ValidationError("الرابط يجب أن يبدأ بـ https://")
         return value
+
+    def validate_latitude(self, value):
+        if value is not None and not -90 <= value <= 90:
+            raise serializers.ValidationError("خط العرض بين -90 و 90.")
+        return value
+
+    def validate_longitude(self, value):
+        if value is not None and not -180 <= value <= 180:
+            raise serializers.ValidationError("خط الطول بين -180 و 180.")
+        return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        # A point needs both numbers, or neither.
+        lat = attrs.get("latitude", getattr(self.instance, "latitude", None))
+        lng = attrs.get("longitude", getattr(self.instance, "longitude", None))
+        if (lat is None) != (lng is None):
+            raise serializers.ValidationError({"latitude": "اكتب خط العرض وخط الطول معاً، أو اتركهما فارغين."})
+        return attrs
 
 
 class EmployeeTypeSerializer(ClinicSerializer):

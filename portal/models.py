@@ -295,3 +295,108 @@ class PortalVerification(TenantOwnedModel):
         self.attempts += 1
         self.save(update_fields=["attempts"])
         return False
+
+
+# --------------------------------------------------------------- service orders
+
+
+class ServiceOrder(TenantOwnedModel):
+    """What a customer asks a clinic for from the website (docs/16).
+
+    A customer puts services into «طلباتي» — a service, the clinic that offers
+    it, a quantity where the service is sold by quantity — and sends the order.
+    It is **one order per clinic**: a basket with lines for two clinics becomes
+    two orders, each decided by its own clinic. It holds no doctor's time. The
+    clinic's Admin approves (or refuses) it, the clinic's customer service phones
+    the customer, and only then is the doctor and the time settled — at which
+    point real bookings (`Appointment`) are created and everything downstream
+    (queue, shifts, payments) works as it always has.
+    """
+
+    class Status(models.TextChoices):
+        SUBMITTED = "submitted", "بانتظار موافقة العيادة"
+        APPROVED = "approved", "وافقت العيادة — بانتظار اتصال خدمة العملاء"
+        CONTACTED = "contacted", "تم الاتصال بك"
+        SCHEDULED = "scheduled", "تم تحديد الموعد"
+        REJECTED = "rejected", "لم توافق العيادة"
+        CANCELLED = "cancelled", "ألغيته"
+
+    #: Still open: the clinic has not finished with it, and the customer may withdraw it.
+    OPEN = (Status.SUBMITTED, Status.APPROVED, Status.CONTACTED)
+
+    patient = models.ForeignKey("patients.Patient", on_delete=models.CASCADE, related_name="service_orders")
+    branch = models.ForeignKey("branches.Branch", on_delete=models.CASCADE, related_name="service_orders")
+    serial_number = models.CharField(max_length=24, blank=True)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.SUBMITTED)
+    class Payment(models.TextChoices):
+        ONLINE = "online", "أونلاين"
+        MANUAL = "manual", "يدوي: تحويل أو عند الوصول"
+
+    #: How the customer says they will pay. Only a preference: the money is recorded,
+    #: inside a shift, against the bookings the order becomes (docs/16, R3).
+    payment_preference = models.CharField(max_length=8, choices=Payment.choices, default=Payment.MANUAL)
+    # The customer's words; a few of each, never trusted as markup.
+    notes = models.CharField(max_length=1000, blank=True, default="")
+    preferred_contact = models.CharField(max_length=100, blank=True, default="")
+    # The clinic's Admin's decision.
+    reviewed_by = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_note = models.CharField(max_length=300, blank=True, default="")
+    # Customer service's call.
+    contacted_by = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    contacted_at = models.DateTimeField(null=True, blank=True)
+    contact_note = models.CharField(max_length=300, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta(TenantOwnedModel.Meta):
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["tenant", "serial_number"], name="uniq_service_order_serial")
+        ]
+        indexes = [models.Index(fields=["tenant", "branch", "status"], name="serviceorder_branch_status_idx")]
+
+    def save(self, *args, **kwargs):
+        if not self.serial_number:
+            from tenants.models import SerialCounter
+
+            day = (self.created_at or timezone.now()).date()
+            self.serial_number = "SO-" + SerialCounter.next_serial(self.tenant_id, "service_order", day)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.serial_number
+
+    @property
+    def is_open(self):
+        return self.status in self.OPEN
+
+
+class ServiceOrderLine(TenantOwnedModel):
+    """One service in an order. The figures are what the customer was shown when
+    they sent it; the service's name is kept too, so the order still reads the
+    same if the service is later renamed."""
+
+    order = models.ForeignKey(ServiceOrder, on_delete=models.CASCADE, related_name="lines")
+    service = models.ForeignKey("services.Service", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    service_name = models.CharField(max_length=150)
+    quantity = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    quantity_unit = models.CharField(max_length=30, blank=True, default="")
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    # False when the price is only "from": it depends on the doctor, on the
+    # quantity the doctor sets, or on an evaluation. The doctor's own price
+    # settles it when the booking is made.
+    price_is_final = models.BooleanField(default=True)
+    # What the customer picked from the times on offer (docs/16, R2): a preference —
+    # it holds no time — which the clinic confirms or changes when it settles the order.
+    preferred_doctor = models.ForeignKey("employees.Employee", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    preferred_at = models.DateTimeField(null=True, blank=True)
+    # The booking made from this line once the time is settled.
+    appointment = models.ForeignKey("appointments.Appointment", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+
+    class Meta(TenantOwnedModel.Meta):
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"{self.order_id}:{self.service_name}"

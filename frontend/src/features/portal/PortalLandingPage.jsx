@@ -6,15 +6,17 @@ import { useAsync } from '@/hooks/useApi'
 import { useDocumentTitle } from '@/hooks/useDebounce'
 import { serverUrl } from '@/lib/config'
 
+import { CartLink } from './CartLink'
 import { PortalAbout } from './PortalAbout'
+import { PortalServiceGrid } from './PortalServiceGrid'
 import { usePortal } from './PortalContext'
 
 /**
  * The group's public front page — what a visitor sees before signing in.
  *
- * The group's approved logo and cover, then one section per running clinic
- * (address, hours, contact, specialties and the doctors who agreed to be
- * shown), then the ways in. Everything comes from one public call that returns
+ * The group's approved logo and cover, then the **services** (the customer
+ * comes for a service — docs/16), then one section per running clinic (address,
+ * hours, contact, specialties and the doctors who agreed to be shown). Everything comes from one public call that returns
  * only what management chose to publish. Booking joins this page once the
  * catalogue and availability exist (docs/15, Phases 3–5).
  */
@@ -30,7 +32,10 @@ export function PortalLandingPage() {
     <div className="portal">
       <header className="portal__header">
         <strong className="portal__clinic">{data.clinic}</strong>
-        <LanguageToggle />
+        <span className="portal__header-tools">
+          <CartLink />
+          <LanguageToggle />
+        </span>
       </header>
 
       <div className="portal-hero">
@@ -42,9 +47,6 @@ export function PortalLandingPage() {
             <Link className="ui-btn ui-btn--primary" to={`/portal/${slug}/login`}>
               تسجيل الدخول
             </Link>
-            <Link className="ui-btn ui-btn--secondary" to={`/portal/${slug}/services`}>
-              الخدمات والأسعار
-            </Link>
             <Link className="ui-btn ui-btn--secondary" to={`/portal/${slug}/signup`}>
               إنشاء حساب
             </Link>
@@ -53,7 +55,13 @@ export function PortalLandingPage() {
       </div>
 
       <main className="portal__content portal__content--wide">
-        <PortalAbout data={data} />
+        <PortalServiceGrid />
+        {data.branches?.length > 0 && (
+          <section aria-labelledby="portal-clinics-heading">
+            <h2 id="portal-clinics-heading" className="portal__section-title">عياداتنا</h2>
+            <PortalAbout data={data} />
+          </section>
+        )}
       </main>
     </div>
   )

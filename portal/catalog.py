@@ -23,6 +23,7 @@ from rest_framework.throttling import AnonRateThrottle
 
 from branches.models import Branch
 from services.catalog import offerings
+from services.nearby import normalize, order_by_nearness
 from services.models import Service
 
 from .views import PortalView
@@ -98,14 +99,30 @@ class CatalogBranchesView(_PublicCatalogView):
             }
             for branch, offers in by_branch.items()
         ]
+        # Nearest first when the customer says where they are (docs/16): a point
+        # (`lat`, `lng` — never stored) or a `governorate`; else by name.
+        rows, sorted_by = order_by_nearness(rows, {str(b.uuid): b for b in by_branch}, request.query_params)
         return Response({
             "service": {
                 "uuid": str(found.uuid), "name": found.name,
                 "duration_minutes": found.duration_minutes, "price_display": found.price_display,
                 **_quantity(found),
             },
-            "branches": sorted(rows, key=lambda row: row["name"]),
+            "sorted_by": sorted_by,
+            "branches": rows,
         })
+
+
+class CatalogRegionsView(_PublicCatalogView):
+    """The governorates where the group has a clinic offering something bookable —
+    what a customer who will not share a location chooses from."""
+
+    def get(self, request, slug):
+        names = {}
+        for branch in {o.branch for o in offerings()}:
+            if branch.governorate.strip():
+                names.setdefault(normalize(branch.governorate), branch.governorate.strip())
+        return Response(sorted(names.values()))
 
 
 class CatalogDoctorsView(_PublicCatalogView):
@@ -183,6 +200,73 @@ class CatalogAvailabilityView(_PublicCatalogView):
             "date": day.isoformat(),
             "duration_minutes": offer.service.duration_minutes,
             "slots": [slot.strftime("%H:%M") for slot in available_slots(offer, day)],
+        })
+
+
+def _branch_offers(request):
+    """The bookable offerings of a clinic for a service — every doctor's, or the
+    one named by `doctor` — or None if the choice is not one."""
+    from services.catalog import offerings
+
+    def uuid_of(name):
+        try:
+            return uuid_module.UUID(str(request.query_params.get(name) or ""))
+        except ValueError:
+            return None
+
+    service, branch, doctor = uuid_of("service"), uuid_of("branch"), uuid_of("doctor")
+    if not (service and branch):
+        return None
+    found = offerings(
+        service=Service.objects.filter(uuid=service).first(), branch=Branch.objects.filter(uuid=branch).first(),
+    ) if Service.objects.filter(uuid=service).exists() and Branch.objects.filter(uuid=branch).exists() else []
+    if doctor:
+        found = [o for o in found if o.doctor.uuid == doctor]
+    return found or None
+
+
+class CatalogBranchDaysView(_PublicCatalogView):
+    """`?service=&branch=[&doctor=]` → the coming days on which *some* doctor of the
+    clinic (or the one named) still has a time for the service (docs/16, R2)."""
+
+    throttle_classes = [AvailabilityThrottle]
+
+    def get(self, request, slug):
+        from appointments.availability import available_days
+
+        offers = _branch_offers(request)
+        if offers is None:
+            return Response(NOT_FOUND, status=404)
+        days = set()
+        for offer in offers:
+            days.update(available_days(offer))
+        return Response({"days": sorted(d.isoformat() for d in days)})
+
+
+class CatalogBranchTimesView(_PublicCatalogView):
+    """`?service=&branch=&date=[&doctor=]` → each offered time that day with the
+    doctors who have it, so the customer can leave the doctor to the clinic."""
+
+    throttle_classes = [AvailabilityThrottle]
+
+    def get(self, request, slug):
+        from appointments.availability import available_slots, parse_day
+
+        offers = _branch_offers(request)
+        day = parse_day(request.query_params.get("date"))
+        if offers is None:
+            return Response(NOT_FOUND, status=404)
+        if day is None:
+            return Response({"date": ["تاريخ غير صالح."]}, status=400)
+        times = {}
+        for offer in offers:
+            for slot in available_slots(offer, day):
+                times.setdefault(slot.strftime("%H:%M"), []).append(
+                    {"uuid": str(offer.doctor.uuid), "name": offer.doctor.name})
+        return Response({
+            "date": day.isoformat(),
+            "duration_minutes": offers[0].service.duration_minutes,
+            "times": [{"time": t, "doctors": sorted(times[t], key=lambda d: d["name"])} for t in sorted(times)],
         })
 
 

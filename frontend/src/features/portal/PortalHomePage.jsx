@@ -10,6 +10,7 @@ import '@/features/clinical/allergy.css'
 
 import {
   AppointmentsPanel,
+  OrdersPanel,
   FilesPanel,
   LabsPanel,
   PaymentsPanel,
@@ -19,10 +20,12 @@ import {
 } from './PortalPanels'
 import { usePortal } from './PortalContext'
 import { PortalAbout } from './PortalAbout'
+import { CartLink } from './CartLink'
 import { PortalProfile } from './PortalProfile'
 
 const TABS = [
   { id: 'appointments', label: 'مواعيدي', Panel: AppointmentsPanel },
+  { id: 'orders', label: 'طلباتي', Panel: OrdersPanel },
   { id: 'prescriptions', label: 'الروشتات', Panel: PrescriptionsPanel },
   { id: 'labs', label: 'التحاليل', Panel: LabsPanel },
   { id: 'files', label: 'المستندات', Panel: FilesPanel },
@@ -35,7 +38,10 @@ const TABS = [
 
 export function PortalHomePage() {
   const { api, me, setMe, slug } = usePortal()
-  const [tab, setTab] = useState('appointments')
+  const [tab, setTab] = useState(() => {
+    const asked = new URLSearchParams(window.location.search).get('tab')
+    return TABS.some((t) => t.id === asked) ? asked : 'appointments'
+  })
   const [refreshKey, setRefreshKey] = useState(0)
   const allergies = useAsync(() => api.allergies(), [api])
   const toast = useToast()
@@ -62,6 +68,7 @@ export function PortalHomePage() {
     <div className="portal">
       <header className="portal__header">
         <strong className="portal__clinic">{me.clinic}</strong>
+        <CartLink />
         <Button size="sm" variant="ghost" onClick={async () => {
           try { await api.logout() } finally { setMe(null) }
         }}>
@@ -82,8 +89,8 @@ export function PortalHomePage() {
           </div>
         )}
 
-        {/* Choose a service, a clinic that offers it, a doctor and one of the times they are free. */}
-        <Link className="ui-btn ui-btn--primary ui-btn--block" to={`/portal/${slug}/services`}>طلب موعد</Link>
+        {/* Choose a service, then a clinic near you, and add it to «طلباتي». */}
+        <Link className="ui-btn ui-btn--primary ui-btn--block" to={`/portal/${slug}`}>اطلب خدمة</Link>
 
         <Tabs items={TABS.map(({ id, label }) => ({ id, label }))} active={tab} onChange={setTab} />
         <section className="portal__panel">

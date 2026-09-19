@@ -49,6 +49,12 @@ class Branch(TenantOwnedModel):
     # clinic has not confirmed can always be withdrawn.
     online_cancel_notice_hours = models.PositiveSmallIntegerField(default=24)
     map_url = models.URLField(max_length=500, blank=True, default="")
+    # Where the clinic is, for "the nearest clinic to you" on the public page
+    # (docs/16). Both optional: a clinic without coordinates is still found by
+    # its governorate. The customer's own location is never stored.
+    governorate = models.CharField(max_length=100, blank=True, default="")
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     working_hours = models.TextField(blank=True, default="")
     about_text = models.TextField(blank=True, default="")
 

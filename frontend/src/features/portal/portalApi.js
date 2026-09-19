@@ -44,7 +44,14 @@ export function portalApi(slug) {
     register: (body) => http.post(`${base}/register/`, body),
     /** The public catalogue (docs/15 Phase 3): services → the clinics that offer one → its doctors. */
     catalogServices: () => get('catalog/services/'),
-    catalogBranches: (service) => get(`catalog/services/${service}/branches/`),
+    /** The clinics that offer a service — nearest first when `place` says where the customer is (docs/16). */
+    catalogBranches: (service, place = {}) => http.get(`${base}/catalog/services/${service}/branches/`, place),
+    /** «طلباتي» — the customer's service orders (docs/16): send the basket, list, withdraw. */
+    orders: () => get('orders/'),
+    sendOrder: (body) => http.post(`${base}/orders/`, body),
+    cancelOrder: (uuid) => http.post(`${base}/orders/${uuid}/cancel/`),
+    /** The governorates where the group has a clinic with something to book. */
+    catalogRegions: () => get('catalog/regions/'),
     /** Coming days with a free time, and the times on one day (docs/15 Phase 4). */
     catalogDays: (choice) => http.get(`${base}/catalog/availability/days/`, choice),
     catalogSlots: (choice, date) => http.get(`${base}/catalog/availability/`, { ...choice, date }),

@@ -94,6 +94,20 @@ export function AboutPage() {
           span: 2,
         },
         { name: 'address', label: 'العنوان', type: 'textarea', span: 2 },
+        {
+          name: 'governorate',
+          label: 'المحافظة',
+          hint: 'يُستخدم لعرض أقرب عيادة للعميل (مثال: القاهرة، الإسكندرية، سوهاج).',
+        },
+        {
+          name: 'latitude',
+          label: 'خط العرض',
+          type: 'number',
+          step: 'any',
+          dir: 'ltr',
+          hint: 'اختياري وأدق من المحافظة: من خرائط جوجل اضغط مطولاً على موقع العيادة وانسخ الرقمين (مثال 30.0444 و 31.2357). اكتب الاثنين معاً.',
+        },
+        { name: 'longitude', label: 'خط الطول', type: 'number', step: 'any', dir: 'ltr' },
         { name: 'phone', label: 'الهاتف', type: 'tel' },
         {
           name: 'map_url',

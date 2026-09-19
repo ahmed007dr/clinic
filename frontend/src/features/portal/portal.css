@@ -434,3 +434,128 @@ html:has(.portal__header) {
   border-color: var(--primary);
   color: var(--primary-ink);
 }
+
+/* ------------------------------------------- Services first (docs/16) */
+
+.portal__section-title {
+  margin: var(--s5) 0 var(--s3);
+  font-size: var(--text-lg);
+  text-wrap: balance;
+}
+
+.portal-services {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s3);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+}
+
+.portal-service {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  height: 100%;
+}
+
+.portal-service__foot {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+}
+
+.portal-place {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s3);
+  margin-block: var(--s3);
+}
+
+.portal-place__region {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  font-size: var(--text-sm);
+}
+
+.portal-place__problem {
+  color: var(--danger, #b3261e);
+  font-size: var(--text-sm);
+}
+
+.portal-nearest {
+  align-self: flex-start;
+  padding: 0.1rem 0.6rem;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-ink);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+/* ------------------------------------------------ The basket (docs/16) */
+
+.portal__header-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.portal-cart-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  color: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.portal-cart-link:hover,
+.portal-cart-link:focus-visible {
+  text-decoration: underline;
+}
+
+.portal-cart-link__count {
+  min-width: 1.4rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--primary-ink);
+  color: var(--primary);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  text-align: center;
+}
+
+.portal-order {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  margin-block: var(--s3);
+}
+
+.portal-cart-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+.portal-cart-total {
+  align-self: flex-end;
+}
+
+.portal-order-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+}

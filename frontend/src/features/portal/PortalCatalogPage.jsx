@@ -9,19 +9,14 @@ import { useToast } from '@/hooks/useToast'
 import { formatDate, formatMoney } from '@/lib/format'
 
 import { withNext } from './next'
+import { priceText, unitOf } from './catalogText'
 import { usePortal } from './PortalContext'
+import { PortalOrderStep } from './PortalOrderStep'
+import { PortalServiceGrid } from './PortalServiceGrid'
+import { CartLink } from './CartLink'
+import { usePlace } from './place'
 
-/** What to say about a price: final, a floor, or not known before evaluation. */
-export function priceText(display, price, perUnit) {
-  if (display === 'after_evaluation') return 'السعر بعد تقييم الطبيب'
-  if (price === null || price === undefined) return '—'
-  const money = display === 'starting_from' ? `يبدأ من ${formatMoney(price)}` : formatMoney(price)
-  // A service sold by quantity is priced per unit ("لكل نبضة").
-  return perUnit ? `${money} لكل ${perUnit}` : money
-}
-
-/** The unit a service is sold by, or null when it is sold as one thing. */
-const unitOf = (service) => (service?.requires_quantity ? service.quantity_unit || 'وحدة' : null)
+export { priceText }
 
 /**
  * The public catalogue (docs/15, Phase 3): choose a service, then a clinic that
@@ -30,7 +25,7 @@ const unitOf = (service) => (service?.requires_quantity ? service.quantity_unit 
  * comes from the server's one "bookable" rule, so nothing listed here is refused
  * later. Booking itself joins at the end of this path in a later phase.
  */
-export function PortalCatalogPage() {
+export function PortalCatalogPage({ doctors = false }) {
   const { service, branch, doctor } = useParams()
   const { slug } = usePortal()
   useDocumentTitle('الخدمات والأسعار')
@@ -39,7 +34,10 @@ export function PortalCatalogPage() {
     <div className="portal">
       <header className="portal__header">
         <strong className="portal__clinic">الخدمات والأسعار</strong>
-        <LanguageToggle />
+        <span className="portal__header-tools">
+          <CartLink />
+          <LanguageToggle />
+        </span>
       </header>
       <main className="portal__content portal__content--wide">
         <nav className="portal-crumbs" aria-label="المسار">
@@ -47,9 +45,11 @@ export function PortalCatalogPage() {
           <span aria-hidden="true">›</span>
           <Link to={`/portal/${slug}/services`}>الخدمات</Link>
         </nav>
-        {!service && <ServiceList />}
+        {!service && <PortalServiceGrid heading="الخدمات والأسعار" />}
         {service && !branch && <BranchList service={service} />}
-        {service && branch && !doctor && <DoctorList service={service} branch={branch} />}
+        {service && branch && !doctor && (doctors
+          ? <DoctorList service={service} branch={branch} />
+          : <PortalOrderStep service={service} branch={branch} />)}
         {service && branch && doctor && <SlotPicker service={service} branch={branch} doctor={doctor} />}
       </main>
     </div>
@@ -61,45 +61,46 @@ function useCatalog(load, deps) {
   return { data, loading, error, reload }
 }
 
-function ServiceList() {
-  const { api, slug } = usePortal()
-  const { data, loading, error, reload } = useCatalog(() => api.catalogServices(), [api])
-  if (loading) return <Loading />
-  if (error) return <ErrorState error={error} onRetry={reload} />
-  if (!data.length) return <EmptyState title="لا توجد خدمات متاحة للحجز حالياً" />
-
-  return (
-    <ul className="portal__list">
-      {data.map((service) => (
-        <li key={service.uuid} className="portal-card">
-          <Link className="portal-catalog__title" to={`/portal/${slug}/services/${service.uuid}`}>
-            {service.name}
-          </Link>
-          {service.description && <p className="portal-about__text">{service.description}</p>}
-          <div className="portal-catalog__meta">
-            {service.specialization && <span>{service.specialization}</span>}
-            <span>{service.duration_minutes} دقيقة</span>
-            <span>{service.branches_count > 1 ? `متاحة في ${service.branches_count} عيادات` : 'متاحة في عيادة واحدة'}</span>
-            <strong>{priceText(service.price_display, service.from_price, unitOf(service))}</strong>
-          </div>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
 function BranchList({ service }) {
   const { api, slug } = usePortal()
-  const { data, loading, error, reload } = useCatalog(() => api.catalogBranches(service), [api, service])
-  if (loading) return <Loading />
+  const place = usePlace()
+  const regions = useAsync(() => api.catalogRegions(), [api])
+  const { data, loading, error, reload } = useCatalog(
+    () => api.catalogBranches(service, place.query), [api, service, place.query],
+  )
   if (error) return <ErrorState error={error} onRetry={reload} />
+  const unit = unitOf(data?.service)
 
   return (
     <>
-      <h1 className="portal__hello">{data.service.name}</h1>
-      <p className="ui-muted">اختر العيادة — تظهر فقط العيادات التي تقدّم هذه الخدمة.</p>
-      {data.branches.length === 0 ? (
-        <EmptyState title="لا توجد عيادة تقدّم هذه الخدمة للحجز حالياً" />
+      <h1 className="portal__hello">{data?.service.name ?? 'الخدمة'}</h1>
+      <p className="ui-muted">
+        اختر العيادة — تظهر فقط العيادات التي تقدّم هذه الخدمة، والأقرب إليك أولاً.
+      </p>
+
+      <div className="portal-place" role="group" aria-label="موقعك">
+        <Button size="sm" variant="secondary" onClick={place.locate} disabled={place.locating}>
+          {place.locating ? 'جارٍ تحديد موقعك…' : 'استخدم موقعي'}
+        </Button>
+        <label className="portal-place__region">
+          <span className="ui-muted">أو اختر محافظتك</span>
+          <select className="ui-input" value={place.governorate} onChange={(event) => place.chooseGovernorate(event.target.value)}>
+            <option value="">—</option>
+            {(regions.data ?? []).map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        </label>
+        {place.hasPoint && (
+          <Button size="sm" variant="ghost" onClick={place.forget}>إيقاف الموقع</Button>
+        )}
+        {place.problem && <span className="portal-place__problem" role="alert">{place.problem}</span>}
+      </div>
+
+      {loading && !data ? (
+        <Loading />
+      ) : data.branches.length === 0 ? (
+        <EmptyState title="لا توجد عيادة تقدّم هذه الخدمة للطلب حالياً" />
       ) : (
         <ul className="portal__list">
           {data.branches.map((branch) => (
@@ -107,10 +108,15 @@ function BranchList({ service }) {
               <Link className="portal-catalog__title" to={`/portal/${slug}/services/${service}/${branch.uuid}`}>
                 {branch.name}
               </Link>
+              {branch.nearest && <span className="portal-nearest">الأقرب إليك</span>}
               {branch.address && <span className="portal-about__text">{branch.address}</span>}
               <div className="portal-catalog__meta">
+                {branch.governorate && <span>{branch.governorate}</span>}
+                {branch.distance_km !== null && branch.distance_km !== undefined && (
+                  <span dir="ltr">{branch.distance_km} km</span>
+                )}
                 <span>{branch.doctors_count > 1 ? `${branch.doctors_count} أطباء` : 'طبيب واحد'}</span>
-                <strong>{priceText(data.service.price_display, branch.from_price, unitOf(data.service))}</strong>
+                <strong>{priceText(data.service.price_display, branch.from_price, unit)}</strong>
               </div>
             </li>
           ))}
@@ -259,7 +265,9 @@ function SlotPicker({ service, branch, doctor }) {
               </li>
             ))}
           </ul>
-          {day && (times.loading ? <Loading /> : times.error ? <ErrorState error={times.error} onRetry={times.reload} /> : (
+          {/* `times` is skipped until a day is picked, so for one render after the click it has neither data nor a
+              loading flag yet: no data and no error means the request is about to start. */}
+          {day && (times.loading || (!times.data && !times.error) ? <Loading /> : times.error ? <ErrorState error={times.error} onRetry={times.reload} /> : (
             times.data.slots.length === 0 ? (
               <EmptyState title="لا توجد أوقات في هذا اليوم" />
             ) : (
