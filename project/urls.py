@@ -47,7 +47,11 @@ urlpatterns = [
     # old address — a stale bookmark, the old login or dashboard — lands here.
     # A literal path rather than reverse('spa'): that pattern's optional
     # group is not something to trust reverse() with on every request.
-    path('', lambda request: redirect('/app/'), name='index'),
+    # The bare domain is the public directory of clinics — the store every
+    # visitor sees first — served in place, with no redirect and no /app in the
+    # address (api/spa.py; the page itself is api/directory.py's data). Staff
+    # use /app/; a stale bookmark below still lands there.
+    path('', spa_index, name='index'),
     path('<path:unused_path>/', unknown_path),
 
 ] 

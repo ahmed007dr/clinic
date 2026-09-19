@@ -89,6 +89,37 @@ export function PortalSettings() {
             (الاسم والهاتف) طوال حجزه المؤكّد لديهم، ولا يرون ملفه ولا سجله في عيادته الأصلية.
           </p>
 
+          <Checkbox
+            label="إظهار المجمع في دليل العيادات العام"
+            checked={Boolean(data.listed_in_directory)}
+            disabled={save.submitting}
+            onChange={async (event) => {
+              try {
+                setData(await save.run({ listed_in_directory: event.target.checked }))
+                toast.success(t('common.saved'))
+              } catch (caught) {
+                toast.error(caught.message)
+              }
+            }}
+          />
+          <p className="ui-muted" style={{ fontSize: 'var(--text-sm)', margin: 0 }}>
+            مغلق افتراضياً: صفحتك العامة تُفتح برابطها فقط. عند تفعيله يجدك الزوار في دليل العيادات بالاسم والعنوان
+            والتخصص والخدمة، بما تنشره في صفحتك العامة فقط (الشعار والغلاف المعتمدان، أسماء العيادات وعناوينها،
+            التخصصات، والخدمات المتاحة للحجز مع أقل سعر). لا يظهر أي رقم هاتف أو بيان عن الأطباء أو المرضى.
+          </p>
+          {data.listed_in_directory && data.directory_url && (
+            <div>
+              <div className="ui-field__label">رابط دليل العيادات</div>
+              <div className="ui-row">
+                <input className="ui-input" dir="ltr" readOnly value={data.directory_url}
+                  onFocus={(event) => event.target.select()} />
+                <Button size="sm" onClick={() => navigator.clipboard?.writeText(data.directory_url)}>
+                  {t('common.copy')}
+                </Button>
+              </div>
+            </div>
+          )}
+
           <ul className="ui-muted" style={{ fontSize: 'var(--text-sm)', margin: 0, paddingInlineStart: 'var(--s5)' }}>
             <li>يرى المريض دائماً: مواعيده، روشتاته، مدفوعاته، تقدّم خطة علاجه، وحساسيته المسجلة.</li>
             <li>التحاليل والمستندات تظهر فقط بعد أن يضغط الطبيب «إصدار للمريض».</li>

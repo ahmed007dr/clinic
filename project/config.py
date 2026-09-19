@@ -11,13 +11,16 @@ VITE_BASE_URL in frontend/.env.production in step.
 """
 
 import os
+from pathlib import Path
 
-#IS_PRODUCTION = False  # development
-IS_PRODUCTION = True  # production
+from environ import Env
+
+IS_PRODUCTION = False  # development
+#IS_PRODUCTION = True  # production
 
 
-#USE_POSTGRES = False  # SQLite  (db.sqlite3 next to manage.py)
-USE_POSTGRES = True  # PostgreSQL (connection string: POSTGRES_URL in .env)
+USE_POSTGRES = False  # SQLite  (db.sqlite3 next to manage.py)
+#USE_POSTGRES = True  # PostgreSQL (connection string: POSTGRES_URL in .env)
 
 # Independent of IS_PRODUCTION on purpose: you can run development mode against
 # PostgreSQL, or a throwaway production check against SQLite. The PostgreSQL
@@ -25,10 +28,15 @@ USE_POSTGRES = True  # PostgreSQL (connection string: POSTGRES_URL in .env)
 #   POSTGRES_URL=postgres://USER:PASSWORD@HOST:PORT/DBNAME
 # in .env (append ?sslmode=require for a managed host).
 
-# A real environment variable beats the two switches above, so a test run, a CI
-# job or a one-off command can choose without editing — and accidentally
-# committing — this file:
+# An environment variable beats the two switches above, and so does the same
+# name in .env — which is git-ignored. So your own machine can say
+#     DJANGO_ENV=development
+#     DJANGO_DB=sqlite
+# in its .env and the committed file above stays on production for the server,
+# with nothing to remember to flip back before a commit. A real environment
+# variable (a test run, CI, a one-off command) beats .env in turn.
 #     DJANGO_ENV=development|production      DJANGO_DB=sqlite|postgres
+Env.read_env(Path(__file__).resolve().parent.parent / '.env')
 _env = os.environ.get('DJANGO_ENV', '').strip().lower()
 if _env in ('development', 'production'):
     IS_PRODUCTION = _env == 'production'

@@ -36,6 +36,18 @@ export default defineConfig(({ command, mode }) => {
           handler: (html) => html.replaceAll('%SERVER_URL%', serverUrl),
         },
       },
+      {
+        // In production Django serves the page at the bare domain (`/`); this
+        // does the same here, in place — the address stays `/` — so the
+        // directory can be worked on without a build. main.jsx reads the path.
+        name: 'bare-domain-is-the-directory',
+        configureServer(server) {
+          server.middlewares.use((request, _response, next) => {
+            if (request.url === '/' || request.url?.startsWith('/?')) request.url = appBase
+            next()
+          })
+        },
+      },
     ],
     define: {
       'import.meta.env.VITE_SERVER_URL': JSON.stringify(serverUrl),
@@ -69,7 +81,7 @@ export default defineConfig(({ command, mode }) => {
       },
     },
     server: {
-      port: 5173,
+      port: 4000,
       // Development only. Everything outside the app's own prefix — /api,
       // /media, /static, and the Django pages the app links to (exports,
       // prescription print) — goes to Django, exactly as it would in

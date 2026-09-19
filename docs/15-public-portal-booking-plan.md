@@ -435,10 +435,38 @@ inventory of goods is **not** part of this — nothing counts how many are left.
 
 ---
 
+## 8c. The public directory — the site's front door (requested 2026-09-19) — §10
+
+The user asked where the "store" of clinics is: the public page existed per group
+(`/app/portal/<slug>`) but nothing listed the groups. Decision: a public directory,
+**opt-in per group** (`Tenant.listed_in_directory`, default off, Owner's switch), at
+the bare domain. **`/` itself is the directory — served in place, no redirect and no
+`/app`** (user, 2026-09-19: the store is the system's main domain). Django serves the SPA
+shell at `/` (`project/urls.py`); `main.jsx` renders the router-free `DirectoryPage` when the
+path is exactly `/`, and its links reach the app under `/app` with a full page load. Staff
+sign in from the link in its header; stale bookmarks (`/patients/…`) still land in `/app/`
+(`dashboard/test_entry.py`). In dev, a Vite middleware answers `/` with the same shell.
+
+### Backend `DONE`
+- [x] `Tenant.listed_in_directory` (`tenants.0026`, additive).
+- [x] `api/directory.py` — `GET /api/directory/?q=`: public, throttled (`directory`, 60/min), cached one minute; each listed **running** group is read in its own tenant context (never one sweep across groups).
+- [x] A card carries only what the public page already shows: approved logo/cover, running public clinics (name + address), specialties minus hidden, bookable services with the lowest price. No phone, e-mail, doctors, patients, staff (a test walks the response for secrets).
+- [x] Search: every word must appear in the group name, a clinic, an address, a specialty or a service.
+- [x] `PATCH /api/clinic-settings/` takes `listed_in_directory` (Owner only, real boolean) and clears the cache; the payload also returns `directory_url`.
+- [x] Tests: `api/tests/test_directory.py` (19).
+
+### Frontend `DONE` in source
+- [x] `features/directory/DirectoryPage.jsx` + `directory.css` at the bare domain: search box, one card per group linking to its public page and its services; empty and error states; links to staff login and to "open your clinic".
+- [x] Owner switch and copyable directory link in Settings › Patient portal.
+- [ ] Not browser-tested; `dist` not rebuilt.
+
+---
+
 ## 9. Progress log
 
 | Date | Part | Result |
 |---|---|---|
+| 2026-09-19 | Public directory (§8c) | `tenants.0026`; `api/directory.py`; bare-domain page (`main.jsx` + `spa_index` at `/`); Owner switch; 19 tests OK; `vite build` OK (scratch dir) |
 | 2026-09-19 | Plan written; baseline checked (settings + migrations) | see §2 |
 | 2026-09-19 | Phase 1 backend | DONE — 3 additive migrations (`branches.0012`, `employees.0011`, `tenants.0021`), `branches/media.py`, `api/views/public_media.py`, `PublicAboutView` extended; 45 + 69 tests OK |
 | 2026-09-19 | Online shift (D13) | `billing.0011`; 19 tests OK; money/shift regression 147 OK |

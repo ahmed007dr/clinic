@@ -16,7 +16,7 @@ from .views.settings import ClinicSettingsView
 from .views import about, attendance, contracts, coupons, email_log, intake, meta, owner, owner_email, shifts
 from .views.print_settings import PrintSettingsView
 from .views import branch_services, doctor_profile, my_report, public_media, schedules
-from . import platform, platform_backups, platform_business, platform_control, platform_pay, signup
+from . import directory, platform, platform_backups, platform_business, platform_control, platform_pay, signup
 
 router = DefaultRouter()
 
@@ -103,6 +103,8 @@ urlpatterns = [
     path("subscription/invoices/", platform_pay.OwnerInvoicesView.as_view(), name="subscription-invoices"),
     path("subscription/invoices/<int:pk>/pay/", platform_pay.OwnerInvoicePayView.as_view(), name="subscription-invoice-pay"),
     # Asking to open a clinic group (api/signup.py). Public.
+    # The public directory of clinic groups — the site's front door (api/directory.py).
+    path("directory/", directory.DirectoryView.as_view(), name="directory"),
     path("signup/options/", signup.SignupOptionsView.as_view(), name="signup-options"),
     path("signup/", signup.SignupView.as_view(), name="signup"),
     # Every gateway reports back here (api/platform_pay.py). Public.

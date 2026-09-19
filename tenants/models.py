@@ -32,6 +32,10 @@ class Tenant(models.Model):
     # portal? Off by default: the portal keeps offering only the patient's own
     # clinic until the Owner turns this on (docs/15, D10).
     portal_allow_other_branches = models.BooleanField(default=False)
+    # Listed in the public directory of clinic groups (api/directory.py,
+    # docs/15 §10). Off by default: a group is public at its own address
+    # only until the Owner chooses to be found by strangers.
+    listed_in_directory = models.BooleanField(default=False)
     # The group's public page logo and cover — the Owner's, live at once
     # (branches/media.py, docs/15 D8).
     public_logo = models.ImageField(upload_to=group_upload_path, blank=True, null=True)

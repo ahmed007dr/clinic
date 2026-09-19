@@ -1,4 +1,4 @@
-"""The front door is the React application.
+"""The front door is the React application; the bare domain is its public directory of clinics.
 
 Typing the bare domain used to open the old server-rendered login, and after
 signing in the old dashboard — a whole second interface the clinic was never
@@ -6,14 +6,24 @@ meant to work in. The old screens stay reachable at their own URLs, because
 the React app still links to a few of them.
 """
 
+import tempfile
+from pathlib import Path
+from unittest import mock
+
 from django.test import TestCase
 
 
 class EntryPointTests(TestCase):
-    def test_the_domain_opens_the_react_app(self):
-        response = self.client.get("/")
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], "/app/")
+    def test_the_bare_domain_is_the_public_directory_in_place(self):
+        """The domain and nothing after it: no redirect, no /app in the address."""
+        with tempfile.TemporaryDirectory() as folder:
+            shell = Path(folder) / "index.html"
+            shell.write_text("<!doctype html><div id=root></div>", encoding="utf-8")
+            with mock.patch("api.spa.SPA_INDEX", shell):
+                response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id=root')
+        self.assertEqual(response["Cache-Control"], "no-store")
 
     def test_a_stale_bookmark_lands_in_the_react_app(self):
         response = self.client.get("/patients/12/no-longer-here/")

@@ -143,6 +143,8 @@ REST_FRAMEWORK = {
         "portal_availability": "120/min",
         # Asking to open a clinic group (api/signup.py).
         "signup": "5/hour",
+        # The public directory of clinic groups (api/directory.py).
+        "directory": "60/min",
     },
     "UNAUTHENTICATED_USER": "django.contrib.auth.models.AnonymousUser",
 }

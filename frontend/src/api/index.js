@@ -162,6 +162,11 @@ export const shifts = {
   reopen: (uuid) => http.post(`/shifts/${uuid}/reopen/`),
 }
 
+/** The public directory of clinic groups (api/directory.py). Public. */
+export const directory = {
+  list: (params) => http.get('/directory/', params),
+}
+
 /** Asking to open a clinic group (public). */
 export const signup = {
   options: () => http.get('/signup/options/'),
@@ -361,6 +366,7 @@ export const api = {
   subscription,
   platform,
   signup,
+  directory,
   clinicSettings,
   meta,
   intake,
