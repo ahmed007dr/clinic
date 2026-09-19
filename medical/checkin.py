@@ -51,7 +51,7 @@ def in_room(user):
     bookings = (
         scope_queryset_to_user(Appointment.objects.all(), user)
         .filter(status=ENTERED, scheduled_date__date=timezone.now().date())
-        .select_related("patient")
+        .select_related("patient", "service")
         .order_by("scheduled_date")
     )
     return [(booking, ensure_visit(booking, user)) for booking in bookings]

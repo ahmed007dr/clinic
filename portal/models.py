@@ -217,3 +217,81 @@ class PortalSession(TenantOwnedModel):
             and now - self.last_seen < SESSION_IDLE
             and now - self.created_at < SESSION_ABSOLUTE
         )
+
+
+class PortalVerification(TenantOwnedModel):
+    """A pending step that needs proof the person controls an e-mail address:
+    creating a portal account, or changing the e-mail on one (docs/15, D5).
+
+    The details the person typed wait here — never in the browser, never in a
+    Patient row — until the right code comes back. Like every portal
+    credential the code and the ticket are stored **hashed**. The ticket is the
+    opaque handle the browser holds between the two steps; the code is what
+    travels by the channel. Ten minutes, five guesses, once.
+    """
+
+    class Purpose(models.TextChoices):
+        SIGNUP = "signup", "إنشاء حساب"
+        EMAIL_CHANGE = "email_change", "تغيير البريد"
+
+    purpose = models.CharField(max_length=20, choices=Purpose.choices)
+    ticket_hash = models.CharField(max_length=64, unique=True)
+    code_hash = models.CharField(max_length=64)
+    channel = models.CharField(max_length=20, default="email")
+    #: What was submitted (a signup's fields incl. the hashed password; the new
+    #: address of an e-mail change). Never a plain-text secret.
+    data = models.JSONField(default=dict)
+    #: The existing patient a signup will be linked to, or whose e-mail is changing.
+    patient = models.ForeignKey(
+        "patients.Patient", on_delete=models.CASCADE, null=True, blank=True, related_name="+"
+    )
+    attempts = models.PositiveSmallIntegerField(default=0)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta(TenantOwnedModel.Meta):
+        verbose_name = "تحقق بوابة"
+        indexes = [models.Index(fields=["tenant", "created_at"], name="portal_verif_created_idx")]
+
+    @classmethod
+    def issue(cls, *, tenant, purpose, data, patient=None, channel="email"):
+        """Returns (row, ticket, code). The ticket and the code exist only in
+        this return value."""
+        ticket, code = new_token(), new_code()
+        row = cls.objects.create(
+            tenant=tenant, purpose=purpose, data=data, patient=patient, channel=channel,
+            ticket_hash=hash_token(ticket), code_hash=hash_token(code),
+            expires_at=timezone.now() + CODE_TTL,
+        )
+        return row, ticket, code
+
+    @classmethod
+    def recent_count(cls, *, purpose, key, key_value, within=timedelta(hours=1)):
+        """How many were issued lately for the same `data[key]` — the limit
+        that stops one address being flooded with codes."""
+        since = timezone.now() - within
+        return sum(
+            1 for row in cls.objects.filter(purpose=purpose, created_at__gt=since)
+            if row.data.get(key) == key_value
+        )
+
+    @property
+    def is_usable(self):
+        return (
+            self.used_at is None
+            and self.expires_at > timezone.now()
+            and self.attempts < CODE_MAX_ATTEMPTS
+        )
+
+    def verify(self, code):
+        """True once, for the right code. A wrong guess is counted."""
+        if not self.is_usable:
+            return False
+        if secrets.compare_digest(self.code_hash, hash_token(str(code).strip())):
+            self.used_at = timezone.now()
+            self.save(update_fields=["used_at"])
+            return True
+        self.attempts += 1
+        self.save(update_fields=["attempts"])
+        return False

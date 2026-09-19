@@ -41,6 +41,21 @@ def refuse_discount_beyond_the_line(attrs, instance):
         raise serializers.ValidationError({"discount": "الخصم أكبر من قيمة البند."})
 
 
+def refuse_quantity_beyond_the_service(attrs, instance):
+    """A service sold by quantity has limits the Owner or an Admin set (docs/15,
+    D14); what the doctor records for it — pulses in a session, a procedure's
+    amount — stays inside them, whatever the form sent."""
+    from billing.pricing import quantity_problem
+
+    service = attrs.get("service", getattr(instance, "service", None))
+    if service is None or not service.requires_quantity:
+        return
+    quantity = attrs.get("quantity", getattr(instance, "quantity", None))
+    problem = quantity_problem(service, quantity)
+    if problem:
+        raise serializers.ValidationError({"quantity": problem})
+
+
 class VisitMatchesPatient:
     """A clinical record's visit must be the same patient's visit.
 
@@ -62,7 +77,7 @@ class VisitMatchesPatient:
 
 
 class VisitSerializer(ClinicSerializer):
-    patient = TenantScopedRelatedField(model=Patient, branch_field="branch")
+    patient = TenantScopedRelatedField(model=Patient, branch_field="branch", visiting=True)
     doctor = TenantScopedRelatedField(model=Employee, required=False, allow_null=True)
     branch = TenantScopedRelatedField(model=Branch, required=False, allow_null=True)
 
@@ -127,7 +142,7 @@ class PrescriptionSerializer(VisitMatchesPatient, ClinicSerializer):
     visit = TenantScopedRelatedField(model=Visit, branch_field="branch")
     # Taken from the visit when left out: a prescription is written *in* a
     # visit, so its patient is that visit's patient and nothing else.
-    patient = TenantScopedRelatedField(model=Patient, branch_field="branch", required=False)
+    patient = TenantScopedRelatedField(model=Patient, branch_field="branch", visiting=True, required=False)
     doctor = TenantScopedRelatedField(model=Employee, required=False, allow_null=True)
     items = PrescriptionItemSerializer(many=True)
 
@@ -223,7 +238,7 @@ class PrescriptionSerializer(VisitMatchesPatient, ClinicSerializer):
 
 
 class TreatmentPlanSerializer(ActiveChoicesMixin, VisitMatchesPatient, ClinicSerializer):
-    patient = TenantScopedRelatedField(model=Patient, branch_field="branch")
+    patient = TenantScopedRelatedField(model=Patient, branch_field="branch", visiting=True)
     visit = TenantScopedRelatedField(
         model=Visit, branch_field="branch", required=False, allow_null=True
     )
@@ -294,7 +309,7 @@ class TreatmentPlanSerializer(ActiveChoicesMixin, VisitMatchesPatient, ClinicSer
 
 class TreatmentSessionSerializer(ActiveChoicesMixin, ClinicSerializer):
     plan = TenantScopedRelatedField(model=TreatmentPlan, branch_field="branch")
-    patient = TenantScopedRelatedField(model=Patient, branch_field="branch")
+    patient = TenantScopedRelatedField(model=Patient, branch_field="branch", visiting=True)
     doctor = TenantScopedRelatedField(model=Employee, required=False, allow_null=True)
     branch = TenantScopedRelatedField(model=Branch, required=False, allow_null=True)
     service = TenantScopedRelatedField(model=Service, required=False, allow_null=True)
@@ -343,12 +358,13 @@ class TreatmentSessionSerializer(ActiveChoicesMixin, ClinicSerializer):
             price_field="unit_price", discount_field="discount",
         )
         refuse_discount_beyond_the_line(attrs, self.instance)
+        refuse_quantity_beyond_the_service(attrs, self.instance)
         return attrs
 
 
 class ProcedureSerializer(ActiveChoicesMixin, VisitMatchesPatient, ClinicSerializer):
     visit = TenantScopedRelatedField(model=Visit, branch_field="branch")
-    patient = TenantScopedRelatedField(model=Patient, branch_field="branch")
+    patient = TenantScopedRelatedField(model=Patient, branch_field="branch", visiting=True)
     doctor = TenantScopedRelatedField(model=Employee, required=False, allow_null=True)
     branch = TenantScopedRelatedField(model=Branch, required=False, allow_null=True)
     service = TenantScopedRelatedField(model=Service, required=False, allow_null=True)
@@ -386,11 +402,12 @@ class ProcedureSerializer(ActiveChoicesMixin, VisitMatchesPatient, ClinicSeriali
             price_field="unit_price", discount_field="discount",
         )
         refuse_discount_beyond_the_line(attrs, self.instance)
+        refuse_quantity_beyond_the_service(attrs, self.instance)
         return attrs
 
 
 class LabResultSerializer(VisitMatchesPatient, ClinicSerializer):
-    patient = TenantScopedRelatedField(model=Patient, branch_field="branch")
+    patient = TenantScopedRelatedField(model=Patient, branch_field="branch", visiting=True)
     visit = TenantScopedRelatedField(
         model=Visit, branch_field="branch", required=False, allow_null=True
     )
@@ -443,7 +460,7 @@ class LabResultSerializer(VisitMatchesPatient, ClinicSerializer):
 
 
 class MedicalAttachmentSerializer(VisitMatchesPatient, ClinicSerializer):
-    patient = TenantScopedRelatedField(model=Patient, branch_field="branch")
+    patient = TenantScopedRelatedField(model=Patient, branch_field="branch", visiting=True)
     visit = TenantScopedRelatedField(
         model=Visit, branch_field="branch", required=False, allow_null=True
     )
@@ -535,7 +552,7 @@ class MedicalAttachmentSerializer(VisitMatchesPatient, ClinicSerializer):
 class AllergySerializer(ClinicSerializer):
     """A standing fact about the patient, shown on every encounter."""
 
-    patient = TenantScopedRelatedField(model=Patient, branch_field="branch")
+    patient = TenantScopedRelatedField(model=Patient, branch_field="branch", visiting=True)
     patient_name = serializers.CharField(source="patient.name", read_only=True)
     severity_label = serializers.CharField(source="get_severity_display", read_only=True)
     recorded_by_name = serializers.CharField(

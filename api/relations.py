@@ -44,9 +44,12 @@ class TenantScopedRelatedField(serializers.SlugRelatedField):
     service or an expense category.
     """
 
-    def __init__(self, model, branch_field=None, **kwargs):
+    def __init__(self, model, branch_field=None, visiting=False, **kwargs):
         self.model = model
         self.branch_field = branch_field
+        # Also offer patients of another clinic who have a confirmed booking
+        # here (accounts.roles.scope_queryset_to_user, docs/15 D10).
+        self.visiting = visiting
         kwargs.setdefault("slug_field", "uuid")
         # DRF requires one or the other; ours is computed, so declare read-only
         # intent away and supply the queryset through get_queryset() below.
@@ -59,7 +62,7 @@ class TenantScopedRelatedField(serializers.SlugRelatedField):
         request = self.context.get("request")
         if request is not None and self.branch_field:
             queryset = scope_queryset_to_user(
-                queryset, request.user, self.branch_field
+                queryset, request.user, self.branch_field, visiting=self.visiting
             )
         return queryset
 

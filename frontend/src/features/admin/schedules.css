@@ -1,0 +1,24 @@
+/* Doctors' weekly hours. */
+
+.schedule-pickers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--s3);
+}
+
+.schedule-table td,
+.schedule-table th {
+  vertical-align: middle;
+}
+
+.schedule-table .ui-input {
+  min-width: 6.5rem;
+}
+
+.schedule-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3);
+  margin-top: var(--s4);
+}

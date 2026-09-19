@@ -15,7 +15,30 @@ import { createResource } from './resource'
 export const branches = createResource('branches')
 /* What the portal's "About" tab says about each branch — the Owner's, and a branch Admin's own. */
 export const about = createResource('about')
+/* The public page's logo and cover: uploads (multipart FormData), and the Owner's approval. */
+export const publicMedia = {
+  get: () => http.get('/public-media/'),
+  uploadGroup: (form) => http.post('/public-media/group/', form),
+  removeGroup: (kind) => http.delete(`/public-media/group/${kind}/`),
+  uploadBranch: (uuid, form) => http.post(`/public-media/branches/${uuid}/`, form),
+  /** `pending`: withdraw the waiting image instead of taking the live one down. */
+  removeBranch: (uuid, kind, pending = false) =>
+    http.delete(`/public-media/branches/${uuid}/${kind}/${pending ? '?pending=1' : ''}`),
+  review: (uuid, decision, note = '') => http.post(`/public-media/branches/${uuid}/review/`, { decision, note }),
+}
 export const services = createResource('services')
+/* Which services each clinic offers (and takes online bookings for): management's switch. */
+export const branchServices = {
+  get: (branch) => http.get('/branch-services/', { branch }),
+  set: (body) => http.put('/branch-services/', body),
+}
+/* Doctors' weekly hours, their time off and the clinics' closed days: what the website offers times from. */
+export const schedules = {
+  get: (params) => http.get('/schedules/', params),
+  save: (body) => http.put('/schedules/', body),
+}
+export const doctorTimeOff = createResource('doctor-time-off')
+export const branchHolidays = createResource('branch-holidays')
 export const employeeTypes = createResource('employee-types')
 export const specializations = createResource('specializations')
 export const salaryTypes = createResource('salary-types')
@@ -50,6 +73,10 @@ export const appointments = {
   followUp: (uuid, date) => http.post(`/appointments/${uuid}/follow-up/`, { date }),
   /** This booking's prescriptions, as print links only. */
   prescriptions: (uuid) => http.get(`/appointments/${uuid}/prescriptions/`),
+  /** The doctor sets the final quantity of a service sold by quantity (docs/15 D14). */
+  setQuantity: (uuid, quantity) => http.post(`/appointments/${uuid}/set-quantity/`, { quantity }),
+  /** Drop a patient's request to move this booking, without moving it. */
+  dismissReschedule: (uuid) => http.post(`/appointments/${uuid}/dismiss-reschedule/`),
 }
 
 /* Money */

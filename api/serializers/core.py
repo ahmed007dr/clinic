@@ -39,6 +39,9 @@ class BranchAboutSerializer(ClinicSerializer):
         fields = [
             "uuid", "name", "is_active",
             "about_visible", "hidden_specializations",
+            # A website booking here is confirmed at once instead of waiting
+            # for the clinic's call (docs/15, D3).
+            "online_booking_confirms_at_once", "online_cancel_notice_hours",
             "address", "phone", "map_url", "working_hours", "about_text",
             "specializations",
         ]
@@ -91,9 +94,30 @@ class ServiceSerializer(ClinicSerializer):
         fields = [
             "uuid", "name", "description",
             "specialization", "specialization_name", "base_price",
+            # What the public page says about it (docs/15): how long a session
+            # takes, and whether the price is final, a floor or set after
+            # evaluation.
+            "duration_minutes", "price_display",
+            # Sold by quantity (docs/15): the price is then per unit and a booking
+            # asks for how many. Management's to set.
+            "requires_quantity", "doctor_sets_quantity", "quantity_unit", "min_quantity", "max_quantity",
             # Stopped by management: out of every picker (api/views/core.py).
             "is_active",
         ]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+
+        def value(name, default=None):
+            return attrs[name] if name in attrs else getattr(self.instance, name, default)
+
+        if value("requires_quantity", False):
+            minimum, maximum = value("min_quantity"), value("max_quantity")
+            if minimum is None or minimum <= 0:
+                raise serializers.ValidationError({"min_quantity": "أقل كمية أكبر من صفر."})
+            if maximum is not None and maximum < minimum:
+                raise serializers.ValidationError({"max_quantity": "أكبر كمية لا تقل عن أقل كمية."})
+        return attrs
 
 
 class EmployeeSerializer(ClinicSerializer):
@@ -134,6 +158,8 @@ class EmployeeSerializer(ClinicSerializer):
             "extra_branches", "extra_branch_names",
             # The doctor's default share of what is paid (billing.pricing).
             "commission_percent",
+            # Whether the doctor is shown on the public page (docs/15).
+            "show_publicly",
         ]
 
     def get_specialization_names(self, employee):

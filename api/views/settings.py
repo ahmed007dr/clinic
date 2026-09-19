@@ -15,6 +15,8 @@ class ClinicSettingsView(APIView):
         return {
             "portal_show_diagnosis": tenant.portal_show_diagnosis,
             "portal_self_registration": tenant.portal_self_registration,
+            # A patient of one clinic may book at another (docs/15, D10).
+            "portal_allow_other_branches": tenant.portal_allow_other_branches,
             "registration_url": request.build_absolute_uri(f"/app/portal/{tenant.slug}/register"),
             "portal_url": request.build_absolute_uri(f"/app/portal/{tenant.slug}/"),
         }
@@ -25,7 +27,7 @@ class ClinicSettingsView(APIView):
     def patch(self, request):
         tenant = get_current_tenant()
         changed = []
-        for field in ("portal_show_diagnosis", "portal_self_registration"):
+        for field in ("portal_show_diagnosis", "portal_self_registration", "portal_allow_other_branches"):
             value = request.data.get(field)
             if value is None:
                 continue

@@ -1,16 +1,19 @@
 import { useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 
 import { Button, Input } from '@/components/ui'
 import { useDocumentTitle } from '@/hooks/useDebounce'
 import { useT } from '@/i18n'
 
+import { safeNext } from './next'
 import { usePortal } from './PortalContext'
 
 export function PortalLoginPage() {
   const { api, me, setMe, slug } = usePortal()
   const { t } = useT()
   const navigate = useNavigate()
+  const { search } = useLocation()
+  const after = safeNext(search, slug) ?? `/portal/${slug}`
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   // 'password', or 'code' — a one-time code emailed to the patient.
@@ -23,7 +26,7 @@ export function PortalLoginPage() {
 
   useDocumentTitle('بوابة المرضى')
 
-  if (me) return <Navigate to={`/portal/${slug}`} replace />
+  if (me) return <Navigate to={after} replace />
 
   const switchMode = (next) => {
     setMode(next)
@@ -46,7 +49,7 @@ export function PortalLoginPage() {
         return
       }
       setMe(mode === 'code' ? await api.verifyCode(phone, code) : await api.login(phone, password))
-      navigate(`/portal/${slug}`, { replace: true })
+      navigate(after, { replace: true })
     } catch (caught) {
       setError(caught.message)
     } finally {
@@ -103,6 +106,9 @@ export function PortalLoginPage() {
         </p>
         <p className="portal-auth__note">
           ليس لديك حساب أو نسيت كلمة المرور؟ اطلب رابط دعوة جديداً من استقبال العيادة.
+        </p>
+        <p className="portal-auth__note">
+          <Link to={`/portal/${slug}/signup${search}`}>إنشاء حساب جديد</Link>
         </p>
         <p className="portal-auth__note">
           <Link to={`/portal/${slug}/register`}>{t('intake.portal_register_link')}</Link>

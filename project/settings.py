@@ -137,6 +137,10 @@ REST_FRAMEWORK = {
         "portal_login": "10/min",
         # Public self-registration: generous for a family, useless for a bot.
         "portal_register": "10/hour",
+        # Creating a portal account (portal/account.py): also limited per address.
+        "portal_signup": "10/hour",
+        # Public reads of the times a doctor can be booked (portal/catalog.py).
+        "portal_availability": "120/min",
         # Asking to open a clinic group (api/signup.py).
         "signup": "5/hour",
     },

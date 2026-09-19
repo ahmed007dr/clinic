@@ -32,6 +32,10 @@ class ClinicViewSet(viewsets.ModelViewSet):
     #: means the resource is legitimately clinic-wide (services, categories).
     branch_field = "branch"
 
+    #: Also reach patients of another clinic who have a confirmed booking here
+    #: (docs/15, D10). Off unless a resource needs it.
+    visiting_patients = False
+
     #: Model attribute to stamp with the acting user on create, when the model
     #: has one. Kept explicit rather than guessed from the field list.
     created_by_field = None
@@ -53,7 +57,7 @@ class ClinicViewSet(viewsets.ModelViewSet):
         queryset = self.filter_tenant_queryset(queryset)
         if self.branch_field:
             queryset = scope_queryset_to_user(
-                queryset, self.request.user, self.branch_field
+                queryset, self.request.user, self.branch_field, visiting=self.visiting_patients
             )
         ordering = getattr(self, "ordering", None)
         return queryset.order_by(*ordering) if ordering else queryset

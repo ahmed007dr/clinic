@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 import { api } from '@/api'
 import { Badge } from '@/components/ui'
 import { CrudPage } from '@/components/data/CrudPage'
@@ -23,6 +25,11 @@ export function AboutPage() {
       resource={api.about}
       canCreate={false}
       canDelete={false}
+      beforeTable={
+        <p className="ui-muted">
+          الشعار وصورة الغلاف للصفحة العامة: <Link to="/about/media">إدارة الصور</Link>
+        </p>
+      }
       searchPlaceholder="ابحث باسم الفرع أو عنوانه…"
       columns={[
         { key: 'name', header: 'الفرع' },
@@ -59,6 +66,20 @@ export function AboutPage() {
           label: 'إظهار هذا الفرع في تبويب «عن العيادة»',
           type: 'checkbox',
           span: 2,
+        },
+        {
+          name: 'online_booking_confirms_at_once',
+          label: 'تأكيد الحجز من الموقع فوراً',
+          type: 'checkbox',
+          span: 2,
+          hint: 'مغلق: يصل الحجز كطلب وتتصل العيادة بالمريض لتحديد الموعد. مفتوح: يُؤكَّد الوقت المختار ويُحجز للمريض مباشرة.',
+        },
+        {
+          name: 'online_cancel_notice_hours',
+          label: 'مهلة إلغاء الحجز المؤكَّد من الموقع (ساعات)',
+          type: 'number',
+          default: 24,
+          hint: 'يستطيع المريض إلغاء حجزه المؤكَّد أو طلب نقله حتى هذا العدد من الساعات قبل الموعد. ٠ = في أي وقت قبله. الطلب غير المؤكَّد يُسحب دائماً.',
         },
         // The branch's specialties come with the record and are only listed here
         // (they are worked out from its doctors); never sent back.

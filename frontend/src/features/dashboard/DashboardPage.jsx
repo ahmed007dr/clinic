@@ -18,6 +18,7 @@ import { useAsync } from '@/hooks/useApi'
 import { useAuth } from '@/hooks/useAuth'
 import { formatDate, formatMoney, formatNumber, formatTime } from '@/lib/format'
 
+import { RoomQuantity } from './RoomQuantity'
 import './dashboard.css'
 
 /**
@@ -65,6 +66,17 @@ export function DashboardPage() {
                   { key: 'patient_name', header: 'المريض' },
                   { key: 'visit_serial', header: 'الزيارة', numeric: true },
                   { key: 'since', header: 'الموعد', render: (row) => formatTime(row.since) },
+                  {
+                    key: 'service_name',
+                    header: 'الخدمة',
+                    // A service sold by quantity that the doctor sizes in the room.
+                    render: (row) =>
+                      row.doctor_sets_quantity ? (
+                        <RoomQuantity row={row} onChanged={room.reload} />
+                      ) : (
+                        row.service_name || '—'
+                      ),
+                  },
                   {
                     key: '__go',
                     actions: true,
@@ -126,6 +138,17 @@ export function DashboardPage() {
             to="/appointments"
             icon="📅"
           />
+          {/* Website requests waiting for the clinic's call and confirmation (docs/15). */}
+          {data?.appointments?.online_requests > 0 && (
+            <StatTile
+              label="طلبات من الموقع"
+              value={formatNumber(data.appointments.online_requests)}
+              hint="بانتظار الاتصال والتأكيد"
+              tone="warn"
+              to="/appointments?status=requested&source=portal"
+              icon="🌐"
+            />
+          )}
           {/* Only sent to whoever may see it (billing.access): today's figure
               for the front desk, the month as well for management. */}
           {data?.revenue && (

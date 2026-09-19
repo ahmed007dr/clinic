@@ -21,14 +21,27 @@ export function ShiftListPage() {
 
   return (
     <>
-      <PageHeader title="الورديات" subtitle="مراجعة ورديات الاستقبال والإدارة وإغلاقها وإعادة فتحها" />
+      <PageHeader title="الورديات" subtitle="مراجعة ورديات الاستقبال والإدارة ووردية الدفع الإلكتروني وإغلاقها وإعادة فتحها" />
       <ResourceTable
         resource={api.shifts}
         params={{ status, from, to }}
         searchable={false}
         onRowClick={(row) => navigate(`/shifts/${row.uuid}`)}
         columns={[
-          { key: 'user_name', header: 'الموظف' },
+          {
+            key: 'user_name',
+            header: 'الموظف',
+            // The clinic's online payments are one shift of their own, opened by
+            // the system and closed by management (billing/shifts.py).
+            render: (row) =>
+              row.kind === 'online' ? (
+                <>
+                  <strong>{row.user_name}</strong> <Badge tone="info">تلقائية</Badge>
+                </>
+              ) : (
+                row.user_name
+              ),
+          },
           { key: 'branch_name', header: 'الفرع' },
           { key: 'opened_at', header: 'الفتح', render: (row) => formatDateTime(row.opened_at) },
           {

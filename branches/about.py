@@ -38,3 +38,37 @@ def visible_specialties(branch, specialties):
     this branch's management hid from the portal's "About" tab."""
     hidden = {str(s.uuid) for s in branch.about_hidden_specialties.all()}
     return [s for s in specialties if s["uuid"] not in hidden]
+
+
+def public_doctors_by_branch():
+    """`{branch id: [{"name", "specializations": [{"uuid", "name"}], "tagline",
+    "links"}]}` — the doctors who agreed to be shown (`Employee.show_publicly`),
+    whose logins management has not stopped, under every clinic they work in.
+
+    Only what a clinic publishes anyway: the name, the specialties and the
+    doctor's own approved line and links (`public_profile`, approved by the
+    clinic's Admin). Never contact details, identifiers or anything about pay.
+    """
+    from .printing import link_items
+
+    doctors = (
+        Employee.objects.filter(employee_type__name="Doctor", show_publicly=True)
+        .exclude(user_account__is_active=False)
+        .prefetch_related("specializations", "extra_branches")
+        .order_by("name")
+    )
+    found = {}
+    for doctor in doctors:
+        profile = doctor.public_profile or {}
+        entry = {
+            "name": doctor.name,
+            "specializations": [
+                {"uuid": str(s.uuid), "name": s.name}
+                for s in sorted(doctor.specializations.all(), key=lambda s: s.name)
+            ],
+            "tagline": profile.get("tagline", ""),
+            "links": link_items(profile.get("links")),
+        }
+        for branch_id in {doctor.branch_id, *(b.pk for b in doctor.extra_branches.all())}:
+            found.setdefault(branch_id, []).append(entry)
+    return found

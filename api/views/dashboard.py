@@ -64,6 +64,11 @@ class DashboardView(APIView):
                     scheduled_date__date__gt=today,
                     scheduled_date__date__lte=today + timedelta(days=7),
                 ).count(),
+                # Website requests waiting for the clinic's call and confirmation
+                # (docs/15): the front desk's to-do, for the caller's own clinic.
+                "online_requests": appointments.filter(
+                    status="requested", source="portal", scheduled_date__gte=timezone.now() - timedelta(days=1),
+                ).count(),
             },
         }
 

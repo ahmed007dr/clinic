@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import { Button, Tabs } from '@/components/ui'
 import { useAsync } from '@/hooks/useApi'
@@ -18,7 +19,7 @@ import {
 } from './PortalPanels'
 import { usePortal } from './PortalContext'
 import { PortalAbout } from './PortalAbout'
-import { RequestAppointment } from './RequestAppointment'
+import { PortalProfile } from './PortalProfile'
 
 const TABS = [
   { id: 'appointments', label: 'مواعيدي', Panel: AppointmentsPanel },
@@ -28,13 +29,13 @@ const TABS = [
   { id: 'plans', label: 'خطط العلاج', Panel: PlansPanel },
   { id: 'visits', label: 'الزيارات', Panel: VisitsPanel },
   { id: 'payments', label: 'المدفوعات', Panel: PaymentsPanel },
+  { id: 'profile', label: 'حسابي', Panel: PortalProfile },
   { id: 'about', label: 'عن العيادة', Panel: PortalAbout },
 ]
 
 export function PortalHomePage() {
-  const { api, me, setMe } = usePortal()
+  const { api, me, setMe, slug } = usePortal()
   const [tab, setTab] = useState('appointments')
-  const [requesting, setRequesting] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const allergies = useAsync(() => api.allergies(), [api])
   const toast = useToast()
@@ -47,6 +48,9 @@ export function PortalHomePage() {
     const outcome = url.searchParams.get('payment')
     if (!outcome) return
     if (outcome === 'ok') toast.success('تم الدفع بنجاح. شكراً لك.')
+    // Confirmed by the gateway but not yet recorded by the clinic: it shows as
+    // paid only once it is (docs/15, Phase 8).
+    else if (outcome === 'pending') toast.success('استلمنا الدفع وجارٍ تسجيله؛ سيظهر مدفوعاً خلال دقائق.')
     else toast.error('لم تكتمل عملية الدفع.')
     url.searchParams.delete('payment')
     window.history.replaceState(null, '', url)
@@ -78,23 +82,14 @@ export function PortalHomePage() {
           </div>
         )}
 
-        <Button variant="primary" block onClick={() => setRequesting(true)}>طلب موعد</Button>
+        {/* Choose a service, a clinic that offers it, a doctor and one of the times they are free. */}
+        <Link className="ui-btn ui-btn--primary ui-btn--block" to={`/portal/${slug}/services`}>طلب موعد</Link>
 
         <Tabs items={TABS.map(({ id, label }) => ({ id, label }))} active={tab} onChange={setTab} />
         <section className="portal__panel">
           <Panel key={`${tab}-${refreshKey}`} />
         </section>
       </main>
-
-      <RequestAppointment
-        open={requesting}
-        onClose={() => setRequesting(false)}
-        onDone={() => {
-          setRequesting(false)
-          setTab('appointments')
-          setRefreshKey((k) => k + 1)
-        }}
-      />
     </div>
   )
 }

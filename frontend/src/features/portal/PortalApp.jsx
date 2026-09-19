@@ -6,11 +6,14 @@ import { Loading, Toasts } from '@/components/ui'
 import { portalApi } from './portalApi'
 import { PortalContext } from './PortalContext'
 import { PortalAboutPage } from './PortalAboutPage'
+import { PortalCatalogPage } from './PortalCatalogPage'
 import { PortalFooter } from './PortalFooter'
 import { PortalHomePage } from './PortalHomePage'
 import { PortalInvitePage } from './PortalInvitePage'
+import { PortalLandingPage } from './PortalLandingPage'
 import { PortalLoginPage } from './PortalLoginPage'
 import { PortalRegisterPage } from './PortalRegisterPage'
+import { PortalSignupPage } from './PortalSignupPage'
 import './portal.css'
 
 /**
@@ -47,10 +50,15 @@ export function PortalApp() {
         <Route path="login" element={<PortalLoginPage />} />
         <Route path="invite" element={<PortalInvitePage />} />
         <Route path="register" element={<PortalRegisterPage />} />
+        <Route path="signup" element={<PortalSignupPage />} />
+        <Route path="services" element={<PortalCatalogPage />} />
+        <Route path="services/:service" element={<PortalCatalogPage />} />
+        <Route path="services/:service/:branch" element={<PortalCatalogPage />} />
+        <Route path="services/:service/:branch/:doctor" element={<PortalCatalogPage />} />
         <Route path="about" element={<PortalAboutPage />} />
         <Route
           index
-          element={loading ? <Loading /> : me ? <PortalHomePage /> : <Navigate to="login" replace />}
+          element={loading ? <Loading /> : me ? <PortalHomePage /> : <PortalLandingPage />}
         />
         <Route path="*" element={<Navigate to="." replace />} />
       </Routes>

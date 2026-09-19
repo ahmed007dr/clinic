@@ -239,6 +239,12 @@ def _offer(service, price):
     return {
         "uuid": str(service.uuid),
         "name": service.name,
+        # For a service sold by quantity this is the price of one unit.
         "price": str(price),
+        "requires_quantity": service.requires_quantity,
+        "doctor_sets_quantity": service.doctor_sets_quantity,
+        "quantity_unit": service.quantity_unit,
+        "min_quantity": str(service.min_quantity),
+        "max_quantity": str(service.max_quantity) if service.max_quantity is not None else None,
         "specialization": str(specialization.uuid) if specialization else None,
     }

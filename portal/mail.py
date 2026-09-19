@@ -69,3 +69,32 @@ def send_invitation(tenant, patient, url, hours):
     except Exception:  # noqa: BLE001 — see the module docstring
         logger.exception("Could not email a portal invitation")
         return False
+
+
+def send_verification_code(tenant, branch, email, code, purpose):
+    """The six-digit code for creating a portal account (`signup`) or changing
+    the e-mail on it (`email_change`). The log keeps that it was sent — never
+    the code, which would let anyone who reads the log finish the signup."""
+    from platform_admin.mailer import sender_for
+
+    minutes = int(CODE_TTL.total_seconds() // 60)
+    what = "تأكيد إنشاء حسابك" if purpose == "signup" else "تأكيد بريدك الإلكتروني الجديد"
+    kind = "portal_signup_code" if purpose == "signup" else "portal_email_change_code"
+
+    def body(shown):
+        return "\n".join([
+            f"{what} في بوابة {tenant.name}:", "", shown, "",
+            f"الرمز صالح {minutes} دقائق ولمرة واحدة. لا تشاركه مع أحد.",
+            "إن لم تطلبه فتجاهل هذه الرسالة.",
+        ])
+
+    try:
+        connection, sender = sender_for(branch=branch, customer=tenant)
+        return deliver(
+            kind=kind, tenant=tenant, branch=branch, to=email,
+            subject=f"رمز {what} — {tenant.name}", body=body(code),
+            log_body=body(MASK), connection=connection, sender=sender,
+        )
+    except Exception:  # noqa: BLE001 — see the module docstring
+        logger.exception("Could not email a portal verification code")
+        return False

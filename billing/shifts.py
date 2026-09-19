@@ -99,6 +99,53 @@ def open_shift(user, notes="", branch=None):
         raise ShiftError("لديك وردية مفتوحة بالفعل.")
 
 
+ONLINE_SHIFT_NAME = "الدفع الإلكتروني"
+
+
+def shift_owner_name(shift):
+    """Whose shift it is, for screens and print: the person, or — for the
+    online shift, which belongs to nobody — its name."""
+    if shift is None:
+        return None
+    if shift.kind == CashShift.Kind.ONLINE or shift.user_id is None:
+        return ONLINE_SHIFT_NAME
+    from accounts.roles import display_name
+
+    return display_name(shift.user)
+
+
+def online_shift(tenant, branch_id):
+    """The clinic's open online shift, opened now if there is none.
+
+    Every confirmed online payment is recorded inside a shift, like all money
+    (the group owner's rule, 2026-09-18 and 2026-09-19): a payment a gateway
+    confirmed is not "paid" until it sits in a shift. No cashier has to be at
+    the desk for that — the online payments of a clinic are gathered in one
+    shift of their own, which management closes and reviews (and after which
+    the next payment opens a fresh one). At most one is open per clinic
+    (`one_open_online_shift_per_branch`); two payments arriving together
+    cannot open two.
+    """
+    if not branch_id:
+        raise ShiftError("لا يمكن تسجيل الدفع الإلكتروني: الحجز غير مرتبط بفرع.")
+    shift = CashShift.objects.filter(
+        branch_id=branch_id, kind=CashShift.Kind.ONLINE, status=CashShift.Status.OPEN
+    ).first()
+    if shift is not None:
+        return shift
+    try:
+        with transaction.atomic():
+            return CashShift.objects.create(
+                tenant=tenant, branch_id=branch_id, kind=CashShift.Kind.ONLINE, user=None,
+                opening_balance=ZERO, notes="وردية الدفع الإلكتروني — تُفتح تلقائياً وتُغلق بمراجعة الإدارة.",
+            )
+    except IntegrityError:
+        # Another payment opened it a moment ago.
+        return CashShift.objects.get(
+            branch_id=branch_id, kind=CashShift.Kind.ONLINE, status=CashShift.Status.OPEN
+        )
+
+
 def can_close(actor, shift):
     return shift.user_id == actor.pk or manages_shifts(actor)
 
@@ -226,6 +273,14 @@ def shift_bookings(shift):
     so the drawer can be counted against them at any moment. Newest first."""
     from appointments.models import Appointment
 
+    if shift.kind == CashShift.Kind.ONLINE:
+        # No person made these bookings: the shift's bookings are the ones paid in it.
+        return (
+            Appointment.objects.filter(payments__shift=shift).distinct()
+            .select_related("patient", "doctor", "service", "branch", "specialization")
+            .prefetch_related("visits", "payments")
+            .order_by("-created_at", "-id")
+        )
     queryset = Appointment.objects.filter(created_by_id=shift.user_id, created_at__gte=shift.opened_at)
     if shift.closed_at:
         queryset = queryset.filter(created_at__lte=shift.closed_at)

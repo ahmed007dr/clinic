@@ -2,6 +2,8 @@ import uuid
 
 from django.db import models, transaction
 
+from branches.media import group_upload_path
+
 from .context import get_current_tenant
 
 
@@ -26,6 +28,14 @@ class Tenant(models.Model):
     # Public self-registration from the portal. Off by default: a group that
     # never turns it on has no public write path at all (portal/registration.py).
     portal_self_registration = models.BooleanField(default=False)
+    # May a patient of one clinic book at another clinic of the group from the
+    # portal? Off by default: the portal keeps offering only the patient's own
+    # clinic until the Owner turns this on (docs/15, D10).
+    portal_allow_other_branches = models.BooleanField(default=False)
+    # The group's public page logo and cover — the Owner's, live at once
+    # (branches/media.py, docs/15 D8).
+    public_logo = models.ImageField(upload_to=group_upload_path, blank=True, null=True)
+    public_cover = models.ImageField(upload_to=group_upload_path, blank=True, null=True)
 
     class Meta:
         ordering = ["name"]

@@ -363,6 +363,8 @@ def resolve_choice(patient, data):
         service = Service.objects.filter(uuid=service_uuid, is_active=True).select_related("specialization").first()             if _is_uuid(service_uuid) else None
         if service is None:
             errors["service"] = ["الخدمة غير متاحة."]
+        elif service.requires_quantity:
+            errors["service"] = ["هذه الخدمة تُباع بالكمية؛ اطلبها من قائمة الخدمات لتحديد الكمية."]
         elif doctor is not None and not DoctorServiceRate.objects.filter(
             doctor=doctor, service=service, is_active=True
         ).exists():
@@ -432,7 +434,7 @@ class AppointmentsView(PortalView):
     def get(self, request, slug):
         rows = (
             Appointment.objects.filter(patient=self.patient)
-            .select_related("doctor", "service")
+            .select_related("doctor", "service", "branch")
             .order_by("-scheduled_date")[:LIST_CAP]
         )
         from platform_admin.clinic_pay import methods_for
@@ -455,7 +457,16 @@ class AppointmentsView(PortalView):
 
     def post(self, request, slug):
         """Request an appointment. Reception confirms it; nothing enters a
-        doctor's schedule on the patient's say-so (decision D3)."""
+        doctor's schedule on the patient's say-so (decision D3).
+
+        With a `branch` this is the catalogue booking (portal/booking.py): a
+        chosen service, clinic, doctor and one of the doctor's offered times.
+        Without one it is the older free-time request, kept until the wizard is
+        the only way in."""
+        if request.data.get("branch"):
+            from .booking import book
+
+            return book(self, request)
         when = parse_datetime(str(request.data.get("scheduled_date") or ""))
         if when is None or when <= timezone.now():
             return Response({"scheduled_date": ["اختر موعداً في المستقبل."]}, status=400)
@@ -487,9 +498,40 @@ class AppointmentsView(PortalView):
 def appointment_payload(a, can_pay=False):
     from platform_admin.clinic_pay import due
 
+    from billing.collect import amount_paid
+
+    from .my_bookings import cancel_problem, change_problem
+
     owed = due(a)
+    cancel_reason = cancel_problem(a)
+    paid = amount_paid(a)
+    price = a.net_price
     return {
         "due": str(owed),
+        "price": str(price),
+        "paid": str(paid),
+        # Payment is its own thing beside the booking (docs/15, Phase 8): what
+        # has been paid so far, and how the rest can be paid. Paying at the clinic
+        # is always possible; online only when the clinic has a gateway and the
+        # booking is confirmed (`can_pay_online`).
+        "payment_status": "free" if price <= 0 else "paid" if paid >= price else "partial" if paid > 0 else "unpaid",
+        "pay_at_clinic": price > paid and a.status not in ("cancelled", "no_show", "completed"),
+        # What the patient may do now — and, when not, why (the clinic's rules).
+        "can_cancel": cancel_reason is None,
+        "cancel_blocked_reason": cancel_reason,
+        "can_reschedule": change_problem(a) is None,
+        "reschedule_requested_for": a.reschedule_requested_for,
+        # A service sold by quantity: how many, and the price of one.
+        "quantity": str(a.quantity) if a.quantity is not None else None,
+        "quantity_unit": a.service.quantity_unit if a.service_id else "",
+        "unit_price": str(a.unit_price) if a.unit_price is not None else None,
+        "quantity_is_estimate": a.quantity_is_estimate,
+        "source": a.source,
+        # The public identifiers of what was booked, so the portal can open the
+        # same doctor's times again to ask for another slot.
+        "service": str(a.service.uuid) if a.service_id else None,
+        "branch": str(a.branch.uuid) if a.branch_id else None,
+        "doctor": str(a.doctor.uuid) if a.doctor_id else None,
         "can_pay_online": can_pay and owed > 0,
         "uuid": str(a.uuid),
         "serial_number": a.serial_number,
@@ -498,6 +540,7 @@ def appointment_payload(a, can_pay=False):
         "status_label": a.get_status_display(),
         "doctor_name": getattr(a.doctor, "name", None),
         "service_name": getattr(a.service, "name", None),
+        "branch_name": getattr(a.branch, "name", None),
         # Today's turn, as numbers only — never who is ahead (see
         # appointments/queue.py). `ahead_count` is null off today's queue;
         # `doctor_busy` says the doctor has a patient in with them now.

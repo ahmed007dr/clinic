@@ -113,7 +113,7 @@ def shift_print(request, uuid):
     and the Owner — `billing.shifts.printable_shift` decides who."""
     from accounts.roles import display_name
     from branches.printing import letterhead, receipt_layout
-    from .shifts import printable_shift, summarize
+    from .shifts import printable_shift, shift_owner_name, summarize
 
     shift = printable_shift(request.user, uuid)
     if shift is None:
@@ -136,7 +136,7 @@ def shift_print(request, uuid):
         "letterhead": letterhead(shift.branch, request),
         "layout": receipt_layout(shift.branch),
         "shift": shift,
-        "cashier": display_name(shift.user),
+        "cashier": shift_owner_name(shift),
         "closed_by": display_name(shift.closed_by) if shift.closed_by else None,
         "printed_by": display_name(request.user),
         "summary": summary,

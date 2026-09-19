@@ -28,6 +28,8 @@ ADMIN = "Admin"
 DOCTOR = "Doctor"
 RECEPTION = "Reception"
 
+from django.db.models import Q
+
 ALL_ROLES = (OWNER, ADMIN, DOCTOR, RECEPTION)
 
 #: Who may read clinical records. Reception never does (§14).
@@ -90,7 +92,52 @@ def account_is_usable(user):
     return branch is None or branch.is_active
 
 
-def scope_queryset_to_user(queryset, user, branch_field="branch"):
+#: A booking in one of these does not make its patient "visiting" at a clinic:
+#: a request nobody has confirmed, or one that did not happen.
+NOT_A_VISIT = ("requested", "cancelled", "no_show")
+
+
+def visiting_patient_ids(branch_id):
+    """Patients of *another* clinic who have a confirmed booking at this one
+    (docs/15, D10). A subquery of patient ids; nothing else about them."""
+    from appointments.models import Appointment
+
+    return (
+        Appointment.all_objects.filter(branch_id=branch_id)
+        .exclude(status__in=NOT_A_VISIT)
+        .values("patient_id")
+    )
+
+
+def _patient_lookup(model, branch_field):
+    """How to name a row's patient, when `branch_field` is the patient's own
+    clinic — the only place a visiting patient may be admitted."""
+    if branch_field == "patient__branch":
+        return "patient_id"
+    if branch_field == "branch" and model._meta.label_lower == "patients.patient":
+        return "pk"
+    return None
+
+
+def recorded_at_my_clinic(queryset, user, branch_field="branch"):
+    """Only rows recorded at the user's own clinic; the Owner sees all. Unlike
+    `scope_queryset_to_user` it adds no doctor narrowing — for a patient's
+    combined timeline, which must never carry another clinic's records."""
+    if sees_all_branches(user):
+        return queryset
+    branch_id = current_branch_id(user)
+    if not branch_id:
+        return queryset.none()
+    return queryset.filter(**{f"{branch_field}_id": branch_id})
+
+
+def is_visiting_patient(patient, user):
+    """True when `user` reaches this patient only through a booking at their
+    clinic, not because it is the patient's own clinic."""
+    return not sees_all_branches(user) and patient.branch_id != current_branch_id(user)
+
+
+def scope_queryset_to_user(queryset, user, branch_field="branch", visiting=False):
     """The Owner sees every clinic; everyone else is held to their own; a
     doctor, within it, to their own patients.
 
@@ -98,13 +145,24 @@ def scope_queryset_to_user(queryset, user, branch_field="branch"):
     everything — the direction a mistake falls matters more than whether one
     happens. `branch_field` is a lookup path, because not every record has a
     branch of its own (a prescription belongs to its visit's clinic).
+
+    `visiting=True` — opted into by the few screens that need it — also admits
+    a patient of another clinic who has a confirmed booking here (docs/15, D10),
+    and only for the two ways of asking "is this patient mine": the patient
+    record itself and things hung off the patient's clinic. Everything with a
+    clinic of its own (bookings, visits, payments, results) stays exactly as it
+    was, which is what keeps the other clinic's history out of sight.
     """
     if sees_all_branches(user):
         return queryset
     branch_id = current_branch_id(user)
     if not branch_id:
         return queryset.none()
-    queryset = queryset.filter(**{f"{branch_field}_id": branch_id})
+    condition = Q(**{f"{branch_field}_id": branch_id})
+    lookup = _patient_lookup(queryset.model, branch_field) if visiting else None
+    if lookup:
+        condition |= Q(**{f"{lookup}__in": visiting_patient_ids(branch_id)})
+    queryset = queryset.filter(condition)
     if is_doctor(user):
         queryset = scope_to_own_doctor(queryset, user)
     return queryset

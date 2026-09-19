@@ -105,6 +105,21 @@ class VisitViewSet(ClinicalViewSet):
                 "patient": str(booking.patient.uuid),
                 "patient_name": booking.patient.name,
                 "since": booking.scheduled_date,
+                # A service sold by quantity that the doctor sizes in the room:
+                # the quantity and its limits — never a price (a doctor sees no
+                # clinic money but their own share).
+                "service_name": booking.service.name if booking.service_id else None,
+                "doctor_sets_quantity": bool(
+                    booking.service_id and booking.service.requires_quantity and booking.service.doctor_sets_quantity
+                ),
+                "quantity": str(booking.quantity) if booking.quantity is not None else None,
+                "quantity_unit": booking.service.quantity_unit if booking.service_id else "",
+                "quantity_min": str(booking.service.min_quantity) if booking.service_id else None,
+                "quantity_max": (
+                    str(booking.service.max_quantity)
+                    if booking.service_id and booking.service.max_quantity is not None else None
+                ),
+                "quantity_is_estimate": booking.quantity_is_estimate,
             }
             for booking, visit in in_room(request.user)
         ])
@@ -301,6 +316,9 @@ class AllergyViewSet(ClinicalViewSet):
     queryset = Allergy.objects.all()
     serializer_class = AllergySerializer
     branch_field = "patient__branch"
+    # A visiting patient's allergies must be in front of the doctor treating
+    # them (docs/15, D10).
+    visiting_patients = True
     created_by_field = "recorded_by"
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ["substance", "patient__name"]

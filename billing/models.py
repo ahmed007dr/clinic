@@ -66,8 +66,19 @@ class CashShift(TenantOwnedModel):
         OPEN = "open", "مفتوحة"
         CLOSED = "closed", "مغلقة"
 
+    class Kind(models.TextChoices):
+        CASHIER = "cashier", "وردية موظف"
+        # The clinic's online payments, gathered in one shift of their own
+        # (billing.shifts.online_shift): no person's drawer, opened by the system
+        # when the first confirmed online payment arrives, closed and reviewed by
+        # management like any other.
+        ONLINE = "online", "دفع إلكتروني"
+
+    kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.CASHIER)
+    # Null only for the online shift, which belongs to no person.
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="cash_shifts"
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="cash_shifts",
+        null=True, blank=True,
     )
     branch = models.ForeignKey(Branch, on_delete=models.PROTECT, related_name="cash_shifts")
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN)
@@ -96,12 +107,24 @@ class CashShift(TenantOwnedModel):
             models.UniqueConstraint(
                 fields=["tenant", "user"], condition=models.Q(status="open"),
                 name="one_open_shift_per_user",
-            )
+            ),
+            # ...and one open online shift per clinic: every confirmed online
+            # payment of that clinic lands in it.
+            models.UniqueConstraint(
+                fields=["tenant", "branch"], condition=models.Q(status="open", kind="online"),
+                name="one_open_online_shift_per_branch",
+            ),
+            # A person's shift has its person; only the online one has none.
+            models.CheckConstraint(
+                condition=models.Q(kind="online") | models.Q(user__isnull=False),
+                name="cashier_shift_has_a_user",
+            ),
         ]
         indexes = [models.Index(fields=["tenant", "branch", "opened_at"], name="shift_branch_opened_idx")]
 
     def __str__(self):
-        return f"Shift {self.user} {self.opened_at:%Y-%m-%d}"
+        who = self.user if self.user_id else "online"
+        return f"Shift {who} {self.opened_at:%Y-%m-%d}"
 
     @property
     def is_open(self):

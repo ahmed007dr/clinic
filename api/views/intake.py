@@ -126,7 +126,9 @@ class PatientHistoryView(APIView):
     permission_classes = [CanViewClinical]
 
     def patient(self, request, uuid):
-        return get_object_or_404(scope_queryset_to_user(Patient.objects.all(), request.user), uuid=uuid)
+        return get_object_or_404(
+            scope_queryset_to_user(Patient.objects.all(), request.user, visiting=True), uuid=uuid
+        )
 
     def payload(self, patient):
         profile = PatientMedicalProfile.objects.filter(patient=patient).first()
@@ -143,7 +145,15 @@ class PatientHistoryView(APIView):
         return Response(self.payload(self.patient(request, uuid)))
 
     def put(self, request, uuid):
+        from rest_framework.exceptions import PermissionDenied
+
+        from accounts.roles import is_visiting_patient
+
         patient = self.patient(request, uuid)
+        # A visiting patient's reported history is read-only here: it belongs to
+        # their own clinic's file (docs/15, D10).
+        if is_visiting_patient(patient, request.user):
+            raise PermissionDenied("هذا المريض تابع لعيادة أخرى؛ لا يمكن تعديل تاريخه المرضي من عيادتك.")
         serializer = MedicalHistorySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = dict(serializer.validated_data)

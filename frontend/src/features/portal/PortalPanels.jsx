@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import {
   Badge,
   Button,
+  ConfirmDialog,
   EmptyState,
   ErrorState,
   Input,
@@ -66,23 +68,121 @@ function TurnNote({ appointment: a }) {
   )
 }
 
-export function AppointmentsPanel() {
-  const [paying, setPaying] = useState(null)
+const PAYMENT_STATUS = {
+  paid: { label: 'مدفوع', tone: 'ok' },
+  partial: { label: 'مدفوع جزئياً', tone: 'warn' },
+  unpaid: { label: 'غير مدفوع', tone: 'neutral' },
+}
+
+/** Money is separate from the booking: what it costs, what was paid, and how the
+ * rest is paid — at the clinic on arrival, or online once it is confirmed. */
+function PaymentLine({ appointment: a }) {
+  if (a.payment_status === 'free' || !['requested', 'waiting', 'quick', 'called', 'entered', 'completed'].includes(a.status)) {
+    return null
+  }
+  const status = PAYMENT_STATUS[a.payment_status]
+  return (
+    <div className="portal-card__row">
+      <span>
+        السعر: <strong>{formatMoney(a.price)}</strong>
+        {Number(a.paid) > 0 && <> · المدفوع: <strong>{formatMoney(a.paid)}</strong></>}
+      </span>
+      {status && <Badge tone={status.tone}>{status.label}</Badge>}
+      {a.pay_at_clinic && (
+        <span className="ui-muted">
+          الدفع عند الوصول للعيادة{a.can_pay_online ? '، أو أونلاين الآن' : ''}
+        </span>
+      )}
+    </div>
+  )
+}
+
+/** Cancel, or ask for another time — under the clinic's rules, which the server
+ * enforces and explains when it says no (`cancel_blocked_reason`). */
+function BookingActions({ appointment: a, onChanged }) {
+  const { api, slug } = usePortal()
+  const toast = useToast()
+  const [confirming, setConfirming] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const canAsk = a.can_reschedule && a.service && a.branch && a.doctor
+
+  const cancel = async () => {
+    setBusy(true)
+    try {
+      await api.cancelAppointment(a.uuid)
+      toast.success('تم إلغاء الحجز.')
+      setConfirming(false)
+      onChanged()
+    } catch (caught) {
+      toast.error(caught.message)
+      setConfirming(false)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const open = ['requested', 'waiting', 'quick'].includes(a.status)
+  if (!open) return null
+
   return (
     <>
-      <PortalList load={(api) => api.appointments()} empty="لا توجد مواعيد">
+      {a.reschedule_requested_for && (
+        <div className="ui-muted" role="status">
+          طلبت نقل الموعد إلى {formatDateTime(a.reschedule_requested_for)} — بانتظار رد العيادة.
+        </div>
+      )}
+      <div className="portal-card__row">
+        {canAsk && (
+          <Link className="ui-btn ui-btn--secondary ui-btn--sm"
+            to={`/portal/${slug}/services/${a.service}/${a.branch}/${a.doctor}?reschedule=${a.uuid}`}>
+            طلب تغيير الموعد
+          </Link>
+        )}
+        {a.can_cancel ? (
+          <Button size="sm" variant="ghost" onClick={() => setConfirming(true)}>
+            {a.status === 'requested' ? 'سحب الطلب' : 'إلغاء الحجز'}
+          </Button>
+        ) : (
+          a.cancel_blocked_reason && <span className="ui-muted">{a.cancel_blocked_reason}</span>
+        )}
+      </div>
+      <ConfirmDialog
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        onConfirm={cancel}
+        loading={busy}
+        title="إلغاء الحجز"
+        message="هل تريد إلغاء هذا الحجز؟"
+        confirmLabel="نعم، إلغاء"
+        cancelLabel="رجوع"
+      />
+    </>
+  )
+}
+
+export function AppointmentsPanel() {
+  const [paying, setPaying] = useState(null)
+  const [version, setVersion] = useState(0)
+  return (
+    <>
+      <PortalList key={version} load={(api) => api.appointments()} empty="لا توجد مواعيد">
         {(a) => (
           <Card key={a.uuid}>
             <div className="portal-card__row">
               <strong>{formatDateTime(a.scheduled_date)}</strong>
               <Badge tone={APPOINTMENT_TONES[a.status] ?? 'neutral'}>{a.status_label}</Badge>
             </div>
+            {a.branch_name && <span className="ui-muted">{a.branch_name}</span>}
             <TurnNote appointment={a} />
             <div className="ui-muted">
-              {[a.service_name, a.doctor_name && `د. ${a.doctor_name}`].filter(Boolean).join(' · ')
+              {[
+                a.service_name && (a.quantity ? `${a.service_name} × ${Number(a.quantity)}${a.quantity_unit ? ` ${a.quantity_unit}` : ''}${a.quantity_is_estimate ? ' (تقديرية — يحددها الطبيب)' : ''}` : a.service_name),
+                a.doctor_name && `د. ${a.doctor_name}`,
+              ].filter(Boolean).join(' · ')
                 || (a.status === 'requested' ? '' : '—')}
               {a.status === 'requested' && `${a.service_name || a.doctor_name ? ' — ' : ''}بانتظار تأكيد العيادة`}
             </div>
+            <PaymentLine appointment={a} />
             {Number(a.due) > 0 && (
               <div className="portal-card__row">
                 <span>المستحق: <strong>{formatMoney(a.due)}</strong></span>
@@ -91,6 +191,7 @@ export function AppointmentsPanel() {
                 )}
               </div>
             )}
+            <BookingActions appointment={a} onChanged={() => setVersion((n) => n + 1)} />
           </Card>
         )}
       </PortalList>

@@ -174,6 +174,16 @@ def merge_registration(source, target):
     PatientIntake.objects.filter(patient=source).update(patient=target)
     Appointment.objects.filter(patient=source).update(patient=target)
 
+    # A portal account made at signup follows the person to the file they turned
+    # out to be — deleting the source below would otherwise delete the account
+    # with it. If that file already has one, the duplicate is dropped.
+    from portal.models import PatientAccount
+
+    account = PatientAccount.objects.filter(patient=source).first()
+    if account is not None and not PatientAccount.objects.filter(patient=target).exists():
+        account.patient = target
+        account.save(update_fields=["patient"])
+
     for condition in PatientCondition.objects.filter(patient=source):
         clash = (
             condition.condition != "other"

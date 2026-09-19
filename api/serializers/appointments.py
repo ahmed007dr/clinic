@@ -22,7 +22,7 @@ from billing.collect import (
     spend_coupon,
 )
 from billing.models import DiscountCoupon, PaymentMethod
-from billing.pricing import enforce_attrs
+from billing.pricing import apply_quantity, enforce_attrs
 from billing.shifts import ShiftError
 from branches.models import Branch
 from employees.models import Employee, Specialization
@@ -35,7 +35,7 @@ from .common import ActiveChoicesMixin, ClinicSerializer
 class AppointmentSerializer(ActiveChoicesMixin, ClinicSerializer):
     # Branch-scoped: a receptionist who cannot see a patient must not be able
     # to book for them by pasting a UUID. See api/relations.py.
-    patient = TenantScopedRelatedField(model=Patient, branch_field="branch")
+    patient = TenantScopedRelatedField(model=Patient, branch_field="branch", visiting=True)
     doctor = TenantScopedRelatedField(
         model=Employee, required=False, allow_null=True
     )
@@ -71,6 +71,22 @@ class AppointmentSerializer(ActiveChoicesMixin, ClinicSerializer):
         source="branch.name", read_only=True, default=None
     )
     status_label = serializers.CharField(source="get_status_display", read_only=True)
+    # For a service sold by quantity (services.Service.requires_quantity): how
+    # many is asked for here; the price of one and the unit's name come back.
+    quantity = serializers.DecimalField(
+        max_digits=8, decimal_places=2, required=False, allow_null=True, min_value=Decimal("0")
+    )
+    quantity_unit = serializers.CharField(source="service.quantity_unit", read_only=True, default="")
+    # The doctor sets the real quantity in the room; until then it is an estimate.
+    doctor_sets_quantity = serializers.BooleanField(source="service.doctor_sets_quantity", read_only=True, default=False)
+    quantity_min = serializers.DecimalField(
+        source="service.min_quantity", max_digits=8, decimal_places=2, read_only=True, default=None
+    )
+    quantity_max = serializers.DecimalField(
+        source="service.max_quantity", max_digits=8, decimal_places=2, read_only=True, default=None
+    )
+    # Where the booking came from (docs/15): the website, the desk, the phone…
+    source_label = serializers.CharField(source="get_source_display", read_only=True)
     # From the visit this booking opened, if the patient has gone in: the
     # front desk books the next appointment from it (medical/checkin.py).
     follow_up_date = serializers.SerializerMethodField()
@@ -98,13 +114,17 @@ class AppointmentSerializer(ActiveChoicesMixin, ClinicSerializer):
             "service", "service_name",
             "branch", "branch_name",
             "status", "status_label",
+            "source", "source_label",
+            "reschedule_requested_for", "reschedule_note",
+            "quantity", "quantity_unit", "unit_price", "quantity_is_estimate",
+            "doctor_sets_quantity", "quantity_min", "quantity_max",
             "scheduled_date", "price", "discount", "net_price", "notes", "created_at",
             "coupon", "paid_amount", "payment_method",
             "follow_up_date", "has_visit",
             "paid_total", "payment_status", "amount_due", "receipt_uuid",
             "ahead_count",
         ]
-        read_only_fields = ["discount"]
+        read_only_fields = ["discount", "unit_price", "quantity_is_estimate", "reschedule_requested_for", "reschedule_note"]
 
     def _paid(self, appointment):
         from accounts.roles import is_front_desk
@@ -171,6 +191,14 @@ class AppointmentSerializer(ActiveChoicesMixin, ClinicSerializer):
         # The price is the doctor's contract price; only management sets
         # another one (billing.pricing).
         attrs = enforce_attrs(attrs, self.request_user, self.instance, price_field="price")
+        # A service sold by quantity is priced unit x quantity (billing.pricing).
+        problem = apply_quantity(
+            attrs, self.request_user, self.instance,
+            doctor=attrs.get("doctor", getattr(self.instance, "doctor", None)),
+            service=attrs.get("service", getattr(self.instance, "service", None)),
+        )
+        if problem:
+            raise serializers.ValidationError({"quantity": problem})
         self._validate_money(attrs, status)
         return attrs
 
@@ -245,7 +273,33 @@ class AppointmentSerializer(ActiveChoicesMixin, ClinicSerializer):
     def update(self, instance, validated_data):
         validated_data.pop("paid_amount", None)
         validated_data.pop("payment_method", None)
-        return super().update(instance, validated_data)
+        # The clinic settled the time the patient asked to move: the request is done.
+        new_time = validated_data.get("scheduled_date")
+        old_time, old_status = instance.scheduled_date, instance.status
+        if new_time is not None and new_time != instance.scheduled_date:
+            validated_data["reschedule_requested_for"] = None
+            validated_data["reschedule_note"] = ""
+        instance = super().update(instance, validated_data)
+        # Tell the patient what changed, once the save has committed.
+        from django.db import transaction
+
+        from notifications import booking as told
+
+        if instance.status != old_status:
+            transaction.on_commit(lambda: told.status_changed(instance, old_status))
+        elif new_time is not None and new_time != old_time and instance.status in told.REMINDER_STATUSES:
+            transaction.on_commit(lambda: told.time_changed(instance, old_time))
+        return instance
+
+    def validate_source(self, value):
+        """Staff say how a booking reached them (desk, phone, WhatsApp, admin).
+        `portal` is set only by the website's own booking — never typed in, and
+        never removed from a booking that came from it."""
+        was = getattr(self.instance, "source", None)
+        portal = Appointment.Source.PUBLIC_PORTAL
+        if (value == portal) != (was == portal) and (value == portal or was == portal):
+            raise serializers.ValidationError("مصدر «الموقع» يضبطه الحجز الإلكتروني وحده.")
+        return value
 
     def validate_doctor(self, doctor):
         """Only staff typed as Doctor may hold an appointment.

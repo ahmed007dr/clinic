@@ -67,6 +67,10 @@ class Employee(TenantOwnedModel):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
     profile_reviewed_at = models.DateTimeField(null=True, blank=True)
+    # Whether this doctor appears on the group's public page (name, specialties
+    # and the approved `public_profile`). Off until management turns it on; a
+    # doctor cannot publish themselves (docs/15, Phase 1).
+    show_publicly = models.BooleanField(default=False)
     serial_number = models.CharField(max_length=20, blank=True)
 
     class Meta(TenantOwnedModel.Meta):

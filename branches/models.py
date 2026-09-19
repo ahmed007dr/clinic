@@ -3,6 +3,8 @@ from django.core.validators import RegexValidator
 from django.db import models
 from tenants.models import TenantOwnedModel
 
+from .media import branch_upload_path, pending_upload_path
+
 #: Colon- or hyphen-separated hex pairs — 00:1A:2B:3C:4D:5E or 00-1A-2B-3C-4D-5E.
 MAC_ADDRESS = RegexValidator(
     r"^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$", "عنوان MAC غير صالح (مثال: 00:1A:2B:3C:4D:5E)."
@@ -38,9 +40,35 @@ class Branch(TenantOwnedModel):
     about_hidden_specialties = models.ManyToManyField(
         "employees.Specialization", blank=True, related_name="hidden_in_about_of"
     )
+    # Online bookings for this clinic: off (the default) = a request the clinic
+    # phones back to settle; on = the chosen time is confirmed at once and held
+    # for the customer (docs/15, D3). The clinic's Admin or the Owner sets it.
+    online_booking_confirms_at_once = models.BooleanField(default=False)
+    # How far ahead of a *confirmed* booking a patient may still cancel it from
+    # the portal (docs/15, Phase 6). 0 = any time before it starts. A request the
+    # clinic has not confirmed can always be withdrawn.
+    online_cancel_notice_hours = models.PositiveSmallIntegerField(default=24)
     map_url = models.URLField(max_length=500, blank=True, default="")
     working_hours = models.TextField(blank=True, default="")
     about_text = models.TextField(blank=True, default="")
+
+    # The public page's logo and cover (branches/media.py, docs/15 D8). Not the
+    # printed letterhead's `logo` above. An Admin's upload waits in `pending_*`
+    # until the Owner approves it; only `public_*` is ever shown to the public.
+    public_logo = models.ImageField(upload_to=branch_upload_path, blank=True, null=True)
+    public_cover = models.ImageField(upload_to=branch_upload_path, blank=True, null=True)
+    pending_public_logo = models.ImageField(upload_to=pending_upload_path, blank=True, null=True)
+    pending_public_cover = models.ImageField(upload_to=pending_upload_path, blank=True, null=True)
+    #: "" nothing waiting, "pending" awaiting the Owner, "rejected" (with a note).
+    media_status = models.CharField(
+        max_length=10, blank=True, default="",
+        choices=[("", "—"), ("pending", "بانتظار موافقة المالك"), ("rejected", "مرفوض")],
+    )
+    media_review_note = models.CharField(max_length=300, blank=True, default="")
+    media_reviewed_by = models.ForeignKey(
+        "accounts.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    media_reviewed_at = models.DateTimeField(null=True, blank=True)
 
     print_header_title = models.CharField(max_length=150, blank=True, default="")
     print_header_subtitle = models.CharField(max_length=200, blank=True, default="")

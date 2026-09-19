@@ -35,7 +35,9 @@ from billing.shifts import (
 
 
 class CashShiftSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source="user.username", read_only=True)
+    # The person's login, or "الدفع الإلكتروني" for the online shift (billing.shifts).
+    user_name = serializers.SerializerMethodField()
+    kind_label = serializers.CharField(source="get_kind_display", read_only=True)
     branch_name = serializers.CharField(source="branch.name", read_only=True)
     closed_by_name = serializers.CharField(source="closed_by.username", read_only=True, default=None)
     reopened_by_name = serializers.CharField(source="reopened_by.username", read_only=True, default=None)
@@ -44,11 +46,16 @@ class CashShiftSerializer(serializers.ModelSerializer):
     class Meta:
         model = CashShift
         fields = [
-            "uuid", "user_name", "branch_name", "status", "status_label",
+            "uuid", "user_name", "kind", "kind_label", "branch_name", "status", "status_label",
             "opened_at", "closed_at", "closed_by_name",
             "reopened_at", "reopened_by_name", "closing_summary", "notes",
         ]
         read_only_fields = fields
+
+    def get_user_name(self, shift):
+        from billing.shifts import shift_owner_name
+
+        return shift.user.username if shift.user_id and shift.kind != "online" else shift_owner_name(shift)
 
 
 def _refuse(error):
@@ -71,6 +78,8 @@ class CashShiftViewSet(ReadOnlyClinicViewSet):
         params = self.request.query_params
         if params.get("status"):
             queryset = queryset.filter(status=params["status"])
+        if params.get("kind") in ("cashier", "online"):
+            queryset = queryset.filter(kind=params["kind"])
         if params.get("from"):
             queryset = queryset.filter(opened_at__date__gte=params["from"])
         if params.get("to"):

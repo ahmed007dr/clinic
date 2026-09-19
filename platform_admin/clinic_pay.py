@@ -126,16 +126,40 @@ def confirm(method, data, reference):
 
 
 def _record(checkout):
+    """Write the confirmed money into the clinic — **inside a shift**.
+
+    The group owner's rule (2026-09-19): an online payment is not treated as
+    made, present and paid until it has been confirmed *and* recorded inside a
+    shift. The clinic's online payments are gathered in one shift of their own
+    (`billing.shifts.online_shift`) — opened here if none is open — so no cashier
+    needs to be at the desk, and the total of everything paid online is one
+    figure management reviews and closes.
+
+    Called inside `confirm`'s transaction, before the checkout is marked
+    confirmed: if anything here fails, nothing is kept — no payment, no shift
+    opened for it, the checkout stays pending, the patient is not shown as
+    having paid — and the gateway's next callback tries again.
+    """
     from appointments.models import Appointment
+    from billing.collect import amount_due
     from billing.models import Payment, PaymentMethod
+    from billing.shifts import online_shift
 
     tenant = checkout.customer
     with tenant_context(tenant):
-        appointment = Appointment.objects.get(uuid=checkout.appointment_uuid)
+        appointment = Appointment.objects.select_related("patient").get(uuid=checkout.appointment_uuid)
+        branch_id = checkout.branch_id or appointment.branch_id or appointment.patient.branch_id
+        shift = online_shift(tenant, branch_id)
         method, _ = PaymentMethod.objects.get_or_create(tenant=tenant, name=METHOD_NAME)
+        notes = f"دفع إلكتروني — {IntegrationCredential.Kind(checkout.method).label} — مرجع البوابة {checkout.gateway_id}"
+        # The money is real whatever happened at the desk meanwhile, so it is
+        # recorded in full; if the booking was paid another way in the meantime
+        # the clinic is told there is a difference to return.
+        if checkout.amount > amount_due(appointment):
+            notes += " — تنبيه: المبلغ أكبر من المستحق وقت التأكيد؛ يلزم رد الفرق للمريض."
         payment = Payment.objects.create(
             tenant=tenant, appointment=appointment, patient_id=checkout.patient_id, method=method,
-            receipt_number=checkout.reference, amount=checkout.amount, branch_id=checkout.branch_id,
-            notes=f"دفع إلكتروني — {IntegrationCredential.Kind(checkout.method).label} — مرجع البوابة {checkout.gateway_id}",
+            receipt_number=checkout.reference, amount=checkout.amount, branch_id=branch_id,
+            shift=shift, notes=notes,
         )
         return payment.uuid

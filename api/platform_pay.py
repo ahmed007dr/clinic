@@ -112,6 +112,18 @@ class GatewayCallbackView(APIView):
             data["hmac"] = request.query_params["hmac"]
         return data
 
+    def _pending_page(self, request):
+        """Where to send a payer whose payment is confirmed but not recorded yet:
+        back to their clinic's portal, told it is being processed."""
+        try:
+            reference = reference_in(self._data(request))
+            checkout = clinic_pay.ClinicCheckout.objects.filter(reference=reference).select_related("customer").first()
+            if checkout is not None:
+                return f"/app/portal/{checkout.customer.slug}/?payment=pending"
+        except Exception:  # noqa: BLE001
+            pass
+        return "/app/?payment=pending"
+
     def post(self, request, method):
         if method not in GATEWAYS:
             return Response({"detail": "unknown gateway"}, status=404)
@@ -120,6 +132,13 @@ class GatewayCallbackView(APIView):
         except (GatewayError, vault.VaultError, KeyError, ValueError) as error:
             logger.warning("Rejected %s callback: %s", method, error)
             return Response({"detail": str(error)}, status=400)
+        except Exception:  # noqa: BLE001
+            # The payment could not be recorded (in a shift) after the gateway
+            # confirmed it. Nothing was kept, so the checkout is still pending;
+            # answering 503 makes the gateway send the callback again, and it is
+            # idempotent. Never a 200 for money that is not in the books.
+            logger.exception("Could not record a %s payment", method)
+            return Response({"detail": "temporarily unable to record the payment"}, status=503)
         return Response({"ok": True})
 
     def get(self, request, method):
@@ -132,6 +151,9 @@ class GatewayCallbackView(APIView):
         except (GatewayError, vault.VaultError, KeyError, ValueError) as error:
             logger.warning("Rejected %s return: %s", method, error)
             return HttpResponseRedirect("/app/?payment=failed")
+        except Exception:  # noqa: BLE001 — see `post`: not recorded yet, so not "paid"
+            logger.exception("Could not record a %s payment", method)
+            return HttpResponseRedirect(self._pending_page(request))
         result = "ok" if outcome in ("confirmed",) else "failed"
         if kind == "clinic":
             return HttpResponseRedirect(f"/app/portal/{record.customer.slug}/?payment={result}")

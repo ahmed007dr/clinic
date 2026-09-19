@@ -98,38 +98,62 @@ class RegisterView(_RegistrationView):
 
 
 class PublicAboutView(PortalView):
-    """The group's running branches — address, phone, map, hours, a few words,
-    and the specialties they offer, minus whatever management chose to hide —
-    for the portal's "About" tab and the page a
-    new visitor sees before signing in. Public on purpose, and only what a clinic
-    publishes anyway: no doctor names, no e-mail, nothing of the patients."""
+    """The group and its running clinics — logo and cover (the approved ones
+    only), address, phone, map, hours, a few words, social links, the
+    specialties they offer minus whatever management chose to hide, and the
+    doctors who agreed to be shown. For the portal's public landing page, the
+    "About" tab, and the page a new visitor sees before signing in. Public on
+    purpose, and only what a clinic publishes anyway: no e-mail, nothing of the
+    patients, nothing of the staff beyond a doctor's own public line."""
 
     authentication_classes = []
     permission_classes = [AllowAny]
 
     def get(self, request, slug):
-        from branches.about import specialties_by_branch, visible_specialties
+        from branches.about import public_doctors_by_branch, specialties_by_branch, visible_specialties
+        from branches.media import url_of
+        from branches.printing import link_items
 
         specialties = specialties_by_branch()
+        doctors = public_doctors_by_branch()
+        branches = []
+        # A branch management left out of "About" is not listed at all.
+        for branch in (
+            Branch.objects.filter(is_active=True, about_visible=True)
+            .prefetch_related("about_hidden_specialties").order_by("name")
+        ):
+            hidden = {str(s.uuid) for s in branch.about_hidden_specialties.all()}
+            branches.append({
+                "name": branch.name,
+                "address": branch.address or "",
+                "phone": branch.phone or "",
+                "map_url": branch.map_url,
+                "working_hours": branch.working_hours,
+                "about_text": branch.about_text,
+                # Approved images only; a pending one is never public.
+                "logo": url_of(branch.public_logo),
+                "cover": url_of(branch.public_cover),
+                "links": link_items(branch.print_links),
+                "specializations": [
+                    {"name": s["name"], "description": s["description"]}
+                    for s in visible_specialties(branch, specialties.get(branch.pk, []))
+                ],
+                # A specialty the clinic hid is hidden on its doctors too.
+                "doctors": [
+                    {
+                        "name": doctor["name"],
+                        "specializations": [s["name"] for s in doctor["specializations"] if s["uuid"] not in hidden],
+                        "tagline": doctor["tagline"],
+                        "links": doctor["links"],
+                    }
+                    for doctor in doctors.get(branch.pk, [])
+                ],
+            })
         return Response({
             "clinic": self.tenant.name,
-            "branches": [
-                {
-                    "name": branch.name,
-                    "address": branch.address or "",
-                    "phone": branch.phone or "",
-                    "map_url": branch.map_url,
-                    "working_hours": branch.working_hours,
-                    "about_text": branch.about_text,
-                    "specializations": [
-                        {"name": s["name"], "description": s["description"]}
-                        for s in visible_specialties(branch, specialties.get(branch.pk, []))
-                    ],
-                }
-                # A branch management left out of "About" is not listed at all.
-                for branch in Branch.objects.filter(is_active=True, about_visible=True)
-                .prefetch_related("about_hidden_specialties").order_by("name")
-            ],
+            "logo": url_of(self.tenant.public_logo),
+            "cover": url_of(self.tenant.public_cover),
+            "branches": branches,
         })
 
 

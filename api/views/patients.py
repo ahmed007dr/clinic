@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from api.permissions import DeleteRequiresAdmin, FrontDeskWrites, IsClinicMember, can_view_clinical
 from api.serializers.patients import PatientListSerializer, PatientSerializer
 from api.viewsets import ClinicViewSet
+from accounts.roles import recorded_at_my_clinic
 from billing.access import restrict_payments
 from patients.filters import narrow_patients
 from patients.models import Patient
@@ -17,6 +18,9 @@ from tenants.context import get_current_tenant
 
 class PatientViewSet(ClinicViewSet):
     queryset = Patient.objects.all()
+    # A patient of another clinic with a confirmed booking here is reachable —
+    # read-only and with limited fields (docs/15, D10).
+    visiting_patients = True
     serializer_class = PatientSerializer
     # A doctor looks up their own patients; registering and editing them is
     # the desk's work.
@@ -40,6 +44,19 @@ class PatientViewSet(ClinicViewSet):
                 {"detail": "لا يمكن حذف هذا المريض لوجود سجلات طبية مرتبطة به. السجلات الطبية يجب الاحتفاظ بها."},
                 status=409,
             )
+
+    def get_object(self):
+        """A visiting patient — another clinic's, here for a confirmed booking —
+        can be read but never changed from this clinic (docs/15, D10)."""
+        from rest_framework.exceptions import PermissionDenied
+        from rest_framework.permissions import SAFE_METHODS
+
+        from accounts.roles import is_visiting_patient
+
+        patient = super().get_object()
+        if self.request.method not in SAFE_METHODS and is_visiting_patient(patient, self.request.user):
+            raise PermissionDenied("هذا المريض تابع لعيادة أخرى؛ لا يمكن تعديله من عيادتك.")
+        return patient
 
     def plan_limit_count(self):
         from patients.intake import confirmed_patients
@@ -85,6 +102,11 @@ class PatientViewSet(ClinicViewSet):
         """
         patient = self.get_object()
         entries = []
+        user = request.user
+        # Every collection is cut to what was recorded at the caller's own
+        # clinic: a patient who also visits another clinic must not carry that
+        # clinic's bookings, payments or clinical records into this timeline.
+        mine = lambda queryset, field="branch": recorded_at_my_clinic(queryset, user, field)  # noqa: E731
 
         def add(kind, when, title, detail=None, uuid_value=None, extra=None):
             if when is None:
@@ -100,7 +122,7 @@ class PatientViewSet(ClinicViewSet):
                 }
             )
 
-        for appointment in patient.appointment_set.select_related(
+        for appointment in mine(patient.appointment_set.all()).select_related(
             "doctor", "service"
         ):
             add(
@@ -114,7 +136,7 @@ class PatientViewSet(ClinicViewSet):
 
         # The same money rule as the payments list, or the timeline becomes the
         # way round it: one patient at a time, every amount on every date.
-        payments = restrict_payments(patient.payment_set.all(), request.user)
+        payments = restrict_payments(mine(patient.payment_set.all()), request.user)
         for payment in payments.select_related("method"):
             add(
                 "payment",
@@ -125,7 +147,7 @@ class PatientViewSet(ClinicViewSet):
             )
 
         if can_view_clinical(request.user):
-            for visit in patient.visits.select_related("doctor"):
+            for visit in mine(patient.visits.all()).select_related("doctor"):
                 add(
                     "visit",
                     visit.visit_date,
@@ -134,7 +156,7 @@ class PatientViewSet(ClinicViewSet):
                     visit.uuid,
                     {"doctor": getattr(visit.doctor, "name", None)},
                 )
-            for prescription in patient.prescriptions.all():
+            for prescription in mine(patient.prescriptions.all(), "visit__branch"):
                 add(
                     "prescription",
                     prescription.issued_at,
@@ -142,7 +164,7 @@ class PatientViewSet(ClinicViewSet):
                     prescription.notes,
                     prescription.uuid,
                 )
-            for procedure in patient.procedures.all():
+            for procedure in mine(patient.procedures.all()):
                 add(
                     "procedure",
                     procedure.performed_at,
@@ -150,7 +172,7 @@ class PatientViewSet(ClinicViewSet):
                     procedure.outcome,
                     procedure.uuid,
                 )
-            for lab in patient.lab_results.all():
+            for lab in mine(patient.lab_results.all()):
                 add(
                     "lab",
                     lab.resulted_at or lab.ordered_at,
@@ -159,7 +181,7 @@ class PatientViewSet(ClinicViewSet):
                     lab.uuid,
                     {"flag": lab.flag},
                 )
-            for session in patient.treatment_sessions.select_related("plan"):
+            for session in mine(patient.treatment_sessions.all()).select_related("plan"):
                 add(
                     "session",
                     session.performed_at or session.scheduled_date,

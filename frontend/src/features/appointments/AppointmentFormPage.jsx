@@ -50,6 +50,9 @@ const FIELDS = [
   { name: 'service', label: 'الخدمة', type: 'select' },
   { name: 'branch', label: 'الفرع', type: 'relation', resource: api.branches },
   { name: 'price', label: 'السعر', type: 'money' },
+  // How many, for a service sold by quantity (Services › «تُباع بالكمية»): the
+  // total is the unit price × this, worked out by the server.
+  { name: 'quantity', label: 'الكمية', type: 'number' },
   {
     name: 'status',
     label: 'الحالة',
@@ -65,6 +68,21 @@ const FIELDS = [
       { value: 'completed', label: 'مكتمل' },
       { value: 'cancelled', label: 'ملغي' },
       { value: 'no_show', label: 'لم يحضر' },
+    ],
+  },
+  // How the booking reached the desk (docs/15). Chosen when booking; a website
+  // booking keeps its own source and is not edited here.
+  {
+    name: 'source',
+    label: 'مصدر الحجز',
+    type: 'select',
+    default: 'reception',
+    placeholder: undefined,
+    options: [
+      { value: 'reception', label: 'الاستقبال' },
+      { value: 'phone', label: 'الهاتف' },
+      { value: 'whatsapp', label: 'واتساب' },
+      { value: 'admin', label: 'الإدارة' },
     ],
   },
   { name: 'notes', label: 'ملاحظات', type: 'textarea', span: 2 },
@@ -134,7 +152,12 @@ export function AppointmentFormPage() {
 
   const serviceOptions = (offer?.services ?? [])
     .filter((service) => !specialization || service.specialization === specialization)
-    .map((service) => ({ value: service.uuid, label: `${service.name} — ${formatMoney(service.price)}` }))
+    .map((service) => ({
+      value: service.uuid,
+      label: `${service.name} — ${formatMoney(service.price)}${
+        service.requires_quantity ? ` / ${service.quantity_unit || 'وحدة'}` : ''
+      }`,
+    }))
   const specializationOptions = (offer?.specializations ?? []).map((item) => ({
     value: item.uuid,
     label: item.name,
@@ -157,13 +180,24 @@ export function AppointmentFormPage() {
   // A service picked (or the doctor changed under it): its price appears at
   // once, and its specialty is filled in when the doctor has that specialty.
   useEffect(() => {
-    if (!offer || !(form.touched.service || form.touched.doctor)) return
+    if (!offer || !(form.touched.service || form.touched.doctor || form.touched.quantity)) return
     const chosen = offer.services.find((s) => s.uuid === form.values.service)
     if (!chosen) {
       if (!form.values.service) form.setValue('price', '')
       return
     }
-    form.setValue('price', chosen.price)
+    // Sold by quantity: the service's price is per unit, the booking's is unit × how many.
+    const quantity = Number(form.values.quantity)
+    form.setValue(
+      'price',
+      chosen.requires_quantity
+        ? (() => {
+            // No quantity typed and the doctor will set it: the smallest one is the estimate.
+            const shown = quantity > 0 ? quantity : chosen.doctor_sets_quantity ? Number(chosen.min_quantity) : 0
+            return shown > 0 ? (Number(chosen.price) * shown).toFixed(2) : ''
+          })()
+        : chosen.price,
+    )
     if (
       chosen.specialization &&
       chosen.specialization !== form.values.specialization &&
@@ -172,9 +206,12 @@ export function AppointmentFormPage() {
       form.setValue('specialization', chosen.specialization)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.values.service, offer])
+  }, [form.values.service, form.values.quantity, offer])
 
   const price = form.values.price
+  // The chosen service, and whether it is sold by quantity (with its unit price).
+  const chosenService = offer?.services.find((s) => s.uuid === form.values.service)
+  const soldByQuantity = Boolean(chosenService?.requires_quantity)
 
   // The desk takes the payment here, into their open shift; and may apply a
   // discount coupon the patient holds (issued by management).
@@ -249,6 +286,27 @@ export function AppointmentFormPage() {
       }
     }
     if (field.name === 'paid_amount' || field.name === 'payment_method') return { ...field, hide: !canCollect }
+    if (field.name === 'source') return { ...field, hide: editing }
+    if (field.name === 'quantity') {
+      const unit = chosenService?.quantity_unit
+      const limits = [
+        chosenService?.min_quantity && `الأدنى ${Number(chosenService.min_quantity)}`,
+        chosenService?.max_quantity && `الأقصى ${Number(chosenService.max_quantity)}`,
+      ].filter(Boolean)
+      return {
+        ...field,
+        hide: !soldByQuantity,
+        // The doctor sets the real quantity in the room: the booking may go with
+        // an estimate, or none (it is then booked at the smallest quantity).
+        required: !chosenService?.doctor_sets_quantity,
+        label: unit ? `الكمية (${unit})` : 'الكمية',
+        hint: [
+          `السعر ${formatMoney(chosenService?.price)} للوحدة`,
+          ...limits,
+          chosenService?.doctor_sets_quantity && 'يحدد الطبيب الكمية الفعلية أثناء الجلسة — اترك الحقل فارغاً لتقدير بأقل كمية',
+        ].filter(Boolean).join(' — '),
+      }
+    }
     return field
   })
 

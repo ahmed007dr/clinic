@@ -263,3 +263,174 @@ html:has(.portal__header) {
   font-size: var(--text-sm);
   font-weight: 600;
 }
+
+/* ------------------------------------------------- Public front page */
+
+.portal-hero {
+  position: relative;
+  background: var(--primary-soft);
+  border-bottom: 1px solid var(--line);
+}
+
+.portal-hero__cover {
+  display: block;
+  width: 100%;
+  max-height: 16rem;
+  object-fit: cover;
+}
+
+.portal-hero__body {
+  max-width: 40rem;
+  margin-inline: auto;
+  padding: var(--s5) var(--s4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s3);
+  text-align: center;
+}
+
+.portal-hero__logo {
+  width: 5rem;
+  height: 5rem;
+  object-fit: contain;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: var(--s1);
+}
+
+.portal-hero__title {
+  margin: 0;
+  font-size: var(--text-xl);
+}
+
+.portal-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--s2);
+}
+
+.portal-about__cover {
+  width: 100%;
+  max-height: 11rem;
+  object-fit: cover;
+  border-radius: var(--radius);
+}
+
+.portal-about__title {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.portal-about__logo {
+  width: 2.75rem;
+  height: 2.75rem;
+  object-fit: contain;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+}
+
+.portal-about__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.portal-about__doctors {
+  list-style: none;
+  margin: var(--s2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.portal-doctor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.portal-doctor__name {
+  font-weight: 600;
+}
+
+.portal-doctor__specialties {
+  color: var(--primary);
+  font-size: var(--text-sm);
+}
+
+.portal-doctor__tagline {
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.portal-doctor__links {
+  display: flex;
+  gap: var(--s3);
+  font-size: var(--text-sm);
+}
+
+/* ------------------------------------------------- Public catalogue */
+
+.portal-crumbs {
+  display: flex;
+  gap: var(--s2);
+  align-items: center;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.portal-catalog__title {
+  font-weight: 600;
+  font-size: var(--text-lg, 1.15rem);
+}
+
+.portal-catalog__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  align-items: center;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.portal-catalog__meta strong {
+  color: var(--ink);
+}
+
+/* Day / time choices */
+
+.portal-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.portal-choice {
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+}
+
+.portal-choice--on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-ink);
+}

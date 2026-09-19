@@ -1,0 +1,67 @@
+/* Public page images: logo and cover, live and waiting for approval. */
+
+.media-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.media-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--s4);
+}
+
+.media-slot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.media-slot__pair {
+  display: flex;
+  gap: var(--s3);
+  flex-wrap: wrap;
+}
+
+.media-slot figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+}
+
+.media-slot figcaption {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.media-slot img,
+.media-slot__empty {
+  width: 9rem;
+  height: 6rem;
+  object-fit: contain;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--ground);
+}
+
+.media-slot__empty {
+  display: grid;
+  place-items: center;
+  color: var(--ink-faint);
+}
+
+.media-slot__actions,
+.media-review {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  align-items: center;
+}
+
+.media-review {
+  margin-top: var(--s4);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line);
+}

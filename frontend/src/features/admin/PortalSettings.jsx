@@ -71,6 +71,24 @@ export function PortalSettings() {
             </div>
           )}
 
+          <Checkbox
+            label="السماح للمريض بالحجز في عيادة غير عيادته"
+            checked={Boolean(data.portal_allow_other_branches)}
+            disabled={save.submitting}
+            onChange={async (event) => {
+              try {
+                setData(await save.run({ portal_allow_other_branches: event.target.checked }))
+                toast.success(t('common.saved'))
+              } catch (caught) {
+                toast.error(caught.message)
+              }
+            }}
+          />
+          <p className="ui-muted" style={{ fontSize: 'var(--text-sm)', margin: 0 }}>
+            مغلق افتراضياً: يحجز المريض في عيادته فقط. عند فتحه يرى موظفو العيادة الأخرى بيانات المريض الأساسية
+            (الاسم والهاتف) طوال حجزه المؤكّد لديهم، ولا يرون ملفه ولا سجله في عيادته الأصلية.
+          </p>
+
           <ul className="ui-muted" style={{ fontSize: 'var(--text-sm)', margin: 0, paddingInlineStart: 'var(--s5)' }}>
             <li>يرى المريض دائماً: مواعيده، روشتاته، مدفوعاته، تقدّم خطة علاجه، وحساسيته المسجلة.</li>
             <li>التحاليل والمستندات تظهر فقط بعد أن يضغط الطبيب «إصدار للمريض».</li>

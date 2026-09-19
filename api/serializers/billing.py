@@ -32,10 +32,9 @@ class ShiftStamp(serializers.Serializer):
     shift_status = serializers.CharField(source="shift.status", read_only=True, default=None)
 
     def get_shift_user_name(self, obj):
-        from accounts.roles import display_name
+        from billing.shifts import shift_owner_name
 
-        shift = obj.shift
-        return display_name(shift.user) if shift is not None else None
+        return shift_owner_name(obj.shift)
 
 
 class PaymentMethodSerializer(ClinicSerializer):
@@ -55,7 +54,7 @@ class PaymentSerializer(ShiftStamp, ClinicSerializer):
         model=Appointment, branch_field="branch"
     )
     # The booking's patient — worked out from the booking when left out.
-    patient = TenantScopedRelatedField(model=Patient, branch_field="branch", required=False)
+    patient = TenantScopedRelatedField(model=Patient, branch_field="branch", visiting=True, required=False)
     method = TenantScopedRelatedField(
         model=PaymentMethod, required=False, allow_null=True
     )

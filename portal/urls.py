@@ -2,7 +2,7 @@
 
 from django.urls import path
 
-from . import registration, views
+from . import account, catalog, my_bookings, registration, views
 
 app_name = "portal"
 
@@ -13,12 +13,30 @@ urlpatterns = [
     path("auth/otp/verify/", views.OtpVerifyView.as_view(), name="otp-verify"),
     path("auth/logout/", views.LogoutView.as_view(), name="logout"),
     path("me/", views.MeView.as_view(), name="me"),
+    # Creating an account, proved by a code (docs/15, Phase 2) — and the profile.
+    path("account/start/", account.SignupStartView.as_view(), name="account-start"),
+    path("account/verify/", account.SignupVerifyView.as_view(), name="account-verify"),
+    path("me/profile/", account.ProfileView.as_view(), name="profile"),
+    path("me/email/", account.EmailChangeStartView.as_view(), name="email-change"),
+    path("me/email/verify/", account.EmailChangeVerifyView.as_view(), name="email-change-verify"),
     path("register/options/", registration.RegisterOptionsView.as_view(), name="register-options"),
     path("register/", registration.RegisterView.as_view(), name="register"),
     path("links/", registration.PublicLinksView.as_view(), name="links"),
     path("about/", registration.PublicAboutView.as_view(), name="about"),
+    # The public catalogue: service → the clinics that offer it → its doctors (docs/15, Phase 3).
+    path("catalog/services/", catalog.CatalogServicesView.as_view(), name="catalog-services"),
+    path("catalog/services/<uuid:service>/branches/", catalog.CatalogBranchesView.as_view(), name="catalog-branches"),
+    path(
+        "catalog/services/<uuid:service>/branches/<uuid:branch>/doctors/",
+        catalog.CatalogDoctorsView.as_view(), name="catalog-doctors",
+    ),
+    path("catalog/availability/", catalog.CatalogAvailabilityView.as_view(), name="catalog-availability"),
+    path("catalog/availability/days/", catalog.CatalogAvailableDaysView.as_view(), name="catalog-availability-days"),
     path("booking/options/", views.BookingOptionsView.as_view(), name="booking-options"),
     path("appointments/", views.AppointmentsView.as_view(), name="appointments"),
+    path("appointments/<uuid:uuid>/", my_bookings.AppointmentDetailView.as_view(), name="appointment-detail"),
+    path("appointments/<uuid:uuid>/cancel/", my_bookings.AppointmentCancelView.as_view(), name="appointment-cancel"),
+    path("appointments/<uuid:uuid>/reschedule/", my_bookings.AppointmentRescheduleView.as_view(), name="appointment-reschedule"),
     path("appointments/<uuid:uuid>/pay/", views.AppointmentPayView.as_view(), name="appointment-pay"),
     path("pay/options/", views.PayOptionsView.as_view(), name="pay-options"),
     path("visits/", views.VisitsView.as_view(), name="visits"),

@@ -8,7 +8,9 @@ User = get_user_model()
 
 @receiver(post_save, sender=Appointment)
 def create_appointment_notification(sender, instance, created, **kwargs):
-    if created:
+    # A website booking has its own, more useful notice for the clinic's front
+    # desk (notifications/booking.py: who to phone, and for what) — not this one too.
+    if created and instance.source != Appointment.Source.PUBLIC_PORTAL:
         users = User.objects.filter(tenant=instance.tenant, branch=instance.branch)
         for user in users:
             notification = Notification(

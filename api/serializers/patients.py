@@ -9,8 +9,29 @@ from patients.models import Patient
 
 from .common import ClinicSerializer
 
+#: What a clinic sees of a patient who belongs to another clinic and is only
+#: here for a confirmed booking (docs/15, D10): enough to receive, call and
+#: treat them — no notes, national id, address, contacts, referral or consent.
+VISITING_FIELDS = (
+    "uuid", "serial_number", "name", "gender", "birth_date", "age", "phone1",
+    "branch", "branch_name",
+)
 
-class PatientListSerializer(ClinicSerializer):
+
+class VisitingLimitMixin:
+    def to_representation(self, patient):
+        from accounts.roles import is_visiting_patient
+
+        data = super().to_representation(patient)
+        user = self.request_user
+        if user is not None and getattr(user, "is_authenticated", False) and is_visiting_patient(patient, user):
+            limited = {name: data[name] for name in VISITING_FIELDS if name in data}
+            limited["visiting"] = True
+            return limited
+        return data
+
+
+class PatientListSerializer(VisitingLimitMixin, ClinicSerializer):
     """The columns a list screen renders, and no more.
 
     Deliberately narrower than the detail serializer: a list of five hundred
@@ -32,7 +53,7 @@ class PatientListSerializer(ClinicSerializer):
         read_only_fields = fields
 
 
-class PatientSerializer(ClinicSerializer):
+class PatientSerializer(VisitingLimitMixin, ClinicSerializer):
     branch = TenantScopedRelatedField(model=Branch, required=False, allow_null=True)
     branch_name = serializers.CharField(
         source="branch.name", read_only=True, default=None

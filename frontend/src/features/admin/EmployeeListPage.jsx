@@ -85,6 +85,12 @@ export function EmployeeListPage() {
           render: (row) => <span dir="ltr">{row.phone1 || '—'}</span>,
         },
         {
+          key: 'show_publicly',
+          header: 'الصفحة العامة',
+          render: (row) =>
+            row.employee_type_name === 'Doctor' ? (row.show_publicly ? 'ظاهر' : 'مخفي') : '—',
+        },
+        {
           key: 'hire_date',
           header: 'التعيين',
           render: (row) => formatDate(row.hire_date),
@@ -140,6 +146,13 @@ export function EmployeeListPage() {
           label: 'نسبة الطبيب الافتراضية %',
           type: 'number',
           hint: 'للأطباء: نسبته من المبلغ المدفوع فعلاً ما لم يحدد تعاقده نسبة لخدمة بعينها.',
+        },
+        {
+          name: 'show_publicly',
+          label: 'إظهار الطبيب في الصفحة العامة للعيادة',
+          type: 'checkbox',
+          span: 2,
+          hint: 'يظهر اسمه وتخصصاته وسطر التعريف المعتمد فقط — بلا هاتف أو بريد أو أي بيانات داخلية.',
         },
       ]}
       emptyMessage="أضف موظفي العيادة هنا."

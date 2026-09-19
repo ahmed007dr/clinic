@@ -15,7 +15,7 @@ from .views.subscription import SubscriptionView
 from .views.settings import ClinicSettingsView
 from .views import about, attendance, contracts, coupons, email_log, intake, meta, owner, owner_email, shifts
 from .views.print_settings import PrintSettingsView
-from .views import doctor_profile, my_report
+from .views import branch_services, doctor_profile, my_report, public_media, schedules
 from . import platform, platform_backups, platform_business, platform_control, platform_pay, signup
 
 router = DefaultRouter()
@@ -61,6 +61,8 @@ router.register("attendance", attendance.AttendanceViewSet, basename="attendance
 router.register("shifts", shifts.CashShiftViewSet, basename="shift")
 router.register("about", about.BranchAboutViewSet, basename="about")
 router.register("coupons", coupons.CouponViewSet, basename="coupon")
+router.register("doctor-time-off", schedules.DoctorTimeOffViewSet, basename="doctortimeoff")
+router.register("branch-holidays", schedules.BranchHolidayViewSet, basename="branchholiday")
 router.register("doctor-rates", contracts.DoctorServiceRateViewSet, basename="doctorrate")
 router.register("commissions", contracts.DoctorCommissionViewSet, basename="commission")
 
@@ -123,6 +125,17 @@ urlpatterns = [
     path("owner/email/apply-default/", owner_email.OwnerEmailApplyDefaultView.as_view(), name="owner-email-apply-default"),
     path("owner/email/<str:target>/", owner_email.OwnerEmailTargetView.as_view(), name="owner-email-target"),
     path("owner/email/<str:target>/test/", owner_email.OwnerEmailTestView.as_view(), name="owner-email-test"),
+    # Doctors' weekly hours (docs/15, Phase 4).
+    path("schedules/", schedules.SchedulesView.as_view(), name="schedules"),
+    # Which services each clinic offers (docs/15, D9).
+    path("branch-services/", branch_services.BranchServicesView.as_view(), name="branch-services"),
+    # The public page's logo and cover, with the Owner's approval (docs/15, D8).
+    path("public-media/", public_media.PublicMediaListView.as_view(), name="public-media"),
+    path("public-media/group/", public_media.GroupMediaView.as_view(), name="public-media-group"),
+    path("public-media/group/<str:kind>/", public_media.GroupMediaKindView.as_view(), name="public-media-group-kind"),
+    path("public-media/branches/<uuid:uuid>/", public_media.BranchMediaView.as_view(), name="public-media-branch"),
+    path("public-media/branches/<uuid:uuid>/review/", public_media.BranchMediaReviewView.as_view(), name="public-media-review"),
+    path("public-media/branches/<uuid:uuid>/<str:kind>/", public_media.BranchMediaKindView.as_view(), name="public-media-branch-kind"),
     # The patient portal: its own authentication, never a staff session.
     path("portal/<slug:slug>/", include("portal.urls")),
     # The owner portal. Gated by is_platform_staff; see api/platform.py.

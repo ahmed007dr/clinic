@@ -48,6 +48,11 @@ class AppointmentViewSet(ClinicViewSet):
         if doctor:
             queryset = queryset.filter(doctor__uuid=doctor)
 
+        # Where it came from: the website, the desk, the phone… (docs/15).
+        source = params.get("source")
+        if source:
+            queryset = queryset.filter(source=source)
+
         date_from = params.get("from")
         if date_from:
             queryset = queryset.filter(scheduled_date__date__gte=date_from)
@@ -155,8 +160,54 @@ class AppointmentViewSet(ClinicViewSet):
                 check_can_enter(appointment)
             except PaymentRequired as required:
                 return Response({"status": [str(required)]}, status=400)
+        old_status = appointment.status
         appointment.status = value
         appointment.save(update_fields=["status"])
+        if old_status != value:
+            # The patient hears about a confirmation or a cancellation (docs/15, Phase 9).
+            from django.db import transaction
+
+            from notifications import booking as told
+
+            transaction.on_commit(lambda: told.status_changed(appointment, old_status))
+        return Response(self.get_serializer(appointment).data)
+
+    @action(detail=True, methods=["post"], url_path="set-quantity", permission_classes=[IsClinicMember])
+    def set_quantity(self, request, uuid=None):
+        """`{quantity}` — the doctor fixes the real quantity of a service sold by
+        quantity (docs/15, D14): the pulses actually used, the millilitres actually
+        given. What the service comes to becomes unit price × that quantity, and the
+        front desk is told what is left to collect (or return).
+
+        The doctor of the booking does it — or management. The desk does not: the
+        quantity is a clinical fact, and the price the desk works from follows it.
+        Scoped like every booking, so a doctor reaches only their own patients'.
+        """
+        from django.db import transaction
+        from rest_framework.exceptions import PermissionDenied
+
+        from accounts.roles import is_clinic_admin, is_doctor
+        from billing.pricing import QuantityRefused, set_final_quantity
+        from notifications import booking as told
+
+        if not (is_doctor(request.user) or is_clinic_admin(request.user)):
+            raise PermissionDenied("تحديد الكمية للطبيب وللإدارة.")
+        appointment = self.get_object()
+        try:
+            with transaction.atomic():
+                old_total, new_total = set_final_quantity(appointment, request.data.get("quantity"))
+        except QuantityRefused as refused:
+            return Response({"quantity": [str(refused)]}, status=400)
+        transaction.on_commit(lambda: told.quantity_set(appointment, old_total, new_total))
+        return Response(self.get_serializer(appointment).data)
+
+    @action(detail=True, methods=["post"], url_path="dismiss-reschedule")
+    def dismiss_reschedule(self, request, uuid=None):
+        """Drop the patient's request to move this booking, without moving it."""
+        appointment = self.get_object()
+        appointment.reschedule_requested_for = None
+        appointment.reschedule_note = ""
+        appointment.save(update_fields=["reschedule_requested_for", "reschedule_note"])
         return Response(self.get_serializer(appointment).data)
 
     @action(detail=True, methods=["post"], url_path="follow-up")
