@@ -8,7 +8,6 @@ The recipient is never taken from the request: it is the person's own address
 from datetime import timedelta
 
 from django.core.cache import cache
-from django.core.mail import EmailMessage
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.dateparse import parse_date
@@ -17,6 +16,7 @@ from rest_framework.views import APIView
 
 from accounts.roles import display_name
 from api.permissions import IsClinicMember
+from notifications.maillog import deliver
 from platform_admin.mailer import sender_for
 from reports import personal
 
@@ -59,11 +59,11 @@ class MyReportEmailView(APIView):
             "title": title, "name": display_name(user), "clinic": getattr(tenant, "name", ""),
             "period": period, "sections": sections,
         })
-        message = EmailMessage(f"{title} — {period}", html, from_email=sender, to=[to], connection=connection)
-        message.content_subtype = "html"
-        try:
-            message.send()
-        except Exception:  # noqa: BLE001 — an unreachable mail server is reported, not a crash
+        sent = deliver(
+            kind="personal_report", tenant=tenant, branch=branch, to=to, subject=f"{title} — {period}",
+            body=html, html=True, template="reports/personal_report.html", connection=connection, sender=sender,
+        )
+        if not sent:  # an unreachable mail server is reported, not a crash
             cache.delete(key)
             return Response({"detail": "تعذّر إرسال البريد الآن. حاول لاحقاً."}, status=502)
         return Response({"sent_to": _mask(to)})

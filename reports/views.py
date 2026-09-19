@@ -1,4 +1,3 @@
-from django.core.mail import EmailMessage
 from django.utils import timezone
 from django.db.models import Sum, Count
 from django.template.loader import render_to_string
@@ -10,6 +9,8 @@ from services.models import Service
 from django.conf import settings
 from tenants.context import tenant_context
 from tenants.models import Tenant
+from notifications.maillog import deliver
+from platform_admin.mailer import sender_for
 from .models import ReportRecipient
 
 # These run from a scheduler, outside any request, so there is no tenant in
@@ -86,14 +87,14 @@ def generate_daily_report():
                 }
 
                 email_body = render_to_string('reports/daily_report.html', context)
-                email = EmailMessage(
+                # The clinic's own mail server, else its group's, else the platform's.
+                connection, sender = sender_for(branch=branch)
+                deliver(
+                    kind='daily_report', tenant=tenant, branch=branch, to=recipients,
                     subject=f'التقرير اليومي - {branch.name} - {today.strftime("%Y-%m-%d")}',
-                    body=email_body,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    to=recipients
+                    body=email_body, html=True, template='reports/daily_report.html',
+                    connection=connection, sender=sender,
                 )
-                email.content_subtype = 'html'  # إرسال الإيميل كنص HTML
-                email.send()
 
 
 def generate_monthly_report():
@@ -162,14 +163,14 @@ def generate_monthly_report():
                 }
 
                 email_body = render_to_string('reports/monthly_report.html', context)
-                email = EmailMessage(
+                # The clinic's own mail server, else its group's, else the platform's.
+                connection, sender = sender_for(branch=branch)
+                deliver(
+                    kind='monthly_report', tenant=tenant, branch=branch, to=recipients,
                     subject=f'التقرير الشهري - {branch.name} - {start_date.strftime("%Y-%m")}',
-                    body=email_body,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    to=recipients
+                    body=email_body, html=True, template='reports/monthly_report.html',
+                    connection=connection, sender=sender,
                 )
-                email.content_subtype = 'html'
-                email.send()
 
 
 def generate_annual_report():
@@ -208,11 +209,11 @@ def generate_annual_report():
                 }
 
                 email_body = render_to_string('reports/annual_report.html', context)
-                email = EmailMessage(
+                # The clinic's own mail server, else its group's, else the platform's.
+                connection, sender = sender_for(branch=branch)
+                deliver(
+                    kind='annual_report', tenant=tenant, branch=branch, to=recipients,
                     subject=f'التقرير السنوي - {branch.name} - {start_date.year}',
-                    body=email_body,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    to=recipients
+                    body=email_body, html=True, template='reports/annual_report.html',
+                    connection=connection, sender=sender,
                 )
-                email.content_subtype = 'html'
-                email.send()

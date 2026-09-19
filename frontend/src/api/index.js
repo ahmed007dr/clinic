@@ -169,6 +169,8 @@ export const platform = {
     http.download(`/platform/tenants/${uuid}/export/${files ? '' : '?files=0'}`, name),
   importGroup: (formData) => http.post('/platform/imports/', formData),
   people: (uuid) => http.get(`/platform/tenants/${uuid}/people/`),
+  emailLog: (uuid, params) => http.get(`/platform/tenants/${uuid}/email-log/`, params),
+  emailLogEntry: (uuid, id) => http.get(`/platform/tenants/${uuid}/email-log/${id}/`),
   branches: (uuid) => http.get(`/platform/tenants/${uuid}/branches/`),
   /* Full control over a group (api/platform_control.py). */
   editTenant: (uuid, body) => http.patch(`/platform/tenants/${uuid}/edit/`, body),
@@ -238,6 +240,17 @@ export const intakes = createResource('intakes')
 /* The group owner's overview of every clinic */
 export const owner = {
   overview: (params) => http.get('/owner/overview/', params),
+  /* Mail server settings: `target` is 'group' (the default for every clinic) or a clinic id. */
+  email: () => http.get('/owner/email/'),
+  saveEmail: (target, body) => http.put(`/owner/email/${target}/`, body),
+  removeEmail: (target) => http.delete(`/owner/email/${target}/`),
+  testEmail: (target, body) => http.post(`/owner/email/${target}/test/`, body),
+}
+
+/* What the system emailed, and exactly what it said (Admin, Owner). */
+export const emailLog = {
+  list: (params) => http.get('/email-log/', params),
+  get: (id) => http.get(`/email-log/${id}/`),
 }
 
 export const attendance = {
@@ -323,6 +336,7 @@ export const api = {
   intake,
   intakes,
   owner,
+  emailLog,
   attendance,
   shifts,
   doctorRates,

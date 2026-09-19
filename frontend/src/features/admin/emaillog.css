@@ -1,0 +1,73 @@
+/* Kind chips: one per message type, each with how many match right now. */
+.email-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-bottom: var(--s4);
+}
+
+.email-kinds__chip {
+  padding: var(--s2) var(--s4);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.email-kinds__chip[aria-pressed='true'] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.email-kinds__chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.email-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s4);
+  margin-bottom: var(--s4);
+}
+
+.email-meta {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--s2) var(--s4);
+  margin: 0 0 var(--s4);
+}
+
+.email-meta dt {
+  color: var(--text-muted);
+}
+
+.email-meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.email-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-alt, var(--surface));
+  margin: 0;
+  font: inherit;
+}
+
+/* The HTML a report was sent as, shown in a sandbox: no script, no forms, no
+   navigation — it is displayed, never run. */
+.email-frame {
+  width: 100%;
+  height: 26rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+}

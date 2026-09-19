@@ -77,3 +77,40 @@
 .owner-statuses li:last-child {
   border-block-end: 0;
 }
+
+/* ---- Email settings ---- */
+
+.owner-section-title {
+  margin: var(--s4) 0 0;
+  font-size: var(--text-lg);
+}
+
+.mail-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
+  gap: var(--s3);
+  align-items: end;
+  margin-block: var(--s4);
+}
+
+.mail-actions {
+  margin-block-start: var(--s4);
+  flex-wrap: wrap;
+}
+
+.mail-note {
+  margin-block: var(--s3) 0;
+  padding: var(--s2) var(--s3);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+}
+
+.mail-note--bad {
+  background: var(--warn-soft);
+  border: 1px solid var(--warn);
+}
+
+.mail-note--ok {
+  background: var(--ok-soft);
+  border: 1px solid var(--ok);
+}

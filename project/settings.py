@@ -1,6 +1,11 @@
 
+import sys
 from pathlib import Path
 import environ
+
+from django.core.exceptions import ImproperlyConfigured
+
+from . import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -16,32 +21,42 @@ environ.Env.read_env(BASE_DIR / '.env')
 SECRET_KEY = env('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.bool('DJANGO_DEBUG', default=False)
+#
+# Development/production is decided in project/config.py, the one place to
+# switch it. Everything that differs between the two comes from there.
+DEBUG = config.DEBUG
 
-ALLOWED_HOSTS = env.list('DJANGO_ALLOWED_HOSTS', default=[])
+ALLOWED_HOSTS = config.ALLOWED_HOSTS
 
-CSRF_TRUSTED_ORIGINS = env.list('DJANGO_CSRF_TRUSTED_ORIGINS', default=[])
+CSRF_TRUSTED_ORIGINS = config.CSRF_TRUSTED_ORIGINS
+
+BASE_URL = config.BASE_URL
 
 
 # --- Transport security -------------------------------------------------------
-# Secure by default and relaxed only when DEBUG is on, so a local HTTP session
-# still works while a deployment gets the hardened values without anyone
-# remembering to set them. Each stays overridable, because "is this deployment
-# behind TLS" is a property of the environment, not of the code.
+# Comes from project/config.py: hardened in production, relaxed in development
+# so a local HTTP session still works.
 #
 # Django already defaults the rest of the headers sensibly and they are not
 # repeated here: SECURE_CONTENT_TYPE_NOSNIFF, X_FRAME_OPTIONS = 'DENY',
 # SECURE_REFERRER_POLICY, SECURE_CROSS_ORIGIN_OPENER_POLICY and
 # SESSION_COOKIE_HTTPONLY are all already on.
-SESSION_COOKIE_SECURE = env.bool('DJANGO_SESSION_COOKIE_SECURE', default=not DEBUG)
-CSRF_COOKIE_SECURE = env.bool('DJANGO_CSRF_COOKIE_SECURE', default=not DEBUG)
+SESSION_COOKIE_SECURE = config.SESSION_COOKIE_SECURE
+CSRF_COOKIE_SECURE = config.CSRF_COOKIE_SECURE
 
 # Redirects http:// to https://. Read the proxy note below before deploying:
 # behind a load balancer that terminates TLS, Django cannot tell the original
 # request was secure, so this redirects forever unless the proxy's header is
 # trusted. That is why the header is a separate, explicit opt-in — trusting a
 # forwarded header blindly lets a client claim its own connection was secure.
-SECURE_SSL_REDIRECT = env.bool('DJANGO_SECURE_SSL_REDIRECT', default=not DEBUG)
+SECURE_SSL_REDIRECT = config.SECURE_SSL_REDIRECT
+if len(sys.argv) > 1 and sys.argv[1] == 'test':
+    # The test client speaks plain HTTP to a test server: redirecting every
+    # request to https would make the whole suite answer 301. Only the test
+    # runner is exempt (`check --deploy` still sees the real values).
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
 if env.bool('DJANGO_TRUST_PROXY_SSL_HEADER', default=False):
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
@@ -191,12 +206,20 @@ WSGI_APPLICATION = 'project.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-# DATABASE_URL drives this. PostgreSQL in every real environment; the SQLite
-# default only exists so a fresh checkout runs without configuration.
-# DigitalOcean Managed PostgreSQL requires SSL, so its URL ends in ?sslmode=require
-DATABASES = {
-    'default': env.db('DATABASE_URL', default=f'sqlite:///{BASE_DIR / "db.sqlite3"}')
-}
+# config.USE_POSTGRES picks the engine. The PostgreSQL connection string is a
+# secret and lives in .env as POSTGRES_URL; a managed host that requires SSL
+# ends it with ?sslmode=require. Asking for PostgreSQL without it is an error,
+# not a silent fall back to SQLite — that would look like a working deploy
+# writing to the wrong database.
+if config.USE_POSTGRES:
+    if not env.str('POSTGRES_URL', default='').strip():
+        raise ImproperlyConfigured(
+            'USE_POSTGRES is True in project/config.py but POSTGRES_URL is '
+            'missing or empty in .env.'
+        )
+    DATABASES = {'default': env.db('POSTGRES_URL')}
+else:
+    DATABASES = {'default': env.db_url_config(f'sqlite:///{BASE_DIR / "db.sqlite3"}')}
 
 
 # Password validation
@@ -270,17 +293,17 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# No default, matching EMAIL_HOST_USER/PASSWORD below. It used to fall back to
-# `mail.2odays.com` — the host SEC-001 rotated away from after its credentials
-# leaked, and which no longer resolves. A stale default is worse than a missing
-# one here: with the user and password already required, the only thing the
-# fallback could do was point correct credentials at the wrong server.
-EMAIL_HOST = env('EMAIL_HOST')
+# Only the platform's own last-resort sender, and optional. Each group owner
+# sets their group's and each clinic's mail server in the app (الإعدادات ←
+# البريد الإلكتروني), the developer sets the platform's in the developer portal,
+# and platform_admin/mailer.py tries them in that order before falling back to
+# these. Left empty, nothing is sent unless one of those is configured.
+EMAIL_HOST = env('EMAIL_HOST', default='')
 EMAIL_PORT = env.int('EMAIL_PORT', default=465)
 EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=False)
 EMAIL_USE_SSL = env.bool('EMAIL_USE_SSL', default=True)
-EMAIL_HOST_USER = env('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
+EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER)
 
 # Encrypts the developer portal's stored keys (platform_admin/vault.py).

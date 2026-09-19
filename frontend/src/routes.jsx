@@ -49,6 +49,8 @@ const BranchListPage = page(() => import('@/features/admin/BranchListPage'), 'Br
 const ServiceListPage = page(() => import('@/features/admin/ServiceListPage'), 'ServiceListPage')
 const PrintSettingsPage = page(() => import('@/features/admin/PrintSettingsPage'), 'PrintSettingsPage')
 const SettingsPage = page(() => import('@/features/admin/SettingsPage'), 'SettingsPage')
+const EmailLogPage = page(() => import('@/features/admin/EmailLogPage'), 'EmailLogPage')
+const OwnerEmailPage = page(() => import('@/features/owner/OwnerEmailPage'), 'OwnerEmailPage')
 const SubscriptionPage = page(() => import('@/features/admin/SubscriptionPage'), 'SubscriptionPage')
 const AccountPage = page(() => import('@/features/account/AccountPage'), 'AccountPage')
 const NotificationListPage = page(() => import('@/features/notifications/NotificationListPage'), 'NotificationListPage')
@@ -104,6 +106,9 @@ export const routes = [
   { path: 'settings', element: SettingsPage, permission: 'is_admin' },
   { path: 'settings/print', element: PrintSettingsPage, permission: 'is_admin' },
   { path: 'subscription', element: SubscriptionPage, permission: 'is_owner' },
+  // The Owner's mail servers; the log of what was sent is the Admin's too.
+  { path: 'settings/email', element: OwnerEmailPage, permission: 'is_owner' },
+  { path: 'email-log', element: EmailLogPage, permission: 'is_admin' },
 
   { path: 'settings/account', element: AccountPage },
   { path: 'notifications', element: NotificationListPage },

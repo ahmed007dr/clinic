@@ -15,7 +15,7 @@ nothing is sent at all.
 import logging
 from contextlib import contextmanager
 
-from django.core.mail import EmailMessage
+from notifications.maillog import deliver
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ def _recipient(doctor):
     return getattr(account, "email", None) or None
 
 
-def _send(doctor, subject, lines):
+def _send(doctor, subject, lines, kind):
     from platform_admin.mailer import sender_for
 
     to = _recipient(doctor)
@@ -54,10 +54,10 @@ def _send(doctor, subject, lines):
         # else its group's, else the platform's, else the settings file
         # (platform_admin/mailer.py). None anywhere: nothing is sent.
         connection, sender = sender_for(branch=doctor.branch, customer=getattr(doctor.branch, "tenant", None))
-        if connection is None:
-            return False
-        EmailMessage(subject, "\n".join(lines), from_email=sender, to=[to], connection=connection).send()
-        return True
+        return deliver(
+            kind=kind, tenant=doctor.branch.tenant, branch=doctor.branch, to=to, subject=subject,
+            body="\n".join(lines), connection=connection, sender=sender,
+        )
     except Exception:  # noqa: BLE001 — see the module docstring
         logger.exception("Could not email doctor %s", getattr(doctor, "pk", None))
         return False
@@ -94,7 +94,7 @@ def email_doctor_checkin(appointment_id):
         "",
         "تُحتسب نسبتك من المبلغ المدفوع فعلاً، وتصلك رسالة عند استلامه.",
     ]
-    return _send(doctor, f"دخول مريض: {appointment.patient.name}", lines)
+    return _send(doctor, f"دخول مريض: {appointment.patient.name}", lines, "doctor_checkin")
 
 
 def email_doctor_payment(commission_id):
@@ -120,4 +120,4 @@ def email_doctor_payment(commission_id):
         f"نصيبك: {_money(commission.amount)}",
         f"الحالة: {commission.get_status_display()}",
     ]
-    return _send(commission.doctor, f"نصيبك من دفعة {getattr(commission.patient, 'name', '')}", lines)
+    return _send(commission.doctor, f"نصيبك من دفعة {getattr(commission.patient, 'name', '')}", lines, "doctor_payment")

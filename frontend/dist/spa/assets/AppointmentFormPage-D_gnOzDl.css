@@ -1,0 +1,1 @@
+.booking-price{display:grid;gap:var(--s1);margin-block-start:var(--s4);padding:var(--s3) var(--s4);border-radius:var(--radius);background:var(--primary-soft);color:var(--primary)}.booking-price__row{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3)}.booking-price__net strong{font-size:var(--text-xl, 1.5rem);font-variant-numeric:tabular-nums}

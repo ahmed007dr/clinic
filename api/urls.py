@@ -13,7 +13,7 @@ from .views import dashboard as dashboard_views
 from .views import notifications, patients
 from .views.subscription import SubscriptionView
 from .views.settings import ClinicSettingsView
-from .views import about, attendance, contracts, coupons, intake, meta, owner, shifts
+from .views import about, attendance, contracts, coupons, email_log, intake, meta, owner, owner_email, shifts
 from .views.print_settings import PrintSettingsView
 from .views import doctor_profile, my_report
 from . import platform, platform_backups, platform_business, platform_control, platform_pay, signup
@@ -112,6 +112,17 @@ urlpatterns = [
     path("patients/<uuid:uuid>/history/", intake.PatientHistoryView.as_view(), name="patient-history"),
     # The group owner's dashboard (accounts/roles.py: Owner only).
     path("owner/overview/", owner.OwnerOverviewView.as_view(), name="owner-overview"),
+    # The email log: what was sent, to whom, and what it said.
+    path("email-log/", email_log.EmailLogListView.as_view(), name="email-log"),
+    path("email-log/<uuid:uuid>/", email_log.EmailLogDetailView.as_view(), name="email-log-detail"),
+    path("email-log/<uuid:uuid>/resend/", email_log.EmailLogResendView.as_view(), name="email-log-resend"),
+    path("platform/tenants/<uuid:uuid>/email-log/", email_log.PlatformEmailLogListView.as_view(), name="platform-email-log"),
+    path("platform/tenants/<uuid:uuid>/email-log/<uuid:log_uuid>/", email_log.PlatformEmailLogDetailView.as_view(), name="platform-email-log-detail"),
+    # The owner's email settings: the group's default and each clinic's own.
+    path("owner/email/", owner_email.OwnerEmailView.as_view(), name="owner-email"),
+    path("owner/email/apply-default/", owner_email.OwnerEmailApplyDefaultView.as_view(), name="owner-email-apply-default"),
+    path("owner/email/<str:target>/", owner_email.OwnerEmailTargetView.as_view(), name="owner-email-target"),
+    path("owner/email/<str:target>/test/", owner_email.OwnerEmailTestView.as_view(), name="owner-email-test"),
     # The patient portal: its own authentication, never a staff session.
     path("portal/<slug:slug>/", include("portal.urls")),
     # The owner portal. Gated by is_platform_staff; see api/platform.py.

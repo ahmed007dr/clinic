@@ -37,15 +37,12 @@ EXPECTED_ABSENT = {
 }
 
 PRODUCTION_ENV = {
-    "DJANGO_DEBUG": "False",
-    "DJANGO_ALLOWED_HOSTS": "clinic.example.com",
-    "DJANGO_CSRF_TRUSTED_ORIGINS": "https://clinic.example.com",
+    # Development or production is project/config.py's switch; the environment
+    # variables it honours are what let a subprocess choose.
+    "DJANGO_ENV": "production",
+    "DJANGO_DB": "sqlite",
     # Required with no default; values are irrelevant to these checks.
     "DJANGO_SECRET_KEY": "test-only-not-a-real-key-0123456789abcdef",
-    "EMAIL_HOST": "mail.example.com",
-    "EMAIL_HOST_USER": "no-reply@example.com",
-    "EMAIL_HOST_PASSWORD": "unused-in-check",
-    "DATABASE_URL": "sqlite:///deploy-check-not-used.sqlite3",
 }
 
 
@@ -89,7 +86,7 @@ class DeploymentSecurityDefaultTests(SimpleTestCase):
     def test_debug_keeps_the_flags_off_for_local_http(self):
         """The other half of the default: a developer on http://localhost must
         not have their session cookie refused by their own browser."""
-        _, output = run_check({"DJANGO_DEBUG": "True"})
+        _, output = run_check({"DJANGO_ENV": "development"})
         # With DEBUG on, Django reports W018 and the cookie warnings again —
         # which is the correct posture for a local HTTP session.
         self.assertIn("security.W018", output)

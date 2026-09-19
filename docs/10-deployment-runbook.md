@@ -17,7 +17,7 @@ in, and every main screen renders.
 **If the site is served over plain HTTP, every form submission is silently
 discarded.**
 
-`SECURE_SSL_REDIRECT` is on whenever `DJANGO_DEBUG=False`. Over HTTP, Django
+`SECURE_SSL_REDIRECT` is on whenever `IS_PRODUCTION = True` in `project/config.py`. Over HTTP, Django
 answers a `POST` with `301 → https://…`. A redirect drops the request body, so
 the browser re-issues it as a `GET`: the page reloads, no error appears, and
 nothing is saved. Verified in the rehearsal — over HTTP the patient count stayed
@@ -32,8 +32,9 @@ So, before handover, exactly one of these must be true:
 * **TLS terminates at a proxy** and `DJANGO_TRUST_PROXY_SSL_HEADER=True` is set,
   and that proxy sets `X-Forwarded-Proto` **and strips any client-supplied
   copy** — otherwise a client can assert its own connection was secure, or
-* `DJANGO_SECURE_SSL_REDIRECT=False`, which is only acceptable while nothing
-  real is being entered.
+* `SECURE_SSL_REDIRECT = False` in the development branch of
+  `project/config.py`, which is only acceptable while nothing real is being
+  entered.
 
 Verify with step 8. Do not skip it.
 
@@ -141,9 +142,25 @@ rotated without re-entering every integration. **No integration key goes in
 `.env` or any file**: they are entered only in the developer portal
 («المفاتيح والتكاملات»), each with a test and a production set.
 
-`DJANGO_DEBUG` **must** be `False`. With it on, Django serves `MEDIA_ROOT` with
-no authentication at all, and patient photographs become readable by anyone who
-guesses a URL.
+**Development or production is one switch**, in `project/config.py`:
+`IS_PRODUCTION = True`. It sets `DEBUG`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`,
+the secure-cookie flags and the HTTPS redirect, and holds the domain
+(`PRIMARY_DOMAIN`). The same file's `USE_POSTGRES` picks PostgreSQL or SQLite;
+the PostgreSQL connection string goes in `.env` as `POSTGRES_URL`. The old
+`DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS` and `DJANGO_CSRF_TRUSTED_ORIGINS`
+variables are no longer read. A real environment variable `DJANGO_ENV` or
+`DJANGO_DB` overrides the file (used by the tests and CI).
+
+Production **must** run with `IS_PRODUCTION = True`. With it off, Django serves
+`MEDIA_ROOT` with no authentication at all, and patient photographs become
+readable by anyone who guesses a URL. The flag is tracked in git, so put it
+back before committing if you flipped it locally.
+
+**Email settings are not in `.env` any more.** `EMAIL_*` there is only the
+platform's optional last-resort sender. The group Owner sets the group's mail
+server, and each clinic's own if it should differ, under *البريد الإلكتروني*;
+the developer sets the platform's in the developer portal. A clinic sends
+through its own, else its group's, else the platform's, else `.env`.
 
 ## 4. The database role
 
@@ -359,6 +376,12 @@ It is read-only and mutates nothing.
 
 ## 10. Ongoing
 
+* **Email log.** Every message the system sends for a clinic is recorded
+  (`notifications.EmailLog`): recipient, type, subject, the text as sent and its
+  template. The Owner and Admin read it under *سجل الرسائل*, and support from a
+  group's page in the developer portal (audited). Sign-in codes and single-use
+  links are stored masked. The table only grows — prune old rows on a schedule
+  if it matters.
 * **Backups** (docs/06 PLAT-006). The developer portal's «النسخ الاحتياطي»
   makes an encrypted archive of the platform and every group in
   `PLATFORM_BACKUP_ROOT` (default `<project>/backups`, outside public_html) and

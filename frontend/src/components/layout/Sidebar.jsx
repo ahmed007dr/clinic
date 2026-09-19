@@ -67,6 +67,8 @@ const SECTIONS = [
       { to: '/services', label: 'nav.services', icon: '🗂' },
       { to: '/subscription', label: 'nav.subscription', icon: '🎫', permission: 'is_owner' },
       { to: '/settings/print', label: 'nav.print_design', icon: '🖨' },
+      { to: '/settings/email', label: 'nav.email', icon: '✉️', permission: 'is_owner' },
+      { to: '/email-log', label: 'nav.email_log', icon: '📨' },
       { to: '/settings', label: 'nav.settings', icon: '⚙', end: true },
     ],
   },
