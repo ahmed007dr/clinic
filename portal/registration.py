@@ -99,7 +99,8 @@ class RegisterView(_RegistrationView):
 
 class PublicAboutView(PortalView):
     """The group's running branches — address, phone, map, hours, a few words,
-    and the specialties they offer — for the portal's "About" tab and the page a
+    and the specialties they offer, minus whatever management chose to hide —
+    for the portal's "About" tab and the page a
     new visitor sees before signing in. Public on purpose, and only what a clinic
     publishes anyway: no doctor names, no e-mail, nothing of the patients."""
 
@@ -107,7 +108,7 @@ class PublicAboutView(PortalView):
     permission_classes = [AllowAny]
 
     def get(self, request, slug):
-        from branches.about import specialties_by_branch
+        from branches.about import specialties_by_branch, visible_specialties
 
         specialties = specialties_by_branch()
         return Response({
@@ -120,9 +121,14 @@ class PublicAboutView(PortalView):
                     "map_url": branch.map_url,
                     "working_hours": branch.working_hours,
                     "about_text": branch.about_text,
-                    "specializations": specialties.get(branch.pk, []),
+                    "specializations": [
+                        {"name": s["name"], "description": s["description"]}
+                        for s in visible_specialties(branch, specialties.get(branch.pk, []))
+                    ],
                 }
-                for branch in Branch.objects.filter(is_active=True).order_by("name")
+                # A branch management left out of "About" is not listed at all.
+                for branch in Branch.objects.filter(is_active=True, about_visible=True)
+                .prefetch_related("about_hidden_specialties").order_by("name")
             ],
         })
 

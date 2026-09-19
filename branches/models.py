@@ -32,6 +32,12 @@ class Branch(TenantOwnedModel):
     # "About the clinic" — what the patient portal shows about this branch, before
     # and after sign-in. Written by the group's Owner or this branch's Admin
     # (api/views/about.py). The address and phone above are shown too.
+    # Management can leave a branch, or a specialty of it, out of the portal's
+    # "About" tab without touching the clinic itself.
+    about_visible = models.BooleanField(default=True)
+    about_hidden_specialties = models.ManyToManyField(
+        "employees.Specialization", blank=True, related_name="hidden_in_about_of"
+    )
     map_url = models.URLField(max_length=500, blank=True, default="")
     working_hours = models.TextField(blank=True, default="")
     about_text = models.TextField(blank=True, default="")

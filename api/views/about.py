@@ -2,7 +2,9 @@
 
     GET   /api/about/            the branches you may edit — the Owner's: every one,
                                  a branch Admin's: their own
-    PATCH /api/about/<uuid>/     address, phone, map link, working hours, description
+    PATCH /api/about/<uuid>/     address, phone, map link, working hours, description,
+                                 and what to leave out: the branch (`about_visible`)
+                                 or chosen specialties (`hidden_specializations`)
 
 What the patient portal shows is `portal.registration.PublicAboutView`. A
 separate endpoint from `/api/branches/` on purpose: that one is the Owner's and
@@ -33,6 +35,7 @@ class BranchAboutViewSet(ClinicViewSet):
     ordering = ["name"]
 
     def filter_tenant_queryset(self, queryset):
+        queryset = queryset.prefetch_related("about_hidden_specialties")
         user = self.request.user
         if sees_all_branches(user):
             return queryset

@@ -10,7 +10,9 @@ from employees.models import Employee
 
 
 def specialties_by_branch():
-    """`{branch id: [{"name", "description"}]}`, each list sorted by name."""
+    """`{branch id: [{"uuid", "name", "description"}]}`, each list sorted by name.
+    Every specialty of the branch's doctors — what management chose to leave out
+    of the portal is applied by whoever shows it (`visible_specialties`)."""
     doctors = (
         Employee.objects.filter(employee_type__name="Doctor")
         .exclude(user_account__is_active=False)
@@ -24,8 +26,15 @@ def specialties_by_branch():
                 found.setdefault(branch_id, {})[specialty.pk] = specialty
     return {
         branch_id: sorted(
-            ({"name": s.name, "description": s.description or ""} for s in by_pk.values()),
+            ({"uuid": str(s.uuid), "name": s.name, "description": s.description or ""} for s in by_pk.values()),
             key=lambda item: item["name"],
         )
         for branch_id, by_pk in found.items()
     }
+
+
+def visible_specialties(branch, specialties):
+    """`specialties` (as `specialties_by_branch()[branch.pk]`) without the ones
+    this branch's management hid from the portal's "About" tab."""
+    hidden = {str(s.uuid) for s in branch.about_hidden_specialties.all()}
+    return [s for s in specialties if s["uuid"] not in hidden]

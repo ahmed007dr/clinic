@@ -189,3 +189,101 @@ class PublicTests(AboutBase):
         self.assertNotIn("Rival Branch", str(self.about().json()))
         theirs = self.client.get(reverse("api:portal:about", kwargs={"slug": rival.slug})).json()
         self.assertEqual([b["name"] for b in theirs["branches"]], ["Rival Branch"])
+
+
+class HidingTests(AboutBase):
+    """Management can leave a whole branch, or chosen specialties of it, out of the
+    portal's "About" tab — without stopping the branch or the doctors."""
+
+    def public(self):
+        self.client.logout()
+        return {b["name"]: b for b in self.client.get(
+            reverse("api:portal:about", kwargs={"slug": self.tenant.slug})).json()["branches"]}
+
+    def names(self, branch):
+        return [s["name"] for s in branch["specializations"]]
+
+    def test_every_branch_and_specialty_is_shown_until_management_hides_it(self):
+        self.login("owner")
+        row = self.rows()["Alpha"]
+        self.assertTrue(row["about_visible"])
+        self.assertEqual(row["hidden_specializations"], [])
+        self.assertFalse(any(s["hidden"] for s in row["specializations"]))
+
+    def test_a_hidden_branch_leaves_the_portal_but_stays_in_management(self):
+        self.login("owner")
+        patch(self.client, reverse("api:about-detail", args=[self.b.uuid]), {"about_visible": False})
+        self.assertEqual(set(self.public()), {"Alpha"})
+        self.login("owner")
+        self.assertFalse(self.rows()["Beta"]["about_visible"])
+        # The branch itself is untouched: still running, still bookable.
+        self.b.refresh_from_db()
+        self.assertTrue(self.b.is_active)
+
+    def test_showing_it_again_brings_it_back(self):
+        self.login("owner")
+        url = reverse("api:about-detail", args=[self.b.uuid])
+        patch(self.client, url, {"about_visible": False})
+        patch(self.client, url, {"about_visible": True})
+        self.assertEqual(set(self.public()), {"Alpha", "Beta"})
+
+    def test_an_admin_hides_their_own_branch_and_not_another(self):
+        self.login("admin-a")
+        self.assertEqual(patch(self.client, reverse("api:about-detail", args=[self.a.uuid]),
+                               {"about_visible": False}).status_code, 200)
+        self.assertEqual(patch(self.client, reverse("api:about-detail", args=[self.b.uuid]),
+                               {"about_visible": False}).status_code, 404)
+        self.assertEqual(set(self.public()), {"Beta"})
+
+    def test_hiding_a_specialty_affects_that_branch_only(self):
+        self.login("owner")
+        response = patch(self.client, reverse("api:about-detail", args=[self.a.uuid]),
+                         {"hidden_specializations": [str(self.laser.uuid)]})
+        self.assertEqual(response.status_code, 200, response.content)
+        public = self.public()
+        self.assertNotIn("Laser", self.names(public["Alpha"]))
+        self.assertIn("Laser", self.names(public["Beta"]))
+        # Management still sees it — marked hidden — so it can be shown again.
+        self.login("owner")
+        alpha = self.rows()["Alpha"]
+        laser = next(s for s in alpha["specializations"] if s["name"] == "Laser")
+        self.assertTrue(laser["hidden"])
+        self.assertEqual(alpha["hidden_specializations"], [str(self.laser.uuid)])
+
+    def test_unhiding_a_specialty_and_hiding_several_at_once(self):
+        self.login("owner")
+        url = reverse("api:about-detail", args=[self.a.uuid])
+        patch(self.client, url, {"hidden_specializations": [str(self.laser.uuid), str(self.derma.uuid)]})
+        self.assertEqual(self.names(self.public()["Alpha"]), ["Cosmetic"])
+        self.login("owner")
+        patch(self.client, url, {"hidden_specializations": []})
+        self.assertEqual(self.names(self.public()["Alpha"]), ["Cosmetic", "Dermatology", "Laser"])
+
+    def test_an_admin_hides_specialties_of_their_own_branch_only(self):
+        self.login("admin-a")
+        self.assertEqual(patch(self.client, reverse("api:about-detail", args=[self.a.uuid]),
+                               {"hidden_specializations": [str(self.derma.uuid)]}).status_code, 200)
+        self.assertEqual(patch(self.client, reverse("api:about-detail", args=[self.b.uuid]),
+                               {"hidden_specializations": [str(self.laser.uuid)]}).status_code, 404)
+        self.assertNotIn("Dermatology", self.names(self.public()["Alpha"]))
+        self.assertIn("Laser", self.names(self.public()["Beta"]))
+
+    def test_another_clinics_specialty_cannot_be_named(self):
+        rival = Tenant.objects.create(name="Rv", slug="rv-hide", status=Tenant.Status.ACTIVE)
+        provision_tenant_defaults(rival)
+        with tenant_context(rival):
+            foreign = Specialization.all_objects.create(tenant=rival, name="Foreign")
+        self.login("owner")
+        response = patch(self.client, reverse("api:about-detail", args=[self.a.uuid]),
+                         {"hidden_specializations": [str(foreign.uuid)]})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("hidden_specializations", response.json())
+
+    def test_a_hidden_specialty_still_serves_bookings(self):
+        """Hiding is about what is displayed: the doctor's specialty is untouched,
+        so a booking form still offers it."""
+        self.login("owner")
+        patch(self.client, reverse("api:about-detail", args=[self.a.uuid]),
+              {"hidden_specializations": [str(self.laser.uuid)]})
+        listed = {s["name"] for s in self.client.get(reverse("api:specialization-list")).json()["results"]}
+        self.assertIn("Laser", listed)

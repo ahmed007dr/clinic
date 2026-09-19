@@ -27,19 +27,31 @@ class BranchAboutSerializer(ClinicSerializer):
 
     name = serializers.CharField(read_only=True)
     is_active = serializers.BooleanField(read_only=True)
+    # Left out of the portal's "About" tab: the whole branch (`about_visible`),
+    # or chosen specialties of it. Written as UUIDs of this clinic's specialties.
+    hidden_specializations = TenantScopedRelatedField(
+        model=Specialization, many=True, required=False, source="about_hidden_specialties"
+    )
     specializations = serializers.SerializerMethodField()
 
     class Meta:
         model = Branch
         fields = [
             "uuid", "name", "is_active",
+            "about_visible", "hidden_specializations",
             "address", "phone", "map_url", "working_hours", "about_text",
             "specializations",
         ]
 
     def get_specializations(self, branch):
-        """Worked out from the branch's doctors (branches.about); read-only."""
-        return self.context.get("specialties", {}).get(branch.pk, [])
+        """Every specialty of the branch's doctors (branches.about), each marked
+        `hidden` when this branch left it out of the portal. Read-only: they are
+        worked out, not typed."""
+        hidden = {str(s.uuid) for s in branch.about_hidden_specialties.all()}
+        return [
+            {**item, "hidden": item["uuid"] in hidden}
+            for item in self.context.get("specialties", {}).get(branch.pk, [])
+        ]
 
     def validate_map_url(self, value):
         # A link the public will click: web pages only, never `javascript:`.

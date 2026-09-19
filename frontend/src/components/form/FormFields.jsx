@@ -13,7 +13,7 @@ import './form.css'
  * option here.
  *
  *   text · textarea · number · money · date · datetime · select · relation ·
- *   checkbox · file · email · tel
+ *   checkbox · checklist · file · email · tel
  */
 export function FormFields({ fields, form, errors = {}, disabled }) {
   return (
@@ -97,6 +97,33 @@ function FormControl({ field, form, error, disabled }) {
           <span>{label}</span>
         </label>
       )
+
+    case 'checklist': {
+      // Several of a list ticked at once. The list itself is another value of the
+      // form (`optionsFrom`), `[{ uuid, name }]` — something the record carries,
+      // such as the specialties of one branch. The value is the ticked UUIDs.
+      const options = form.values[field.optionsFrom] ?? []
+      const chosen = new Set(form.values[name] ?? [])
+      const toggle = (uuid) => {
+        const next = new Set(chosen)
+        if (next.has(uuid)) next.delete(uuid)
+        else next.add(uuid)
+        form.setValue(name, [...next])
+      }
+      return (
+        <fieldset className="form-checklist" disabled={disabled}>
+          <legend>{label}</legend>
+          {hint && <div className="ui-field__hint">{hint}</div>}
+          {options.length === 0 && <div className="ui-muted">{field.emptyText ?? '—'}</div>}
+          {options.map((option) => (
+            <label key={option.uuid} className="form-check">
+              <input type="checkbox" checked={chosen.has(option.uuid)} onChange={() => toggle(option.uuid)} />
+              <span>{option.name}</span>
+            </label>
+          ))}
+        </fieldset>
+      )
+    }
 
     case 'file':
       return (

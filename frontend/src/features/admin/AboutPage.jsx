@@ -10,6 +10,10 @@ import { CrudPage } from '@/components/data/CrudPage'
  * server lists just those). Nothing is created or deleted here: branches
  * themselves are the Owner's, on the Clinics screen. The specialties shown come
  * from the branch's doctors and are only displayed here, not typed.
+ *
+ * Each branch can be left out of the tab altogether, and chosen specialties of
+ * it can be hidden — for a branch that is not ready to be announced, or a
+ * service it does not want to advertise. Nothing about the clinic itself changes.
  */
 export function AboutPage() {
   return (
@@ -22,6 +26,12 @@ export function AboutPage() {
       searchPlaceholder="ابحث باسم الفرع أو عنوانه…"
       columns={[
         { key: 'name', header: 'الفرع' },
+        {
+          key: 'about_visible',
+          header: 'في «عن العيادة»',
+          render: (row) =>
+            row.about_visible ? <Badge tone="ok">ظاهر</Badge> : <Badge tone="warn">مخفي</Badge>,
+        },
         { key: 'address', header: 'العنوان', render: (row) => row.address || '—' },
         {
           key: 'phone',
@@ -38,10 +48,30 @@ export function AboutPage() {
           key: 'specializations',
           header: 'التخصصات (تلقائي من الأطباء)',
           render: (row) =>
-            row.specializations.length ? row.specializations.map((s) => s.name).join('، ') : '—',
+            row.specializations.length
+              ? row.specializations.map((s) => (s.hidden ? `${s.name} (مخفي)` : s.name)).join('، ')
+              : '—',
         },
       ]}
       fields={[
+        {
+          name: 'about_visible',
+          label: 'إظهار هذا الفرع في تبويب «عن العيادة»',
+          type: 'checkbox',
+          span: 2,
+        },
+        // The branch's specialties come with the record and are only listed here
+        // (they are worked out from its doctors); never sent back.
+        { name: 'specializations', hide: true },
+        {
+          name: 'hidden_specializations',
+          label: 'تخصصات تُخفى من التبويب',
+          type: 'checklist',
+          optionsFrom: 'specializations',
+          emptyText: 'لا تخصصات لأطباء هذا الفرع بعد.',
+          hint: 'علّم ما لا تريد عرضه للمرضى. الأطباء والحجز لا يتأثران.',
+          span: 2,
+        },
         { name: 'address', label: 'العنوان', type: 'textarea', span: 2 },
         { name: 'phone', label: 'الهاتف', type: 'tel' },
         {

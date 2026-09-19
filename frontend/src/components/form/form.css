@@ -37,3 +37,20 @@
   gap: var(--s2);
   margin-top: var(--s5);
 }
+
+/* A group of ticks under one heading (FormFields `checklist`). */
+.form-checklist {
+  display: grid;
+  gap: var(--s2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.form-checklist legend {
+  padding: 0;
+  margin-block-end: var(--s1);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
