@@ -379,8 +379,10 @@ It is read-only and mutates nothing.
 * **Email log.** Every message the system sends for a clinic is recorded
   (`notifications.EmailLog`): recipient, type, subject, the text as sent and its
   template. The Owner and Admin read it under *سجل الرسائل*, and support from a
-  group's page in the developer portal (audited). Sign-in codes and single-use
-  links are stored masked. The table only grows — prune old rows on a schedule
+  group's page in the developer portal (audited). Reports and doctor notices can be sent again from the log (to the same
+  address only, with a 30-second cooldown, audited); each send is a row, so the
+  history shows when and how many times. Sign-in codes and single-use links are
+  stored masked and cannot be re-sent — issue a new one. The table only grows — prune old rows on a schedule
   if it matters.
 * **Backups** (docs/06 PLAT-006). The developer portal's «النسخ الاحتياطي»
   makes an encrypted archive of the platform and every group in

@@ -62,6 +62,11 @@ export function OwnerEmailPage() {
           <p className="ui-muted">
             اضبط عيادة بعينها لترسل من بريدها هي. عند حذف إعدادها تعود إلى الافتراضي.
           </p>
+          <UseDefaultForAll
+            count={data.branches.filter((branch) => branch.own).length}
+            ready={Boolean(data.group?.enabled) && !data.group?.missing?.length && !data.group?.error}
+            onDone={reload}
+          />
           {data.branches.map((branch) => (
             <MailCard
               key={branch.id}
@@ -77,6 +82,46 @@ export function OwnerEmailPage() {
           ))}
         </div>
       )}
+    </>
+  )
+}
+
+/** One default for every clinic: drops each clinic's own settings so they all
+ * send through the group's. Offered only when there is something to drop. */
+function UseDefaultForAll({ count, ready, onDone }) {
+  const toast = useToast()
+  const [confirming, setConfirming] = useState(false)
+  const apply = useMutation(() => api.owner.applyEmailDefault())
+
+  if (count === 0) return null
+  return (
+    <>
+      <div className="ui-row">
+        <Button onClick={() => setConfirming(true)} disabled={!ready}>
+          جعل كل العيادات تستخدم الإعداد الافتراضي ({count})
+        </Button>
+        {!ready && <span className="ui-muted">اضبط الإعداد الافتراضي وفعّله أولاً.</span>}
+      </div>
+      <ConfirmDialog
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        tone="danger"
+        loading={apply.submitting}
+        title="إعداد واحد لكل العيادات"
+        message={`ستُحذف الإعدادات الخاصة بـ ${count} عيادة، وتُرسل كل عياداتك من الإعداد الافتراضي للمجموعة.`}
+        confirmLabel="تطبيق"
+        onConfirm={async () => {
+          try {
+            const result = await apply.run()
+            toast.success(`تم: ${result.cleared} عيادة تستخدم الآن الإعداد الافتراضي`)
+            onDone()
+          } catch (caught) {
+            toast.error(caught.message)
+          } finally {
+            setConfirming(false)
+          }
+        }}
+      />
     </>
   )
 }

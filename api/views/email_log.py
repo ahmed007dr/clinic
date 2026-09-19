@@ -130,6 +130,13 @@ def _list(request, queryset):
         {"kind": kind, "label": label, "count": by_kind.get(kind, 0)} for kind, label in KINDS.items()
     ]
     response.data["failed"] = matching.filter(status=EmailLog.Status.FAILED).count()
+    # The clinics that have any mail, for the clinic filter — only ones the
+    # viewer may see, because `queryset` is already scoped to them.
+    response.data["branches"] = [
+        {"id": row["branch_id"], "name": row["branch__name"]}
+        for row in queryset.exclude(branch=None).values("branch_id", "branch__name")
+        .distinct().order_by("branch__name")
+    ]
     return response
 
 

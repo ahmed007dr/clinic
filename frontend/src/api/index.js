@@ -245,12 +245,15 @@ export const owner = {
   saveEmail: (target, body) => http.put(`/owner/email/${target}/`, body),
   removeEmail: (target) => http.delete(`/owner/email/${target}/`),
   testEmail: (target, body) => http.post(`/owner/email/${target}/test/`, body),
+  /* Every clinic sends through the group's default: drops each clinic's own settings. */
+  applyEmailDefault: () => http.post('/owner/email/apply-default/'),
 }
 
 /* What the system emailed, and exactly what it said (Admin, Owner). */
 export const emailLog = {
   list: (params) => http.get('/email-log/', params),
   get: (id) => http.get(`/email-log/${id}/`),
+  resend: (id) => http.post(`/email-log/${id}/resend/`),
 }
 
 export const attendance = {

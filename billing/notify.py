@@ -43,7 +43,7 @@ def _recipient(doctor):
     return getattr(account, "email", None) or None
 
 
-def _send(doctor, subject, lines, kind):
+def _send(doctor, subject, lines, kind="other"):
     from platform_admin.mailer import sender_for
 
     to = _recipient(doctor)
