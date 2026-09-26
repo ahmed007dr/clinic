@@ -346,6 +346,9 @@ class ServiceOrder(TenantOwnedModel):
     contacted_by = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     contacted_at = models.DateTimeField(null=True, blank=True)
     contact_note = models.CharField(max_length=300, blank=True, default="")
+    # Who settled the doctor and time, and when.
+    scheduled_by = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    scheduled_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

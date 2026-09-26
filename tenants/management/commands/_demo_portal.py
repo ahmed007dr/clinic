@@ -40,6 +40,8 @@ from billing.pricing import quantity_total
 from billing.shifts import online_shift, summarize
 from employees.models import Employee, Specialization
 from notifications.models import Notification
+from portal.models import ServiceOrder, ServiceOrderLine
+from portal.orders import price_line
 from patients.models import Patient
 from services.catalog import offerings
 from services.models import BranchService, Service
@@ -62,6 +64,13 @@ PORTAL_SERVICES = [
 KNOWN_SERVICES = {
     "Eximer 120": (40, "fixed"), "Eximer 160": (45, "fixed"), "Q switch 800": (30, "starting_from"),
     "كشف عام": (20, "fixed"), "استشارة جلدية": (20, "fixed"), "تنظيف بشرة": (60, "starting_from"),
+}
+
+# Where the clinics are (governorate, latitude, longitude): the store lists the nearest first.
+PLACES = {
+    "SOH": ("سوهاج", "26.5591", "31.6957"),
+    "ASY": ("أسيوط", "27.1809", "31.1837"),
+    "CAI": ("القاهرة", "30.0444", "31.2357"),
 }
 
 TAGLINES = [
@@ -137,6 +146,9 @@ def seed_public_portal(command, tenant, branches, users, doctors, services, spec
         # The second clinic confirms website bookings at once; the first phones the customer.
         branch.online_booking_confirms_at_once = index == 1
         branch.online_cancel_notice_hours = 24
+        place = PLACES.get(branch.code)
+        if place:
+            branch.governorate, branch.latitude, branch.longitude = place[0], Decimal(place[1]), Decimal(place[2])
         if index == 0:
             _set_images(branch, "public_", f"{slug}-{branch.code.lower()}", tone=tone)  # approved
         else:
@@ -248,10 +260,14 @@ def seed_public_portal(command, tenant, branches, users, doctors, services, spec
         tenant, branches, doctors, by_name, payment_methods, owner, reception, demo_user, now,
     )
     quantity = _doctor_sizes_the_quantity(tenant, branches[0], demo_doctor, by_name, reception, now)
+    # Ways to send money that are not cash: a transfer of any kind is recorded in a shift like any payment.
+    for name in ("تحويل بنكي", "محفظة إلكترونية", "إنستاباي"):
+        PaymentMethod.objects.get_or_create(tenant=tenant, name=name)
+    store = _store_orders(tenant, branches, by_name, users, now)
 
     return {
         "listed": True, "schedules": schedules, "services": len(everything),
-        "branch_offers": BranchService.objects.filter(is_active=True).count(), **portal, **quantity,
+        "branch_offers": BranchService.objects.filter(is_active=True).count(), **portal, **quantity, **store,
     }
 
 
@@ -424,3 +440,144 @@ def _doctor_sizes_the_quantity(tenant, branch, doctor, by_name, reception, now):
     appointment.status = "entered"
     appointment.save(update_fields=["status"])
     return {"doctor_sizes": 1}
+
+
+# ------------------------------------------------------------------ store orders
+
+
+def _store_orders(tenant, branches, by_name, users, now):
+    """What customers ordered from the store, at every step of the clinic's side
+    (docs/16): waiting for the Admin, approved and waiting for the call, phoned,
+    settled with bookings and money (a bank transfer at the desk, the rest online),
+    refused with a reason, and withdrawn by the customer. All for the website
+    customer, so the Admin, customer service and the Owner each have work to do."""
+    owner, clinic_admin, reception = users[0], users[1], users[2]
+    sara = Patient.objects.filter(phone1="01099000003").first()
+    if sara is None:
+        return {"store_orders": 0}
+    first, last = branches[0], branches[-1]
+    basic = "كشف عام" if "كشف عام" in by_name else "استشارة جلدية"
+    session = "Eximer 120" if "Eximer 120" in by_name else "تنظيف بشرة"
+    pulses, filler, consult = by_name["ليزر بالنبضة"], by_name["حقن فيلر"], by_name["استشارة تجميل"]
+    made = []
+
+    def line(order, service, quantity=None, when_skip=None):
+        priced = price_line(service, order.branch, quantity)
+        if priced is None:
+            return None
+        unit, price, final = priced
+        offer = next(iter(offerings(service=service, branch=order.branch)), None)
+        when = _first_slot(offer, when_skip) if (offer is not None and when_skip is not None) else None
+        return ServiceOrderLine.objects.create(
+            tenant=tenant, order=order, service=service, service_name=service.name, quantity=quantity,
+            quantity_unit=service.quantity_unit if quantity is not None else "", unit_price=unit, price=price,
+            price_is_final=final, preferred_doctor=offer.doctor if (offer is not None and when) else None,
+            preferred_at=when,
+        )
+
+    def order(branch, lines, *, status, hours_ago, payment="manual", notes="", contact=""):
+        record = ServiceOrder.objects.create(
+            tenant=tenant, patient=sara, branch=branch, status=status, payment_preference=payment,
+            notes=notes, preferred_contact=contact,
+        )
+        created = now - timedelta(hours=hours_ago)
+        ServiceOrder.all_objects.filter(pk=record.pk).update(created_at=created)
+        record.created_at = created
+        rows = [line(record, service, quantity, skip) for service, quantity, skip in lines]
+        if not [row for row in rows if row]:
+            record.delete()
+            return None
+        made.append(record)
+        return record
+
+    def reviewed(record, note="", hours=1):
+        ServiceOrder.all_objects.filter(pk=record.pk).update(
+            reviewed_by=clinic_admin, reviewed_at=record.created_at + timedelta(hours=hours), review_note=note)
+
+    def phoned(record, note, hours=2):
+        ServiceOrder.all_objects.filter(pk=record.pk).update(
+            contacted_by=reception, contacted_at=record.created_at + timedelta(hours=hours), contact_note=note)
+
+    # 1. Just sent: waiting for the Admin, the customer will pay online.
+    order(first, [(pulses, Decimal("200"), 0), (by_name[basic], None, None)], status="submitted", hours_ago=2,
+          payment="online", contact="مساءً بعد الخامسة", notes="أفضل الأسبوع القادم")
+    # 2. Approved by the Admin; customer service still has to phone.
+    approved = order(last, [(by_name[session], None, 1)], status="approved", hours_ago=26)
+    if approved:
+        reviewed(approved)
+    # 3. Phoned: the time is being agreed.
+    phoned_order = order(first, [(filler, None, None)], status="contacted", hours_ago=50, payment="online")
+    if phoned_order:
+        reviewed(phoned_order)
+        phoned(phoned_order, "اتفقنا على السبت الصباح — بانتظار تأكيد الطبيب")
+    # 4. Refused, with a reason the customer was told.
+    refused = order(first, [(consult, None, None)], status="rejected", hours_ago=72)
+    if refused:
+        reviewed(refused, note="الجهاز في الصيانة هذا الأسبوع. يمكنك الطلب من الفرع الآخر.")
+    # 5. Withdrawn by the customer.
+    withdrawn = order(last, [(by_name[basic], None, None)], status="cancelled", hours_ago=90)
+    if withdrawn:
+        ServiceOrder.all_objects.filter(pk=withdrawn.pk).update(updated_at=withdrawn.created_at + timedelta(hours=3))
+
+    # 6. Settled: bookings exist, a bank transfer was taken at the desk, the rest is still due.
+    settled = order(first, [(by_name[session], None, 0), (pulses, Decimal("100"), None)], status="scheduled", hours_ago=120)
+    # 7. Settled and paid in full online — in the clinic's online shift.
+    online_paid = order(last, [(by_name[basic], None, 1)], status="scheduled", hours_ago=100, payment="online")
+    for record in (settled, online_paid):
+        if record is None:
+            continue
+        reviewed(record)
+        phoned(record, "تم الاتفاق على الموعد")
+        _make_bookings(record, reception, now)
+    shift = CashShift.objects.filter(user=reception, branch=first, status=CashShift.Status.OPEN).first()
+    if settled and shift is not None:
+        method = PaymentMethod.objects.filter(tenant=tenant, name="تحويل بنكي").first() or PaymentMethod.objects.filter(tenant=tenant).first()
+        booking = settled.lines.select_related("appointment").first().appointment
+        if booking is not None and booking.price > 0:
+            Payment.objects.create(
+                tenant=tenant, appointment=booking, patient=sara, method=method, branch=first, shift=shift,
+                created_by=reception, amount=(Decimal(booking.price) / 2).quantize(Decimal("0.01")),
+                receipt_number="R-" + SerialCounter.next_serial(tenant.id, "receipt", now.date()),
+                notes="تحويل بنكي — إيصال التحويل مرفق بالطلب",
+            )
+    if online_paid:
+        booking = online_paid.lines.select_related("appointment").first().appointment
+        if booking is not None and booking.price > 0:
+            method, _ = PaymentMethod.objects.get_or_create(tenant=tenant, name="دفع إلكتروني")
+            Payment.objects.create(
+                tenant=tenant, appointment=booking, patient=sara, method=method, branch=last,
+                shift=online_shift(tenant, last.pk), amount=Decimal(booking.price).quantize(Decimal("0.01")),
+                receipt_number="R-" + SerialCounter.next_serial(tenant.id, "receipt", now.date()),
+                notes="دفع إلكتروني — بطاقة — مرجع البوابة demo-0003",
+            )
+
+    for record in made:
+        if record.status == "submitted":
+            Notification.objects.create(
+                tenant=tenant, user=clinic_admin, type="appointment", title="طلب خدمات جديد من الموقع",
+                message=f"{sara.name} — طلب {record.serial_number}. يحتاج موافقتك ثم اتصال خدمة العملاء.")
+    return {"store_orders": len(made)}
+
+
+def _make_bookings(order, user, now):
+    """The bookings a settled order becomes: the preferred doctor and time when the
+    customer gave them, else the first doctor and the first free time."""
+    order = ServiceOrder.objects.get(pk=order.pk)
+    for row in order.lines.select_related("service"):
+        offers = offerings(service=row.service, branch=order.branch)
+        offer = next((o for o in offers if row.preferred_doctor_id and o.doctor.pk == row.preferred_doctor_id), None) or (offers[0] if offers else None)
+        if offer is None:
+            continue
+        when = row.preferred_at or _first_slot(offer, 3) or (now + timedelta(days=3))
+        unit = offer.price or row.unit_price or Decimal("0")
+        price = quantity_total(unit, row.quantity) if row.quantity is not None else unit
+        appointment = Appointment.objects.create(
+            tenant=order.tenant, patient=order.patient, branch=order.branch, doctor=offer.doctor, service=row.service,
+            specialization=row.service.specialization, status="waiting", scheduled_date=when, price=price,
+            quantity=row.quantity, unit_price=unit if row.quantity is not None else None,
+            source=Appointment.Source.PUBLIC_PORTAL, created_by=user, notes=f"[من طلب {order.serial_number}]",
+        )
+        row.appointment = appointment
+        row.price = price
+        row.save(update_fields=["appointment", "price"])
+    ServiceOrder.all_objects.filter(pk=order.pk).update(scheduled_by=user, scheduled_at=order.created_at + timedelta(hours=4))

@@ -559,3 +559,18 @@ html:has(.portal__header) {
   flex-direction: column;
   gap: var(--s1);
 }
+
+.portal-when {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  margin: 0;
+  padding: var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.portal-when legend {
+  padding-inline: var(--s2);
+  font-weight: 600;
+}

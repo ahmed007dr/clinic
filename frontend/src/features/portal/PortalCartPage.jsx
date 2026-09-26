@@ -25,6 +25,7 @@ export function PortalCartPage() {
   const cart = useCart(slug)
   const [notes, setNotes] = useState('')
   const [contact, setContact] = useState('')
+  const [payment, setPayment] = useState('manual')
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(null)
   useDocumentTitle('طلباتي')
@@ -48,8 +49,9 @@ export function PortalCartPage() {
       const orders = await api.sendOrder({
         items: cart.items.map((line) => ({
           service: line.service, branch: line.branch, ...(line.requires_quantity && line.quantity ? { quantity: line.quantity } : {}),
+          ...(line.doctor ? { doctor: line.doctor } : {}), ...(line.slot ? { slot: line.slot } : {}),
         })),
-        notes, preferred_contact: contact,
+        notes, preferred_contact: contact, payment_preference: payment,
       })
       cart.clear()
       setSent(orders)
@@ -102,6 +104,7 @@ export function PortalCartPage() {
                             {formatMoney(lineTotal(line))}{!line.price_is_final && ' (تقديري)'}
                           </div>
                         )}
+                        {line.slot && <div className="ui-muted">الموعد المفضل: <span dir="ltr">{line.slot}</span></div>}
                       </div>
                       {line.requires_quantity && (
                         <Input
@@ -132,6 +135,18 @@ export function PortalCartPage() {
                 label="ملاحظات للعيادة (اختياري)" value={notes} maxLength={1000} rows={3}
                 onChange={(event) => setNotes(event.target.value)}
               />
+              <fieldset className="portal-when">
+                <legend>كيف تفضّل الدفع؟</legend>
+                <label>
+                  <input type="radio" name="payment" checked={payment === 'manual'} onChange={() => setPayment('manual')} />{' '}
+                  يدوياً: تحويل (بنكي / محفظة / إنستاباي) أو عند الوصول للعيادة
+                </label>
+                <label>
+                  <input type="radio" name="payment" checked={payment === 'online'} onChange={() => setPayment('online')} />{' '}
+                  أونلاين: أدفع من حسابي بعد تحديد الموعد
+                </label>
+                <span className="ui-muted">لا يُطلب منك أي مبلغ الآن؛ العيادة توافق أولاً.</span>
+              </fieldset>
               {groups.length > 1 && (
                 <p className="ui-muted">
                   ستُرسل {groups.length} طلبات، واحد لكل عيادة، وتقرر كل عيادة في طلبها.

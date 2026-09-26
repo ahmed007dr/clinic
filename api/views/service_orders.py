@@ -31,6 +31,8 @@ from rest_framework.views import APIView
 from accounts.roles import is_clinic_admin, sees_all_branches
 from api.permissions import IsFrontDesk
 from appointments.models import Appointment
+from billing.collect import amount_due, amount_paid, money
+from billing.models import Payment
 from billing.pricing import ZERO, price_for, quantity_total, rate_for
 from employees.models import Employee
 from portal.models import ServiceOrder
@@ -69,6 +71,71 @@ def candidates(order, line):
     return found
 
 
+def _is_online(payment):
+    return bool(payment.shift_id and payment.shift.kind == "online")
+
+
+def payment_block(order, lines):
+    """How the money stands on the order (docs/16, R3): what the customer said
+    they would do, and — once bookings exist — what was actually paid, how, and
+    what is left. Amounts are the bookings' own (`billing.collect`), so this can
+    never disagree with the payments screens."""
+    appointments = [line.appointment for line in lines if line.appointment_id]
+    total = paid = due = Decimal("0")
+    rows, payments = [], []
+    for appointment in appointments:
+        got, owed = amount_paid(appointment), amount_due(appointment)
+        total, paid, due = total + appointment.net_price, paid + got, due + owed
+        rows.append({"uuid": str(appointment.uuid), "service_name": appointment.service.name if appointment.service_id else "",
+                     "price": str(appointment.net_price), "paid": str(got), "due": str(owed)})
+        for payment in Payment.objects.filter(appointment=appointment).select_related("method", "shift", "created_by").order_by("date"):
+            payments.append({
+                "uuid": str(payment.uuid), "receipt_number": payment.receipt_number, "amount": str(payment.amount),
+                "method": payment.method.name if payment.method_id else "", "online": _is_online(payment),
+                "date": payment.date.isoformat(), "appointment": str(appointment.uuid),
+                "by": (payment.created_by.get_full_name() or payment.created_by.username) if payment.created_by_id else None,
+            })
+    if not appointments:
+        status = "unscheduled"
+    elif due == 0 and total > 0:
+        status = "paid"
+    elif paid > 0:
+        status = "partial"
+    else:
+        status = "unpaid"
+    return {
+        "preference": order.payment_preference, "preference_label": order.get_payment_preference_display(),
+        "status": status, "total": str(money(total)), "paid": str(money(paid)), "due": str(money(due)),
+        "paid_online": any(p["online"] for p in payments), "appointments": rows, "payments": payments,
+    }
+
+
+def timeline(order, payments):
+    """Everything that happened to the order, oldest first — for the Owner's and
+    the Admin's follow-up. Each event: when, what, who, and a note."""
+    who = lambda user: (user.get_full_name() or user.username) if user else None
+    events = [{"at": order.created_at, "kind": "submitted", "label": "أرسل العميل الطلب", "by": order.patient.name, "note": order.notes}]
+    if order.reviewed_at:
+        approved = order.status != ServiceOrder.Status.REJECTED
+        events.append({"at": order.reviewed_at, "kind": "approved" if approved else "rejected",
+                       "label": "وافق الأدمن على الطلب" if approved else "رفض الأدمن الطلب",
+                       "by": who(order.reviewed_by), "note": order.review_note})
+    if order.contacted_at:
+        events.append({"at": order.contacted_at, "kind": "contacted", "label": "اتصلت خدمة العملاء بالعميل",
+                       "by": who(order.contacted_by), "note": order.contact_note})
+    if order.scheduled_at:
+        events.append({"at": order.scheduled_at, "kind": "scheduled", "label": "حُدد الطبيب والموعد",
+                       "by": who(order.scheduled_by), "note": ""})
+    for payment in payments:
+        events.append({"at": parse_datetime(payment["date"]), "kind": "payment",
+                       "label": f"استُلمت دفعة {payment['amount']} — {payment['method']}" + (" (أونلاين)" if payment["online"] else ""),
+                       "by": payment["by"], "note": payment["receipt_number"]})
+    if order.status == ServiceOrder.Status.CANCELLED:
+        events.append({"at": order.updated_at, "kind": "cancelled", "label": "ألغى العميل الطلب", "by": order.patient.name, "note": ""})
+    events.sort(key=lambda event: event["at"])
+    return [{**event, "at": event["at"].isoformat()} for event in events]
+
+
 def payload(order, detail=False):
     lines = list(order.lines.all())
     patient = order.patient
@@ -85,8 +152,11 @@ def payload(order, detail=False):
         "patient_serial": patient.serial_number,
         "notes": order.notes,
         "preferred_contact": order.preferred_contact,
+        "payment_preference": order.payment_preference,
+        "payment_preference_label": order.get_payment_preference_display(),
         "lines": [
             {"uuid": str(line.uuid), **line_payload(line),
+             "preferred_doctor_uuid": str(line.preferred_doctor.uuid) if line.preferred_doctor_id else None,
              "appointment": str(line.appointment.uuid) if line.appointment_id else None,
              **({"candidates": candidates(order, line)} if detail else {})}
             for line in lines
@@ -101,14 +171,61 @@ def payload(order, detail=False):
         "contacted_at": order.contacted_at.isoformat() if order.contacted_at else None,
         "contact_note": order.contact_note,
     }
+    if detail:
+        body["payment"] = payment_block(order, lines)
+        body["timeline"] = timeline(order, body["payment"]["payments"])
+    else:
+        # A list only needs the short answer: how the customer will pay, and where it stands.
+        block = payment_block(order, lines)
+        body["payment"] = {k: block[k] for k in ("preference", "preference_label", "status", "total", "paid", "due", "paid_online")}
     return body
+
+
+class ServiceOrderOverviewView(APIView):
+    """The Owner's (and an Admin's, for their own clinic) follow-up of everything
+    that came through the store: per clinic, how many orders are at each step, and
+    how much has been paid against what was ordered."""
+
+    permission_classes = [IsFrontDesk]
+
+    def get(self, request):
+        if not is_clinic_admin(request.user):
+            return Response({"detail": "المتابعة للأدمن والمالك."}, status=403)
+        orders = list(_orders_for(request.user).prefetch_related("lines__appointment"))
+        clinics = {}
+        for order in orders:
+            row = clinics.setdefault(order.branch_id, {
+                "branch": str(order.branch.uuid), "branch_name": order.branch.name,
+                "counts": {value: 0 for value, _ in ServiceOrder.Status.choices},
+                "ordered": Decimal("0"), "paid": Decimal("0"), "due": Decimal("0"), "paid_online": Decimal("0"),
+            })
+            row["counts"][order.status] += 1
+            lines = list(order.lines.all())
+            if order.status in (ServiceOrder.Status.REJECTED, ServiceOrder.Status.CANCELLED):
+                continue
+            row["ordered"] += sum((line.price for line in lines), Decimal("0"))
+            for line in lines:
+                if line.appointment_id:
+                    row["paid"] += amount_paid(line.appointment)
+                    row["due"] += amount_due(line.appointment)
+                    row["paid_online"] += sum(
+                        (p.amount for p in Payment.objects.filter(appointment=line.appointment, shift__kind="online")),
+                        Decimal("0"),
+                    )
+        rows = sorted(clinics.values(), key=lambda row: row["branch_name"])
+        totals = {"counts": {value: sum(r["counts"][value] for r in rows) for value, _ in ServiceOrder.Status.choices}}
+        for key in ("ordered", "paid", "due", "paid_online"):
+            totals[key] = str(money(sum((r[key] for r in rows), Decimal("0"))))
+            for row in rows:
+                row[key] = str(money(row[key]))
+        return Response({"clinics": rows, "totals": totals})
 
 
 class ServiceOrderListView(APIView):
     permission_classes = [IsFrontDesk]
 
     def get(self, request):
-        queryset = _orders_for(request.user).prefetch_related("lines__service", "lines__appointment")
+        queryset = _orders_for(request.user).prefetch_related("lines__service", "lines__preferred_doctor", "lines__appointment")
         status = request.query_params.get("status")
         if status in {value for value, _ in ServiceOrder.Status.choices}:
             queryset = queryset.filter(status=status)
@@ -129,7 +246,8 @@ class _Order(APIView):
     permission_classes = [IsFrontDesk]
 
     def load(self, request, uuid):
-        return get_object_or_404(_orders_for(request.user).prefetch_related("lines__service", "lines__appointment"), uuid=uuid)
+        return get_object_or_404(
+            _orders_for(request.user).prefetch_related("lines__service", "lines__preferred_doctor", "lines__appointment"), uuid=uuid)
 
 
 class ServiceOrderDetailView(_Order):
@@ -251,6 +369,7 @@ class ServiceOrderScheduleView(_Order):
                 line.save(update_fields=["appointment", "price", "unit_price", "price_is_final"])
                 booked.append(appointment)
             order.status = ServiceOrder.Status.SCHEDULED
-            order.save(update_fields=["status", "updated_at"])
+            order.scheduled_by, order.scheduled_at = request.user, timezone.now()
+            order.save(update_fields=["status", "scheduled_by", "scheduled_at", "updated_at"])
         _later(order, lambda: told.scheduled(order, booked))
         return Response(payload(order, detail=True))

@@ -24,6 +24,7 @@ const AttendanceSheetPage = page(() => import('@/features/attendance/AttendanceS
 const PatientDetailPage = page(() => import('@/features/patients/PatientDetailPage'), 'PatientDetailPage')
 const AppointmentListPage = page(() => import('@/features/appointments/AppointmentListPage'), 'AppointmentListPage')
 const AppointmentFormPage = page(() => import('@/features/appointments/AppointmentFormPage'), 'AppointmentFormPage')
+const ServiceOrdersPage = page(() => import('@/features/orders/ServiceOrdersPage'), 'ServiceOrdersPage')
 const QueuePage = page(() => import('@/features/appointments/QueuePage'), 'QueuePage')
 const PaymentListPage = page(() => import('@/features/billing/PaymentListPage'), 'PaymentListPage')
 const PaymentFormPage = page(() => import('@/features/billing/PaymentFormPage'), 'PaymentFormPage')
@@ -73,6 +74,8 @@ export const routes = [
   { path: 'patients/:uuid/edit', element: PatientFormPage, permission: 'front_desk' },
 
   { path: 'appointments', element: AppointmentListPage },
+  // What customers ordered from the website: approve, phone, settle the time, take the money (docs/16).
+  { path: 'store-orders', element: ServiceOrdersPage, permission: 'front_desk' },
   { path: 'appointments/new', element: AppointmentFormPage, permission: 'front_desk' },
   { path: 'appointments/:uuid/edit', element: AppointmentFormPage, permission: 'front_desk' },
   { path: 'queue', element: QueuePage },

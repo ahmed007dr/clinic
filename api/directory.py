@@ -2,6 +2,8 @@
 
     GET /api/directory/            every group that chose to be listed, one card each
     GET /api/directory/?q=laser    …narrowed by a word: a group, a clinic, an address, a specialty or a service
+    GET /api/directory/services/   every bookable service of every listed group — the store's front page (docs/16, R1);
+                                   `?q=` narrows it by a word, `?governorate=` to services with a clinic there
 
 Public and read-only. This is the one place the public API reads *across*
 groups, so it is deliberately narrow:
@@ -30,10 +32,11 @@ from branches.about import specialties_by_branch, visible_specialties
 from branches.media import url_of
 from branches.models import Branch
 from services.catalog import offerings
+from services.nearby import normalize
 from tenants.context import tenant_context
 from tenants.models import Tenant
 
-CACHE_KEY = "public-directory-v1"
+CACHE_KEY = "public-directory-v2"
 CACHE_SECONDS = 60
 #: A card names a few services; the count says how many there are.
 SERVICES_PER_CARD = 8
@@ -63,14 +66,39 @@ def _card(tenant):
     })
     prices = {}
     for offer in offerings():
-        entry = prices.setdefault(offer.service.pk, {"name": offer.service.name, "from_price": None})
+        entry = prices.setdefault(offer.service.pk, {
+            "service": offer.service, "name": offer.service.name, "from_price": None, "branches": {},
+        })
+        entry["branches"][offer.branch.pk] = offer.branch
         if offer.price is not None and (entry["from_price"] is None or offer.price < entry["from_price"]):
             entry["from_price"] = offer.price
     services = sorted(prices.values(), key=lambda row: row["name"])
+    logo = url_of(tenant.public_logo)
+    rows = []
+    for row in services:
+        service = row["service"]
+        governorates = sorted({b.governorate.strip() for b in row["branches"].values() if b.governorate.strip()})
+        rows.append({
+            "group": tenant.slug, "group_name": tenant.name, "group_logo": logo,
+            "uuid": str(service.uuid), "name": service.name, "description": service.description or "",
+            "specialization": service.specialization.name if service.specialization_id else None,
+            "duration_minutes": service.duration_minutes, "price_display": service.price_display,
+            "requires_quantity": service.requires_quantity,
+            "quantity_unit": service.quantity_unit if service.requires_quantity else "",
+            "from_price": None if row["from_price"] is None else str(row["from_price"]),
+            "branches_count": len(row["branches"]), "governorates": governorates,
+            # What a search matches against; never sent to the browser.
+            "_search": " ".join([
+                service.name, service.description or "", tenant.name,
+                service.specialization.name if service.specialization_id else "", *governorates,
+            ]).casefold(),
+            "_governorates": {normalize(g) for g in governorates},
+        })
     return {
+        "_service_rows": rows,
         "slug": tenant.slug,
         "name": tenant.name,
-        "logo": url_of(tenant.public_logo),
+        "logo": logo,
         "cover": url_of(tenant.public_cover),
         "clinics": [{"name": b.name, "address": b.address or ""} for b in branches],
         "specialties": specialties,
@@ -100,6 +128,28 @@ def directory_cards():
                 cards.append(card)
         cache.set(CACHE_KEY, cards, CACHE_SECONDS)
     return cards
+
+
+class DirectoryServicesView(APIView):
+    """The store's front page: what can be bought, across every listed group."""
+
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [DirectoryThrottle]
+
+    def get(self, request):
+        rows = [row for card in directory_cards() for row in card["_service_rows"]]
+        words = request.query_params.get("q", "")[:100].casefold().split()
+        if words:
+            rows = [row for row in rows if all(word in row["_search"] for word in words)]
+        wanted = normalize(request.query_params.get("governorate"))
+        if wanted:
+            rows = [row for row in rows if wanted in row["_governorates"]]
+        rows = sorted(rows, key=lambda row: (row["name"], row["group_name"]))[:300]
+        return Response({
+            "count": len(rows),
+            "results": [{k: v for k, v in row.items() if not k.startswith("_")} for row in rows],
+        })
 
 
 class DirectoryView(APIView):

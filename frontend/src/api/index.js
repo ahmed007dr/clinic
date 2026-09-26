@@ -165,6 +165,19 @@ export const shifts = {
 /** The public directory of clinic groups (api/directory.py). Public. */
 export const directory = {
   list: (params) => http.get('/directory/', params),
+  /** Every bookable service of every listed group: the store's front page (docs/16). */
+  services: (params) => http.get('/directory/services/', params),
+}
+
+/* The customers' service orders, from the clinic's side (docs/16). */
+export const serviceOrders = {
+  list: (params) => http.get('/service-orders/', params),
+  overview: () => http.get('/service-orders/overview/'),
+  get: (uuid) => http.get(`/service-orders/${uuid}/`),
+  approve: (uuid, body) => http.post(`/service-orders/${uuid}/approve/`, body),
+  reject: (uuid, body) => http.post(`/service-orders/${uuid}/reject/`, body),
+  contacted: (uuid, body) => http.post(`/service-orders/${uuid}/contacted/`, body),
+  schedule: (uuid, body) => http.post(`/service-orders/${uuid}/schedule/`, body),
 }
 
 /** Asking to open a clinic group (public). */
@@ -367,6 +380,7 @@ export const api = {
   platform,
   signup,
   directory,
+  serviceOrders,
   clinicSettings,
   meta,
   intake,

@@ -248,3 +248,71 @@ class TellingPeopleTests(OrderBase):
         self.do(lambda: self.client.post(self.url("order-cancel", uuid=mine["uuid"]), content_type="application/json"))
         titles = [n.title for n in self.notices("rec")]
         self.assertIn("ألغى العميل طلبه", titles)
+
+
+class PreferredTimeTests(OrderBase):
+    """The customer picks a day and time when adding (docs/16, R2): a preference
+    that holds nothing, drawn from what the doctors really offer."""
+
+    def times(self, **params):
+        return self.client.get(self.url("catalog-branch-times"), {
+            "service": str(self.service.uuid), "branch": str(self.branch.uuid), "date": self.day.isoformat(), **params})
+
+    def test_the_clinics_days_and_times_are_the_union_of_its_doctors(self):
+        days = self.client.get(self.url("catalog-branch-days"), {
+            "service": str(self.service.uuid), "branch": str(self.branch.uuid)}).json()["days"]
+        self.assertIn(self.day.isoformat(), days)
+        body = self.times().json()
+        self.assertEqual(body["times"][0], {"time": "09:00", "doctors": [{"uuid": str(self.dr_main.uuid), "name": "Dr Main"}]})
+        self.assertEqual(self.times(doctor=str(self.dr_main.uuid)).json()["times"][0]["time"], "09:00")
+        self.assertEqual(self.times(doctor=str(self.dr_second.uuid)).status_code, 404)  # not this clinic's doctor
+
+    def test_it_needs_no_login_and_a_bad_choice_is_a_404(self):
+        self.assertEqual(Client().get(self.url("catalog-branch-days"), {
+            "service": str(self.service.uuid), "branch": str(self.branch.uuid)}).status_code, 200)
+        self.assertEqual(self.client.get(self.url("catalog-branch-days"), {"service": "x", "branch": "y"}).status_code, 404)
+        self.assertEqual(self.client.get(self.url("catalog-branch-times"), {
+            "service": str(self.service.uuid), "branch": str(self.branch.uuid), "date": "nope"}).status_code, 400)
+
+    def test_an_offered_time_is_kept_as_a_preference_with_the_doctor_who_has_it(self):
+        slot = f"{self.day.isoformat()} 09:45"
+        (body,) = self.send(self.item(slot=slot)).json()
+        (line,) = body["lines"]
+        self.assertEqual((line["preferred_doctor"], line["preferred_at"]), ("Dr Main", f"{self.day.isoformat()}T09:45:00"))
+        (order,) = self.orders()
+        self.assertEqual(order.lines.get().preferred_doctor.name, "Dr Main")
+        # It holds nothing: no booking, and another customer may prefer the same time.
+        with tenant_context(self.a):
+            from appointments.models import Appointment
+            self.assertFalse(Appointment.objects.exists())
+        other = Client()
+        self.enrol(self.bob, client=other)
+        self.assertEqual(self.send(self.item(slot=slot), client=other).status_code, 201)
+
+    def test_a_named_doctor_prices_the_line_and_only_an_offered_time_is_accepted(self):
+        (body,) = self.send(self.item(doctor=str(self.dr_main.uuid))).json()
+        self.assertEqual((body["lines"][0]["preferred_doctor"], body["lines"][0]["preferred_at"]), ("Dr Main", None))
+        for slot in (f"{self.day.isoformat()} 10:10", f"{self.day.isoformat()} 13:00", "2020-01-06 09:00", "garbage"):
+            with self.subTest(slot=slot):
+                response = self.send(self.item(slot=slot))
+                self.assertIn(response.status_code, (400, 409), response.content)
+        self.assertEqual(self.send(self.item(doctor=str(self.dr_second.uuid))).status_code, 400)  # not this clinic's
+
+    def test_the_email_says_when_the_customer_would_like_it(self):
+        mail.outbox.clear()
+        self.send(self.item(slot=f"{self.day.isoformat()} 09:00"))
+        (message,) = self.mails()
+        self.assertIn(f"{self.day.isoformat()} 09:00", message.body)
+
+
+class PaymentPreferenceTests(OrderBase):
+    def test_the_customer_says_online_or_manual_and_manual_is_the_default(self):
+        (default,) = self.send(self.item()).json()
+        self.assertEqual((default["payment_preference"], default["payment_preference_label"]), ("manual", "يدوي: تحويل أو عند الوصول"))
+        (online,) = self.send(self.item(self.pulses, quantity="100"), payment_preference="online").json()
+        self.assertEqual(online["payment_preference"], "online")
+
+    def test_anything_else_is_refused(self):
+        response = self.send(self.item(), payment_preference="bitcoin")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.orders(), [])

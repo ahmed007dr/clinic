@@ -207,3 +207,72 @@ class TheOwnerChoosesTests(DirectoryBase):
             response = self.client.patch(self.settings_url(), {"listed_in_directory": True}, content_type="application/json")
             self.assertEqual(response.status_code, 403, who)
         self.assertFalse(Tenant.objects.get(pk=self.tenant.pk).listed_in_directory)
+
+
+class StoreServicesTests(DirectoryBase):
+    """The store's front page: every bookable service of every listed group (docs/16, R1)."""
+
+    def services(self, **params):
+        self.client.logout()
+        response = self.client.get(reverse("api:directory-services"), params)
+        self.assertEqual(response.status_code, 200, response.content)
+        return response.json()
+
+    def test_nothing_until_a_group_is_listed_then_its_bookable_services_with_their_price(self):
+        self.assertEqual(self.services(), {"count": 0, "results": []})
+        self.list_group()
+        body = self.services()
+        self.assertEqual(body["count"], 1)
+        (row,) = body["results"]
+        self.assertEqual((row["name"], row["group"], row["group_name"], row["from_price"], row["branches_count"]),
+                         ("Laser Hair Removal", self.tenant.slug, self.tenant.name, "450.00", 2))
+        self.assertEqual(row["uuid"], str(self.laser.uuid))
+
+    def test_a_service_nobody_can_deliver_is_not_sold(self):
+        self.list_group()
+        Service.all_objects.create(tenant=self.tenant, name="Botox", base_price=Decimal("900"))
+        self.switch(self.a, Service.all_objects.get(name="Botox"))
+        cache.clear()
+        self.assertEqual([r["name"] for r in self.services()["results"]], ["Laser Hair Removal"])
+
+    def test_services_of_every_listed_group_together_each_labelled_with_its_group(self):
+        self.list_group()
+        other = self.other_group(listed_in_directory=True)
+        with tenant_context(other):
+            from employees.models import EmployeeType
+            botox = Service.objects.get(name="Botox")
+            # A doctor, a contract and the clinic's switch make Botox bookable there.
+            from billing.models import DoctorServiceRate
+            from employees.models import Employee
+            from services.models import BranchService
+            branch = Branch.objects.get(code="OC")
+            doctor = Employee.objects.create(
+                tenant=other, name="Dr Far", branch=branch, employee_type=EmployeeType.objects.get(name="Doctor"),
+                national_id="F1", salary_value=0, show_publicly=True)
+            DoctorServiceRate.objects.create(tenant=other, doctor=doctor, service=botox, price=Decimal("950"))
+            BranchService.objects.create(tenant=other, branch=branch, service=botox)
+        cache.clear()
+        rows = {(r["group"], r["name"]): r for r in self.services()["results"]}
+        self.assertEqual(set(rows), {(self.tenant.slug, "Laser Hair Removal"), ("other-group", "Botox")})
+        self.assertEqual(rows[("other-group", "Botox")]["from_price"], "950.00")
+        # Each group's row is its own: nothing of one leaks into the other's.
+        self.assertNotIn("Laser", str(rows[("other-group", "Botox")]))
+
+    def test_search_and_governorate_narrow_the_store(self):
+        self.list_group()
+        Branch.all_objects.filter(pk=self.a.pk).update(governorate="القاهرة")
+        cache.clear()
+        for word in ("laser", "derma", "cairo".replace("cairo", "القاهرة")):
+            with self.subTest(word=word):
+                self.assertEqual(self.services(q=word)["count"], 1)
+        self.assertEqual(self.services(q="botox")["count"], 0)
+        self.assertEqual(self.services(governorate="القاهره")["count"], 1)  # spelling variants match
+        self.assertEqual(self.services(governorate="أسوان")["count"], 0)
+
+    def test_only_public_facts_leave_the_server(self):
+        self.list_group()
+        text = self.client.get(reverse("api:directory-services")).content.decode()
+        for secret in ("secret.local", "9999", "N1", "Dr Ahmed", "u-N1", "cat.local"):
+            self.assertNotIn(secret, text, secret)
+        (row,) = self.services()["results"]
+        self.assertFalse(any(key.startswith("_") for key in row))

@@ -50,6 +50,9 @@ export function portalApi(slug) {
     orders: () => get('orders/'),
     sendOrder: (body) => http.post(`${base}/orders/`, body),
     cancelOrder: (uuid) => http.post(`${base}/orders/${uuid}/cancel/`),
+    /** A clinic's free days / times for a service across its doctors (or one), for a preferred appointment. */
+    catalogBranchDays: (choice) => http.get(`${base}/catalog/availability/branch-days/`, choice),
+    catalogBranchTimes: (choice, date) => http.get(`${base}/catalog/availability/branch-times/`, { ...choice, date }),
     /** The governorates where the group has a clinic with something to book. */
     catalogRegions: () => get('catalog/regions/'),
     /** Coming days with a free time, and the times on one day (docs/15 Phase 4). */

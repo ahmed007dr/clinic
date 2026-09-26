@@ -17,7 +17,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.roles import is_doctor, is_front_desk
+from accounts.roles import is_doctor, is_front_desk, sees_all_branches
 from api.permissions import (
     IsClinicMember,
     can_view_clinical,
@@ -71,6 +71,18 @@ class DashboardView(APIView):
                 ).count(),
             },
         }
+        # Website orders waiting on this clinic (docs/16): the Admin's to approve,
+        # customer service's to phone. Only for the people who handle them.
+        if is_front_desk(user):
+            from portal.models import ServiceOrder
+
+            orders = ServiceOrder.objects.all()
+            if not sees_all_branches(user):
+                orders = orders.filter(branch_id=user.branch_id) if user.branch_id else orders.none()
+            data["store_orders"] = {
+                "to_approve": orders.filter(status="submitted").count(),
+                "to_call": orders.filter(status__in=["approved", "contacted"]).count(),
+            }
 
         # Whoever handles money at the desk sees what they are handling: for
         # management, today's takings; for reception, their own open shift

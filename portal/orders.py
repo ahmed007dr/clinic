@@ -158,6 +158,11 @@ def _preference(service, branch, entry):
         if is_offered(offer, when):
             return offer.doctor, when, None
     return None, None, (TAKEN, 409)
+
+
+def clean_items(tenant, patient, raw):
+    """`(items, errors[, status])`: each item is
+    `(service, branch, quantity, unit, price, final, preferred doctor, preferred time)`."""
     if not isinstance(raw, list) or not raw:
         return None, {"items": ["أضف خدمة واحدة على الأقل إلى طلبك."]}
     if len(raw) > MAX_LINES:

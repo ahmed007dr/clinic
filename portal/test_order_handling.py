@@ -241,10 +241,10 @@ class SchedulingTests(HandlingBase):
         self.assertEqual(self.status_of(order), "approved")
 
     def test_a_doctor_with_a_stopped_login_is_not_offered(self):
+        order = self.approved()  # while the doctor still works
         doctor_role = ClinicRole.all_objects.get(tenant=self.a, name="Doctor")
         User.objects.create_user(username="dr-main", email="dr-main@t.local", password="pass12345", tenant=self.a,
                                  role=doctor_role, branch=self.branch, employee=self.dr_main, is_active=False)
-        order = self.approved()
         (line,) = self.detail("rec", order).json()["lines"]
         self.assertEqual(line["candidates"], [])
 
@@ -267,3 +267,113 @@ class WholeJourneyTests(HandlingBase):
         self.assertEqual(seen(), "scheduled")
         subjects = [m.subject for m in self.mails()]
         self.assertEqual(len(subjects), 3)  # received, approved, scheduled
+
+
+class MoneyAndFollowUpTests(HandlingBase):
+    """Was it paid online or by hand, what is left, and the whole story of the
+    order for the Admin and the Owner (docs/16, R3, R4)."""
+
+    def settled(self, preference="manual"):
+        (order,) = self.send(self.item(), self.item(self.pulses, quantity="100"), payment_preference=preference).json()
+        self.act("adm", "approve", order)
+        self.act("rec", "contacted", order, {"note": "ok"})
+        self.act("rec", "schedule", order, self.schedule_body(self.detail("rec", order).json()))
+        return order
+
+    def pay(self, order, amount, *, online=False):
+        from billing.models import CashShift, Payment, PaymentMethod
+        from billing.shifts import online_shift
+
+        with tenant_context(self.a):
+            booking = Appointment.objects.filter(patient=self.alice).order_by("id").first()
+            if online:
+                shift = online_shift(self.a, self.branch.pk)
+                method = PaymentMethod.objects.get_or_create(tenant=self.a, name="دفع إلكتروني")[0]
+                by = None
+            else:
+                rec = User.objects.get(username="rec")
+                shift = CashShift.objects.filter(user=rec, status="open").first() or CashShift.objects.create(
+                    tenant=self.a, user=rec, branch=self.branch)
+                method = PaymentMethod.objects.get_or_create(tenant=self.a, name="تحويل بنكي")[0]
+                by = rec
+            Payment.objects.create(
+                tenant=self.a, appointment=booking, patient=self.alice, method=method, branch=self.branch, shift=shift,
+                receipt_number=f"R-T-{Payment.all_objects.count() + 1}", amount=Decimal(amount), created_by=by)
+
+    def test_before_scheduling_there_is_only_the_preference(self):
+        (order,) = self.send(self.item(), payment_preference="online").json()
+        block = self.detail("rec", order).json()["payment"]
+        self.assertEqual((block["preference"], block["status"], block["paid"]), ("online", "unscheduled", "0.00"))
+        self.assertEqual(self.as_("rec").get(reverse("api:service-orders")).json()["results"][0]["payment"]["preference"], "online")
+
+    def test_the_bookings_own_amounts_say_unpaid_partial_paid_and_how(self):
+        order = self.settled()
+        block = self.detail("rec", order).json()["payment"]
+        self.assertEqual((block["status"], block["total"], block["paid"], block["due"]), ("unpaid", "350.00", "0.00", "350.00"))
+        self.pay(order, "100")  # a bank transfer, taken at the desk
+        block = self.detail("adm", order).json()["payment"]
+        self.assertEqual((block["status"], block["paid"], block["due"], block["paid_online"]), ("partial", "100.00", "250.00", False))
+        self.assertEqual((block["payments"][0]["method"], block["payments"][0]["online"], block["payments"][0]["by"]), ("تحويل بنكي", False, "rec"))
+        self.pay(order, "50", online=True)  # the rest of the first booking, paid online — in the online shift
+        block = self.detail("adm", order).json()["payment"]
+        self.assertEqual((block["status"], block["paid"], block["due"], block["paid_online"]), ("partial", "150.00", "200.00", True))
+        self.assertTrue(any(p["online"] for p in block["payments"]))
+
+    def test_the_timeline_tells_the_whole_story_in_order(self):
+        order = self.settled()
+        self.pay(order, "100")
+        events = self.detail("owner", order).json()["timeline"]
+        self.assertEqual([e["kind"] for e in events], ["submitted", "approved", "contacted", "scheduled", "payment"])
+        self.assertEqual([e["by"] for e in events], ["Alice", "adm", "rec", "rec", "rec"])
+        self.assertEqual(events[2]["note"], "ok")
+        self.assertEqual(events, sorted(events, key=lambda e: e["at"]))
+
+    def test_a_refusal_and_a_withdrawal_are_in_the_story_too(self):
+        (refused,) = self.send(self.item()).json()
+        self.act("adm", "reject", refused, {"note": "لا"})
+        kinds = [e["kind"] for e in self.detail("owner", refused).json()["timeline"]]
+        self.assertEqual(kinds, ["submitted", "rejected"])
+        (mine,) = self.send(self.item()).json()
+        self.client.post(self.url("order-cancel", uuid=mine["uuid"]), content_type="application/json")
+        self.assertEqual([e["kind"] for e in self.detail("owner", mine).json()["timeline"]], ["submitted", "cancelled"])
+
+    def test_the_owner_sees_every_clinic_and_an_admin_only_theirs(self):
+        with tenant_context(self.a):
+            type(self.a).objects.filter(pk=self.a.pk).update(portal_allow_other_branches=True)
+            from services.models import BranchService
+            BranchService.all_objects.get_or_create(tenant=self.a, branch=self.second, service=self.service)
+        order = self.settled()
+        self.pay(order, "100")
+        self.send(self.item(branch=self.second))
+        url = reverse("api:service-orders-overview")
+        owner = self.as_("owner").get(url).json()
+        by = {c["branch_name"]: c for c in owner["clinics"]}
+        self.assertEqual(set(by), {"Main", "Second"})
+        self.assertEqual((by["Main"]["counts"]["scheduled"], by["Main"]["paid"], by["Main"]["due"]), (1, "100.00", "250.00"))
+        self.assertEqual((by["Second"]["counts"]["submitted"], by["Second"]["ordered"]), (1, "250.00"))
+        self.assertEqual((owner["totals"]["counts"]["scheduled"], owner["totals"]["counts"]["submitted"], owner["totals"]["paid"]), (1, 1, "100.00"))
+        admin = self.as_("adm-second").get(url).json()
+        self.assertEqual([c["branch_name"] for c in admin["clinics"]], ["Second"])
+        self.assertEqual(self.as_("rec").get(url).status_code, 403)
+        self.assertEqual(self.as_("doc").get(url).status_code, 403)
+
+    def test_online_paid_money_is_counted_separately(self):
+        order = self.settled("online")
+        self.pay(order, "150", online=True)  # the laser session, paid in full online
+        row = self.as_("owner").get(reverse("api:service-orders-overview")).json()["clinics"][0]
+        self.assertEqual((row["paid"], row["paid_online"], row["due"]), ("150.00", "150.00", "200.00"))
+        block = self.detail("adm", order).json()["payment"]
+        self.assertEqual((block["status"], block["preference"]), ("partial", "online"))
+        self.assertEqual({a["service_name"]: a["due"] for a in block["appointments"]}, {"Laser": "0.00", "Pulses": "200.00"})
+
+
+class DashboardTests(HandlingBase):
+    def test_the_front_desk_sees_what_waits_on_their_clinic_and_a_doctor_does_not(self):
+        self.order()
+        approved = self.order()
+        self.act("adm", "approve", approved)
+        url = reverse("api:dashboard")
+        self.assertEqual(self.as_("rec").get(url).json()["store_orders"], {"to_approve": 1, "to_call": 1})
+        self.assertEqual(self.as_("adm").get(url).json()["store_orders"], {"to_approve": 1, "to_call": 1})
+        self.assertEqual(self.as_("rec-second").get(url).json()["store_orders"], {"to_approve": 0, "to_call": 0})
+        self.assertNotIn("store_orders", self.as_("doc").get(url).json())

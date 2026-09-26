@@ -106,7 +106,7 @@ PORTAL_PATIENTS = [
 RESET_TOO = (
     "Attendance", "MedicalAttachment", "PatientCondition", "PatientMedicalProfile", "PatientIntake",
     "BranchService", "DoctorSchedule", "DoctorTimeOff", "BranchHoliday", "ReportRecipient", "Printer",
-    "EmailLog", "PortalVerification",
+    "EmailLog", "PortalVerification", "ServiceOrder", "ServiceOrderLine",
 )
 
 TENANTS = [
@@ -1032,7 +1032,8 @@ class Command(BaseCommand):
             self.stdout.write(
                 f"    public portal: listed in the directory  {public['services']} services  "
                 f"{public['schedules']} schedule days  {public['website_bookings']} website bookings  "
-                f"{public['online_payments']} online payments  {public['doctor_sizes']} in-room quantity"
+                f"{public['online_payments']} online payments  {public['doctor_sizes']} in-room quantity  "
+                f"{public['store_orders']} store orders"
             )
             self.stdout.write(f"    admin@{s['slug']}.local        (Owner — every clinic)")
             self.stdout.write(f"    clinicadmin@{s['slug']}.local  (Admin — first clinic)")

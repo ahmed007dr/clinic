@@ -106,6 +106,7 @@ urlpatterns = [
     # Asking to open a clinic group (api/signup.py). Public.
     # The public directory of clinic groups — the site's front door (api/directory.py).
     path("directory/", directory.DirectoryView.as_view(), name="directory"),
+    path("directory/services/", directory.DirectoryServicesView.as_view(), name="directory-services"),
     path("signup/options/", signup.SignupOptionsView.as_view(), name="signup-options"),
     path("signup/", signup.SignupView.as_view(), name="signup"),
     # Every gateway reports back here (api/platform_pay.py). Public.
@@ -135,6 +136,7 @@ urlpatterns = [
     # The public page's logo and cover, with the Owner's approval (docs/15, D8).
     # The customers' service orders, from the clinic's side (docs/16, Phase C).
     path("service-orders/", service_orders.ServiceOrderListView.as_view(), name="service-orders"),
+    path("service-orders/overview/", service_orders.ServiceOrderOverviewView.as_view(), name="service-orders-overview"),
     path("service-orders/<uuid:uuid>/", service_orders.ServiceOrderDetailView.as_view(), name="service-order-detail"),
     path("service-orders/<uuid:uuid>/approve/", service_orders.ServiceOrderApproveView.as_view(), name="service-order-approve"),
     path("service-orders/<uuid:uuid>/reject/", service_orders.ServiceOrderRejectView.as_view(), name="service-order-reject"),

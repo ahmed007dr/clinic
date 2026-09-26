@@ -23,6 +23,7 @@
   "nav.clinic": "Clinic",
   "nav.patients": "Patients",
   "nav.appointments": "Appointments",
+  "nav.store_orders": "Store orders",
   "nav.queue": "Waiting list",
   "nav.medical": "Medical records",
   "nav.visits": "Visits",

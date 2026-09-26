@@ -312,3 +312,101 @@ class ReseedTests(TestCase):
             with tenant_context(Tenant.objects.get(slug=slug)):
                 self.assertEqual(CashShift.objects.filter(kind="online", status="open").count(), 1, slug)
                 self.assertTrue(Appointment.objects.filter(source="portal").exists(), slug)
+
+
+@override_settings(MEDIA_ROOT=MEDIA)
+class StoreOrdersDataTests(TestCase):
+    """The demo has customers' store orders at every step of the clinic's side (docs/16)."""
+
+    PASSWORD = "seed-pass-5"
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_demo", "--password", cls.PASSWORD, stdout=StringIO())
+
+    def login(self, email):
+        from django.test import Client
+
+        client = Client()
+        self.assertTrue(client.login(email=email, password=self.PASSWORD), email)
+        return client
+
+    def test_every_step_of_the_journey_has_an_order(self):
+        from portal.models import ServiceOrder
+
+        for tenant in Tenant.objects.filter(slug__in=["dr-ahmed", "nile-clinic"]):
+            with tenant_context(tenant):
+                statuses = {o.status for o in ServiceOrder.objects.all()}
+                self.assertEqual(statuses, {"submitted", "approved", "contacted", "scheduled", "rejected", "cancelled"}, tenant.slug)
+                # The customer has at most three open at once, like the API allows.
+                self.assertLessEqual(ServiceOrder.objects.filter(status__in=ServiceOrder.OPEN).count(), 3)
+
+    def test_the_admin_sees_what_waits_and_the_owner_the_whole_story(self):
+        from django.urls import reverse
+
+        admin = self.login("clinicadmin@dr-ahmed.local")
+        listed = admin.get(reverse("api:service-orders")).json()
+        self.assertGreaterEqual(listed["counts"]["to_approve"], 1)
+        submitted = next(o for o in listed["results"] if o["status"] == "submitted")
+        self.assertEqual(submitted["payment"]["preference"], "online")
+        detail = admin.get(reverse("api:service-order-detail", args=[submitted["uuid"]])).json()
+        self.assertTrue(any(line["candidates"] for line in detail["lines"]))
+
+        owner = self.login("admin@dr-ahmed.local").get(reverse("api:service-orders-overview")).json()
+        self.assertEqual(len(owner["clinics"]), 2)
+        self.assertGreater(float(owner["totals"]["paid"]), 0)
+        self.assertGreater(float(owner["totals"]["paid_online"]), 0)
+        self.assertGreater(float(owner["totals"]["due"]), 0)
+
+    def test_a_settled_order_shows_a_transfer_and_an_online_payment_with_its_story(self):
+        from django.urls import reverse
+
+        owner = self.login("admin@dr-ahmed.local")
+        rows = owner.get(reverse("api:service-orders"), {"status": "scheduled"}).json()["results"]
+        self.assertEqual(len(rows), 2)
+        by_status = {}
+        for row in rows:
+            detail = owner.get(reverse("api:service-order-detail", args=[row["uuid"]])).json()
+            by_status[detail["payment"]["status"]] = detail
+            self.assertEqual([e["kind"] for e in detail["timeline"]][:4], ["submitted", "approved", "contacted", "scheduled"])
+        self.assertEqual(set(by_status), {"partial", "paid"})
+        self.assertFalse(by_status["partial"]["payment"]["paid_online"])
+        self.assertEqual(by_status["partial"]["payment"]["payments"][0]["method"], "تحويل بنكي")
+        self.assertTrue(by_status["paid"]["payment"]["paid_online"])
+
+    def test_the_customer_follows_them_in_her_own_orders(self):
+        from django.test import Client
+        from django.urls import reverse
+
+        client = Client()
+        signed = client.post(reverse("api:portal:login", kwargs={"slug": "dr-ahmed"}),
+                             {"phone": "01099000003", "password": self.PASSWORD}, content_type="application/json")
+        self.assertEqual(signed.status_code, 200)
+        orders = client.get(reverse("api:portal:orders", kwargs={"slug": "dr-ahmed"})).json()
+        self.assertEqual({o["status"] for o in orders}, {"submitted", "approved", "contacted", "scheduled", "rejected", "cancelled"})
+        rejected = next(o for o in orders if o["status"] == "rejected")
+        self.assertIn("الجهاز", rejected["review_note"])
+        scheduled = next(o for o in orders if o["status"] == "scheduled" and o["appointments"])
+        self.assertTrue(scheduled["appointments"][0]["scheduled_date"])
+
+    def test_the_clinics_have_places_so_the_nearest_is_found(self):
+        from django.urls import reverse
+
+        with tenant_context(Tenant.objects.get(slug="dr-ahmed")):
+            from services.models import Service
+
+            service = Service.objects.get(name="Eximer 120")
+        body = self.client.get(
+            reverse("api:portal:catalog-branches", kwargs={"slug": "dr-ahmed", "service": service.uuid}),
+            {"lat": "27.2", "lng": "31.2"}).json()  # standing in Asyut
+        self.assertEqual((body["sorted_by"], body["branches"][0]["name"], body["branches"][0]["nearest"]), ("distance", "أسيوط", True))
+
+    def test_the_store_front_page_lists_every_groups_services(self):
+        from django.core.cache import cache
+        from django.urls import reverse
+
+        cache.clear()
+        rows = self.client.get(reverse("api:directory-services")).json()["results"]
+        self.assertEqual({r["group"] for r in rows}, {"dr-ahmed", "nile-clinic"})
+        self.assertIn("ليزر بالنبضة", {r["name"] for r in rows})
+        cache.clear()

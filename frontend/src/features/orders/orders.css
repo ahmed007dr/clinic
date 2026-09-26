@@ -1,0 +1,82 @@
+/* «طلبات الاستور» — the clinic's side of the website orders (docs/16). */
+
+.orders-list {
+  list-style: none;
+  margin: var(--s3) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s3);
+}
+
+.orders-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+  margin-block: var(--s2);
+}
+
+.orders-title {
+  margin: var(--s4) 0 var(--s2);
+  font-size: var(--text-lg);
+}
+
+.orders-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s4);
+  margin-bottom: var(--s3);
+}
+
+.orders-chip {
+  display: inline-block;
+  margin-inline-end: var(--s2);
+  padding: 0.1rem 0.6rem;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.orders-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.orders-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.orders-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  margin-block: var(--s3);
+  padding: var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.orders-schedule {
+  display: grid;
+  gap: var(--s2) var(--s3);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  align-items: end;
+}
+
+.orders-schedule > strong {
+  grid-column: 1 / -1;
+}
+
+.orders-timeline {
+  margin: 0;
+  padding-inline-start: var(--s5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}

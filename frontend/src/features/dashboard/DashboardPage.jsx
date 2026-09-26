@@ -149,6 +149,17 @@ export function DashboardPage() {
               icon="🌐"
             />
           )}
+          {/* Orders customers made in the store, waiting on this clinic (docs/16). */}
+          {(data?.store_orders?.to_approve > 0 || data?.store_orders?.to_call > 0) && (
+            <StatTile
+              label="طلبات الاستور"
+              value={formatNumber((data.store_orders.to_approve || 0) + (data.store_orders.to_call || 0))}
+              hint={`${formatNumber(data.store_orders.to_approve)} للموافقة · ${formatNumber(data.store_orders.to_call)} للاتصال`}
+              tone="warn"
+              to="/store-orders"
+              icon="🛒"
+            />
+          )}
           {/* Only sent to whoever may see it (billing.access): today's figure
               for the front desk, the month as well for management. */}
           {data?.revenue && (

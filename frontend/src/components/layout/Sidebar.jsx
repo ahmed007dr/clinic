@@ -27,6 +27,7 @@ const SECTIONS = [
       { to: '/patients', label: 'nav.patients', icon: '👤' },
       { to: '/appointments', label: 'nav.appointments', icon: '📅' },
       { to: '/queue', label: 'nav.queue', icon: '⏳' },
+      { to: '/store-orders', label: 'nav.store_orders', icon: '🛒', permission: 'front_desk' },
       { to: '/patients/review', label: 'nav.review', icon: '📝', permission: 'front_desk' },
     ],
   },
